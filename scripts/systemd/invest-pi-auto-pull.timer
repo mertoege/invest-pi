@@ -1,0 +1,10 @@
+[Unit]
+Description=Invest-Pi · Auto-Pull alle 2 Minuten
+
+[Timer]
+OnBootSec=60s
+OnUnitActiveSec=120s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

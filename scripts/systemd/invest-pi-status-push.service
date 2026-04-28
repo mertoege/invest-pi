@@ -1,0 +1,13 @@
+[Unit]
+Description=Invest-Pi · Status-Snapshot Push
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+Environment=REPO_DIR=/home/investpi/invest-pi
+Environment=DATA_DIR=/home/investpi/invest-pi/data
+ExecStart=/bin/bash /home/investpi/invest-pi/scripts/status_push.sh
+MemoryMax=256M
+CPUQuota=20%

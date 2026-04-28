@@ -1,0 +1,12 @@
+[Unit]
+Description=Invest-Pi · Auto-Pull (push-to-deploy)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+Environment=REPO_DIR=/home/investpi/invest-pi
+ExecStart=/bin/bash /home/investpi/invest-pi/scripts/auto_pull.sh
+MemoryMax=512M
+CPUQuota=20%
