@@ -1,0 +1,2495 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI/Semi Investment Intelligence — Strategischer Plan v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:            #0a0a0b;
+  --bg-raised:     #131315;
+  --bg-panel:      #17171a;
+  --bg-highlight:  #1f1f23;
+  --line:          #2a2a2f;
+  --line-strong:   #3d3d44;
+  --text:          #eae7e0;
+  --text-muted:    #8a8680;
+  --text-dim:      #5a5751;
+  --amber:         #ffb627;
+  --amber-soft:    #f4c66b;
+  --mint:          #6dd3a8;
+  --coral:         #e77c6d;
+  --violet:        #9b8cf5;
+  --red-danger:    #ff5a4f;
+  --orange-warn:   #ff9944;
+  --accent-line:   #2d2915;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.65;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255, 182, 39, 0.08), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(155, 140, 245, 0.05), transparent 60%),
+    radial-gradient(ellipse 50% 30% at 0% 60%, rgba(255, 90, 79, 0.04), transparent 60%);
+  background-attachment: fixed;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: overlay;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 40px;
+  position: relative;
+  z-index: 2;
+}
+
+/* ─── TOP BAR ─── */
+.top-bar {
+  border-bottom: 1px solid var(--line);
+  padding: 20px 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: rgba(10, 10, 11, 0.8);
+  backdrop-filter: blur(20px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.top-bar .container {
+  display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;
+}
+.ticker { display: flex; gap: 24px; align-items: center; overflow: hidden; }
+.ticker-item { display: flex; gap: 8px; align-items: center; }
+.ticker-item .chg-up { color: var(--mint); }
+.ticker-item .chg-dn { color: var(--coral); }
+.dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 12px var(--amber);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* ─── HERO ─── */
+.hero {
+  padding: 120px 0 100px;
+  position: relative;
+  border-bottom: 1px solid var(--line);
+}
+.hero-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 32px;
+  display: flex; align-items: center; gap: 12px;
+}
+.hero-meta::before { content: ''; width: 40px; height: 1px; background: var(--amber); }
+.hero h1 {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(48px, 7vw, 96px);
+  line-height: 0.95;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  margin-bottom: 32px;
+  font-variation-settings: 'opsz' 144;
+}
+.hero h1 em { font-style: italic; color: var(--amber); font-weight: 300; }
+.hero .lede {
+  font-family: 'Fraunces', serif;
+  font-size: 22px; line-height: 1.5;
+  max-width: 760px;
+  color: var(--text-muted);
+  font-weight: 300; font-style: italic;
+}
+.version-badge {
+  display: inline-block;
+  margin-top: 24px;
+  padding: 6px 14px;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  margin-top: 80px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.hero-stat { padding: 28px 20px; border-right: 1px solid var(--line); }
+.hero-stat:last-child { border-right: none; }
+.hero-stat .label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+.hero-stat .value {
+  font-family: 'Fraunces', serif;
+  font-size: 28px; line-height: 1;
+  letter-spacing: -0.02em;
+}
+.hero-stat .sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--text-muted); margin-top: 8px;
+}
+
+/* ─── SECTION ─── */
+section {
+  padding: 100px 0;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+}
+.section-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--amber);
+  margin-bottom: 16px;
+}
+.section-title {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1.05; font-weight: 400;
+  letter-spacing: -0.02em;
+  margin-bottom: 24px; max-width: 900px;
+}
+.section-title em { font-style: italic; color: var(--amber); font-weight: 300; }
+.section-intro {
+  font-size: 18px; line-height: 1.7;
+  color: var(--text-muted);
+  max-width: 720px; margin-bottom: 56px;
+}
+
+h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 28px; font-weight: 500;
+  line-height: 1.2; letter-spacing: -0.01em;
+  margin: 48px 0 20px;
+}
+h4 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--amber);
+  margin: 32px 0 16px; font-weight: 600;
+}
+
+p { margin-bottom: 18px; color: var(--text); max-width: 780px; }
+p.muted { color: var(--text-muted); }
+
+/* ─── THESIS CARD ─── */
+.thesis-card {
+  background: linear-gradient(135deg, var(--bg-raised), var(--bg-panel));
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  padding: 48px;
+  margin: 40px 0;
+  position: relative;
+}
+.thesis-card::before {
+  content: '❝';
+  font-family: 'Fraunces', serif;
+  position: absolute; top: 12px; right: 24px;
+  font-size: 80px; color: var(--amber);
+  opacity: 0.2; line-height: 1;
+}
+.thesis-card p {
+  font-family: 'Fraunces', serif;
+  font-size: 22px; line-height: 1.55;
+  font-weight: 300; color: var(--text);
+  max-width: 800px;
+}
+
+/* ─── DUAL TRACK BOX ─── */
+.dual-track {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  margin-top: 40px;
+}
+.track-cell {
+  background: var(--bg-raised);
+  padding: 40px;
+  position: relative;
+}
+.track-cell.primary { border-top: 3px solid var(--amber); }
+.track-cell.secondary { border-top: 3px solid var(--violet); }
+.track-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.track-cell.primary .track-label { color: var(--amber); }
+.track-cell.secondary .track-label { color: var(--violet); }
+.track-cell h4 {
+  font-family: 'Fraunces', serif;
+  font-size: 32px; font-weight: 400;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+.track-cell .allocation {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--text-dim);
+  margin-bottom: 20px;
+}
+.track-cell p {
+  font-size: 14px; color: var(--text-muted);
+  margin-bottom: 16px;
+}
+.track-cell ul {
+  list-style: none; padding: 0;
+  font-size: 13px; color: var(--text-muted);
+}
+.track-cell li {
+  padding: 6px 0; padding-left: 18px;
+  position: relative;
+  border-bottom: 1px solid var(--line);
+}
+.track-cell li::before {
+  content: '→'; position: absolute; left: 0;
+  color: var(--amber);
+}
+.track-cell.secondary li::before { color: var(--violet); }
+
+/* ─── SIGNAL GRID ─── */
+.signal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  margin-top: 40px;
+}
+.signal-cell {
+  background: var(--bg-raised);
+  padding: 32px;
+  min-height: 280px;
+  transition: background 0.3s ease;
+}
+.signal-cell:hover { background: var(--bg-highlight); }
+.signal-cell .tier {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.2em;
+  color: var(--amber); text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.signal-cell h5 {
+  font-family: 'Fraunces', serif;
+  font-size: 24px; font-weight: 500;
+  margin-bottom: 8px; letter-spacing: -0.01em;
+}
+.signal-cell .impact {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--text-dim); margin-bottom: 20px;
+}
+.signal-cell ul { list-style: none; padding: 0; }
+.signal-cell li {
+  font-size: 14px; color: var(--text-muted);
+  padding: 6px 0; border-bottom: 1px solid var(--line);
+  display: flex; justify-content: space-between; gap: 12px;
+}
+.signal-cell li:last-child { border-bottom: none; }
+.signal-cell li .weight {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--amber-soft); white-space: nowrap;
+}
+
+/* ─── DATA TABLE ─── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 40px;
+  font-size: 14px;
+}
+.data-table th {
+  text-align: left; padding: 16px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--text-dim);
+  border-bottom: 1px solid var(--line-strong);
+  font-weight: 500;
+}
+.data-table td {
+  padding: 18px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  color: var(--text);
+}
+.data-table tr:hover td { background: var(--bg-highlight); }
+.data-table td.mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--amber-soft);
+}
+.tag {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; padding: 3px 8px;
+  border-radius: 2px; letter-spacing: 0.05em;
+  margin-right: 4px; text-transform: uppercase;
+}
+.tag.free   { background: rgba(109, 211, 168, 0.15); color: var(--mint); }
+.tag.paid   { background: rgba(231, 124, 109, 0.15); color: var(--coral); }
+.tag.scrape { background: rgba(155, 140, 245, 0.15); color: var(--violet); }
+.tag.api    { background: rgba(255, 182, 39, 0.15); color: var(--amber); }
+.tag.new    { background: rgba(255, 182, 39, 0.2); color: var(--amber); border: 1px solid var(--amber); }
+
+/* ─── ARCHITECTURE ─── */
+.arch-wrap {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  padding: 48px;
+  margin-top: 40px;
+  overflow-x: auto;
+}
+.arch-layer {
+  display: flex; gap: 12px;
+  margin-bottom: 20px; align-items: stretch;
+}
+.arch-layer-label {
+  min-width: 140px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--amber);
+  padding-top: 16px; border-right: 1px solid var(--line);
+  padding-right: 16px;
+}
+.arch-box {
+  flex: 1;
+  background: var(--bg-panel);
+  border: 1px solid var(--line-strong);
+  padding: 14px 16px;
+  text-align: center;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text);
+  display: flex; flex-direction: column;
+  justify-content: center;
+  min-height: 60px;
+  transition: all 0.2s ease;
+}
+.arch-box:hover { border-color: var(--amber); background: var(--bg-highlight); }
+.arch-box.accent { border-color: var(--amber); color: var(--amber); }
+.arch-box.new-accent {
+  border-color: var(--violet); color: var(--violet);
+  background: rgba(155, 140, 245, 0.05);
+}
+.arch-box.danger-accent {
+  border-color: var(--red-danger); color: var(--red-danger);
+  background: rgba(255, 90, 79, 0.05);
+}
+.arch-box .sub-text {
+  font-size: 10px; color: var(--text-dim);
+  margin-top: 4px; font-weight: 400;
+}
+.arch-box.accent .sub-text,
+.arch-box.new-accent .sub-text,
+.arch-box.danger-accent .sub-text { color: var(--text-muted); }
+.arch-arrow {
+  text-align: center; color: var(--amber);
+  font-size: 20px; margin: 4px 0; opacity: 0.5;
+}
+
+/* ─── DECISION FLOW ─── */
+.decision-flow {
+  margin-top: 40px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.decision-step {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 24px;
+  padding: 24px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--amber);
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+.decision-step:hover {
+  transform: translateX(4px);
+  border-left-color: var(--mint);
+}
+.decision-step .step-num {
+  font-family: 'Fraunces', serif;
+  font-size: 48px; line-height: 1;
+  color: var(--amber); font-weight: 300; font-style: italic;
+}
+.decision-step h5 {
+  font-family: 'Fraunces', serif;
+  font-size: 22px; font-weight: 500;
+  margin-bottom: 8px; letter-spacing: -0.01em;
+}
+.decision-step .when {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--mint);
+  margin-bottom: 12px; text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.decision-step p {
+  color: var(--text-muted);
+  font-size: 14px; margin-bottom: 8px;
+}
+.decision-step .action {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--amber-soft);
+  margin-top: 12px; padding: 8px 12px;
+  background: rgba(255, 182, 39, 0.05);
+  border-left: 2px solid var(--amber);
+  display: inline-block;
+}
+
+/* ─── CODE BLOCK ─── */
+.code-block {
+  background: #08080a;
+  border: 1px solid var(--line);
+  padding: 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; line-height: 1.7;
+  color: var(--text);
+  margin: 24px 0;
+  overflow-x: auto;
+  border-radius: 2px;
+}
+.code-block .cmt { color: var(--text-dim); font-style: italic; }
+.code-block .kw { color: var(--amber); }
+.code-block .str { color: var(--mint); }
+.code-block .fn { color: var(--violet); }
+.code-block .danger { color: var(--red-danger); }
+
+/* ─── PORTFOLIO VIZ ─── */
+.portfolio-viz {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 40px; margin-top: 40px; align-items: center;
+}
+.portfolio-bars { display: flex; flex-direction: column; gap: 12px; }
+.pf-bar {
+  display: grid;
+  grid-template-columns: 140px 1fr 70px;
+  align-items: center; gap: 16px; font-size: 13px;
+}
+.pf-bar .name { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text); }
+.pf-bar .track {
+  height: 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  position: relative; overflow: hidden;
+}
+.pf-bar .fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--amber), var(--amber-soft));
+  transition: width 1s ease;
+}
+.pf-bar .fill.mint { background: linear-gradient(90deg, var(--mint), #9fe7c0); }
+.pf-bar .fill.violet { background: linear-gradient(90deg, var(--violet), #bfb3ff); }
+.pf-bar .pct {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--amber-soft);
+  text-align: right;
+}
+
+/* ─── CALLOUTS ─── */
+.callout {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--coral);
+  padding: 24px 28px;
+  margin: 32px 0;
+  font-size: 14px; line-height: 1.6;
+  color: var(--text-muted);
+}
+.callout.info { border-left-color: var(--amber); }
+.callout.good { border-left-color: var(--mint); }
+.callout.warning { border-left-color: var(--red-danger); }
+.callout strong { color: var(--text); font-weight: 600; }
+.callout .cal-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--coral);
+  margin-bottom: 8px; display: block;
+}
+.callout.info .cal-label { color: var(--amber); }
+.callout.good .cal-label { color: var(--mint); }
+.callout.warning .cal-label { color: var(--red-danger); }
+
+/* ─── HONEST BOX ─── */
+.honest-box {
+  border: 1px dashed var(--red-danger);
+  background: rgba(255, 90, 79, 0.05);
+  padding: 32px;
+  margin: 40px 0;
+  position: relative;
+}
+.honest-box::before {
+  content: 'Ehrlichkeits-Hinweis';
+  position: absolute;
+  top: -11px; left: 20px;
+  background: var(--bg);
+  padding: 0 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--red-danger);
+}
+.honest-box h4 {
+  color: var(--red-danger);
+  font-family: 'Fraunces', serif;
+  font-size: 20px;
+  text-transform: none; letter-spacing: -0.01em;
+  font-weight: 500;
+  margin: 0 0 12px;
+}
+.honest-box p {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.honest-box p:last-child { margin-bottom: 0; }
+.honest-box strong { color: var(--text); }
+
+/* ─── TIMELINE ─── */
+.timeline {
+  margin-top: 40px;
+  position: relative;
+  padding-left: 40px;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 12px; bottom: 12px;
+  width: 1px; background: var(--line-strong);
+}
+.tl-item {
+  position: relative;
+  padding-bottom: 40px;
+}
+.tl-item::before {
+  content: '';
+  position: absolute;
+  left: -44px; top: 8px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 0 4px var(--bg);
+}
+.tl-item .tl-week {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.15em;
+  color: var(--amber); text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.tl-item h5 {
+  font-family: 'Fraunces', serif;
+  font-size: 22px; font-weight: 500;
+  margin-bottom: 10px; letter-spacing: -0.01em;
+}
+.tl-item ul { list-style: none; padding: 0; }
+.tl-item li {
+  padding: 4px 0; font-size: 14px;
+  color: var(--text-muted);
+  padding-left: 18px; position: relative;
+}
+.tl-item li::before {
+  content: '→'; position: absolute; left: 0; color: var(--amber);
+}
+
+/* ─── RISK MATRIX ─── */
+.risk-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  margin-top: 40px;
+}
+.risk-cell {
+  background: var(--bg-raised);
+  padding: 28px;
+}
+.risk-cell .rlabel {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.risk-cell.high .rlabel { color: var(--coral); }
+.risk-cell.med  .rlabel { color: var(--amber); }
+.risk-cell.low  .rlabel { color: var(--mint); }
+.risk-cell h5 {
+  font-family: 'Fraunces', serif;
+  font-size: 20px; font-weight: 500;
+  margin-bottom: 12px;
+}
+.risk-cell p { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
+.risk-cell .mitigation {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--amber-soft);
+  padding: 10px 12px;
+  background: rgba(255, 182, 39, 0.05);
+  border-left: 2px solid var(--amber);
+}
+
+/* ─── LEARNING SECTION ─── */
+.learning-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  margin-top: 40px;
+}
+.learning-cell {
+  background: var(--bg-raised);
+  padding: 32px;
+}
+.learning-cell .l-number {
+  font-family: 'Fraunces', serif;
+  font-size: 56px; font-weight: 300;
+  font-style: italic;
+  color: var(--amber);
+  line-height: 1;
+  margin-bottom: 16px;
+}
+.learning-cell h5 {
+  font-family: 'Fraunces', serif;
+  font-size: 22px; font-weight: 500;
+  margin-bottom: 12px; letter-spacing: -0.01em;
+}
+.learning-cell p {
+  font-size: 14px; color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.learning-cell .output {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--amber-soft);
+  padding: 10px 12px;
+  background: rgba(255, 182, 39, 0.05);
+  border-left: 2px solid var(--amber);
+  margin-top: 16px;
+}
+
+/* ─── PATTERN EXAMPLES ─── */
+.pattern-examples {
+  margin-top: 40px;
+}
+.pattern-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  padding: 28px;
+  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 32px;
+  align-items: start;
+}
+.pattern-card .p-era {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--amber);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.pattern-card .p-era .event {
+  display: block;
+  font-family: 'Fraunces', serif;
+  font-size: 28px;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: -0.02em;
+  margin-top: 6px;
+  font-weight: 400;
+}
+.pattern-card h6 {
+  font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.pattern-card p {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.pattern-card .lesson {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 15px;
+  color: var(--amber-soft);
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+/* ─── ALERT THERMOMETER ─── */
+.alert-thermo {
+  margin-top: 40px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+.alert-level {
+  background: var(--bg-raised);
+  padding: 28px 24px;
+  border-top: 4px solid;
+  position: relative;
+}
+.alert-level.l0 { border-top-color: var(--mint); }
+.alert-level.l1 { border-top-color: var(--amber); }
+.alert-level.l2 { border-top-color: var(--orange-warn); }
+.alert-level.l3 { border-top-color: var(--red-danger); }
+.alert-level .a-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.alert-level.l0 .a-label { color: var(--mint); }
+.alert-level.l1 .a-label { color: var(--amber); }
+.alert-level.l2 .a-label { color: var(--orange-warn); }
+.alert-level.l3 .a-label { color: var(--red-danger); }
+.alert-level h5 {
+  font-family: 'Fraunces', serif;
+  font-size: 22px; font-weight: 500;
+  margin-bottom: 12px; letter-spacing: -0.01em;
+}
+.alert-level .score {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--text-dim);
+  margin-bottom: 16px;
+}
+.alert-level p {
+  font-size: 13px; color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.alert-level ul {
+  list-style: none; padding: 0;
+  font-size: 12px;
+}
+.alert-level li {
+  color: var(--text-muted);
+  padding: 4px 0; padding-left: 16px;
+  position: relative;
+  border-bottom: 1px solid var(--line);
+}
+.alert-level li:last-child { border-bottom: none; }
+.alert-level.l0 li::before { content: '✓'; position: absolute; left: 0; color: var(--mint); }
+.alert-level.l1 li::before { content: '◦'; position: absolute; left: 0; color: var(--amber); }
+.alert-level.l2 li::before { content: '◉'; position: absolute; left: 0; color: var(--orange-warn); }
+.alert-level.l3 li::before { content: '✕'; position: absolute; left: 0; color: var(--red-danger); }
+
+/* ─── SIGNAL EXAMPLE ─── */
+.signal-example {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--red-danger);
+  padding: 28px;
+  margin: 32px 0;
+}
+.signal-example .sig-header {
+  display: flex; justify-content: space-between;
+  align-items: center; margin-bottom: 20px;
+  padding-bottom: 16px; border-bottom: 1px solid var(--line);
+}
+.signal-example .sig-ticker {
+  font-family: 'Fraunces', serif;
+  font-size: 28px; font-weight: 500;
+}
+.signal-example .sig-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; letter-spacing: 0.15em;
+  padding: 6px 12px;
+  background: rgba(255, 90, 79, 0.15);
+  color: var(--red-danger);
+  text-transform: uppercase;
+  border: 1px solid var(--red-danger);
+}
+.signal-example .sig-factors {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+.signal-example .factor {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px;
+  background: var(--bg-panel);
+  border-left: 2px solid var(--red-danger);
+  font-size: 13px;
+}
+.signal-example .factor .f-mark {
+  color: var(--red-danger);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+}
+.signal-example .factor .f-text strong {
+  display: block;
+  color: var(--text);
+  margin-bottom: 2px;
+  font-size: 13px;
+}
+.signal-example .factor .f-text span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.signal-example .sig-recommendation {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--amber-soft);
+  padding: 16px;
+  background: rgba(255, 182, 39, 0.05);
+  border-left: 2px solid var(--amber);
+  margin-top: 20px;
+}
+
+/* ─── FOOTER ─── */
+footer {
+  padding: 80px 0 40px;
+  text-align: center;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+footer .disclaimer {
+  max-width: 640px;
+  margin: 0 auto 24px;
+  line-height: 1.8;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-family: 'Manrope', sans-serif;
+  font-style: italic;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 900px) {
+  .container { padding: 0 24px; }
+  .hero { padding: 80px 0 60px; }
+  .hero-grid { grid-template-columns: repeat(2, 1fr); }
+  .hero-stat { border-right: none; border-bottom: 1px solid var(--line); }
+  .signal-grid { grid-template-columns: 1fr; }
+  .arch-layer { flex-direction: column; }
+  .arch-layer-label { border-right: none; border-bottom: 1px solid var(--line); padding-bottom: 8px; min-width: 0; }
+  .portfolio-viz { grid-template-columns: 1fr; }
+  .risk-grid { grid-template-columns: 1fr; }
+  .dual-track { grid-template-columns: 1fr; }
+  .learning-grid { grid-template-columns: 1fr; }
+  .alert-thermo { grid-template-columns: 1fr 1fr; }
+  .pattern-card { grid-template-columns: 1fr; gap: 16px; }
+  .signal-example .sig-factors { grid-template-columns: 1fr; }
+  .pf-bar { grid-template-columns: 100px 1fr 60px; font-size: 11px; }
+  section { padding: 60px 0; }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <div class="container">
+    <div class="ticker">
+      <span class="dot"></span>
+      <span>AI/SEMI INVESTMENT INTELLIGENCE ⟶ v2.0</span>
+    </div>
+    <div class="ticker" style="font-size: 10px;">
+      <span class="ticker-item">NVDA <span class="chg-up">+0.0%</span></span>
+      <span class="ticker-item">ASML <span class="chg-up">+0.0%</span></span>
+      <span class="ticker-item">ALERT <span class="chg-up">IDLE</span></span>
+      <span>PI5 · LEARNING MODE · OK</span>
+    </div>
+  </div>
+</div>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="container">
+    <div class="hero-meta">Strategisches Dokument — Erweiterte Edition</div>
+    <h1>Ein system­atischer Plan für <em>AI &amp; Semi</em><br>Investitionen</h1>
+    <p class="lede">
+      Eine Market-Intelligence-Architektur, die auf einem Raspberry Pi 5 läuft:
+      historische Muster lernt, laufend Signale sammelt, mit Claude analysiert —
+      und zwei Dinge leistet: begründete DCA-Empfehlungen jeden Monat, plus
+      kontinuierliche Downside-Überwachung deiner Positionen.
+    </p>
+    <span class="version-badge">v2.0 · Historical Learning + Risk Alerts</span>
+
+    <div class="hero-grid">
+      <div class="hero-stat">
+        <div class="label">Bestand NVDA</div>
+        <div class="value">50 €</div>
+        <div class="sub">Core-Position #01</div>
+      </div>
+      <div class="hero-stat">
+        <div class="label">Bestand ASML</div>
+        <div class="value">50 €</div>
+        <div class="sub">Core-Position #02</div>
+      </div>
+      <div class="hero-stat">
+        <div class="label">Monats-DCA</div>
+        <div class="value">50 €</div>
+        <div class="sub">Zum Monats­wechsel</div>
+      </div>
+      <div class="hero-stat">
+        <div class="label">Risk Monitor</div>
+        <div class="value">24 / 7</div>
+        <div class="sub">Downside-Alerts</div>
+      </div>
+      <div class="hero-stat">
+        <div class="label">Historie</div>
+        <div class="value">10 J.</div>
+        <div class="sub">Pattern-Library</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- § 01 EXEC SUMMARY -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 01 — Executive Summary</div>
+    <h2 class="section-title">Die <em>These</em>.</h2>
+
+    <div class="thesis-card">
+      <p>
+        AI/Semi ist ein zyklisch-struktureller Markt. Wer historische Muster kennt
+        — wie Capex-Zyklen, Litho-Auftrags­bücher und Hyperscaler-Budgets sich
+        übersetzen in Kursbewegungen — handelt informierter als jemand, der nur
+        aktuelle Schlagzeilen liest. Das System baut eine Pattern-Bibliothek aus
+        10+ Jahren Historie, nutzt sie als Kontext für monatliche DCA-Empfehlungen
+        <em>und</em> wacht kontinuierlich über deine Bestände, um Risiko-Bedingungen
+        früh zu melden.
+      </p>
+    </div>
+
+    <h3>Drei Systeme, ein Ziel</h3>
+
+    <div class="dual-track">
+      <div class="track-cell primary">
+        <div class="track-label">Spur 01 — Primär</div>
+        <h4>Long-Term DCA</h4>
+        <div class="allocation">Allokation: 70–80 % · Horizont: 5–15 Jahre</div>
+        <p>
+          Deine 50 €/Monat plus bestehende 100 €. Das Herzstück: diszipliniertes
+          Kaufen in qualitativ hochwertige AI/Semi-Titel, basierend auf monatlichem
+          Analysereport.
+        </p>
+        <ul>
+          <li>Einkaufs-Empfehlung zum Monats­wechsel</li>
+          <li>Manuell ausgeführt (bewusste Entscheidung)</li>
+          <li>Fokus: Ring-1 Core + Diversifikation</li>
+          <li>Keine Verkäufe außer bei Alert Stufe 3</li>
+        </ul>
+      </div>
+      <div class="track-cell secondary">
+        <div class="track-label">Spur 02 — Sekundär</div>
+        <h4>Tactical Bucket</h4>
+        <div class="allocation">Allokation: 0–20 % · Horizont: Wochen–Monate</div>
+        <p>
+          Kleinere, opportunistische Positionen für Setups mit klarem Chance/Risiko-Verhältnis.
+          Streng vom Core getrennt, mit definierten Exit-Regeln.
+        </p>
+        <ul>
+          <li>Separates „Tactical Wallet" im Broker</li>
+          <li>Pro Trade max. 15–30 € Einsatz</li>
+          <li>Feste Stop-Loss &amp; Take-Profit</li>
+          <li>Maximal 3 offene Trades gleichzeitig</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Plus: Drittes System im Hintergrund</h3>
+    <p>
+      Zusätzlich läuft ein <strong style="color: var(--red-danger);">Risk Monitor</strong>
+      kontinuierlich über deine Positionen — unabhängig davon, ob DCA oder Tactical.
+      Er scannt 24/7 nach historisch etablierten Pre-Drawdown-Signalen und meldet dir
+      abgestuft, wenn eine Position in erhöhte Risiko-Zone rutscht. Dazu § 07.
+    </p>
+
+    <div class="honest-box">
+      <h4>Was das System nicht kann</h4>
+      <p>
+        Ehrlich: <strong>niemand kann Kursstürze zuverlässig vorhersagen.</strong>
+        Auch kein Machine-Learning-Modell, auch kein Claude. Wer das behauptet,
+        verkauft dir eine Illusion.
+      </p>
+      <p>
+        Was realistisch geht: Das System erkennt <strong>Bedingungen, die
+        historisch mit erhöhtem Drawdown-Risiko korrelierten</strong>. Wenn 5 von
+        7 dieser Bedingungen gleichzeitig auftreten, ist die Wahrscheinlichkeit
+        eines Absturzes messbar höher — aber keineswegs sicher. Es wird
+        False-Positives geben. Es wird verpasste Stürze geben. Das ist normal.
+      </p>
+      <p>
+        Das Ziel ist nicht Prophetie, sondern <strong>informiertere Entscheidungen</strong>:
+        wenn das System warnt, setzt du dich bewusst mit der Position auseinander,
+        statt von einer Bewegung überrascht zu werden.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- § 02 INVESTMENT UNIVERSE -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 02 — Investment Universe</div>
+    <h2 class="section-title">Das <em>Jagd­gebiet</em>.</h2>
+    <p class="section-intro">
+      Drei Ringe decken die AI-Wertschöpfungskette ab. Für DCA wird primär Ring 1
+      &amp; 2 genutzt; für Tactical Trades sind auch Ring-3-Titel und ETFs im Spiel.
+    </p>
+
+    <div class="portfolio-viz">
+      <div class="portfolio-bars">
+        <h4>Ring 1 — Core (Pure Plays)</h4>
+        <div class="pf-bar"><span class="name">NVDA</span><div class="track"><div class="fill" style="width: 95%"></div></div><span class="pct">Core</span></div>
+        <div class="pf-bar"><span class="name">ASML</span><div class="track"><div class="fill" style="width: 95%"></div></div><span class="pct">Core</span></div>
+        <div class="pf-bar"><span class="name">TSM</span><div class="track"><div class="fill" style="width: 90%"></div></div><span class="pct">Core</span></div>
+        <div class="pf-bar"><span class="name">AMD</span><div class="track"><div class="fill" style="width: 75%"></div></div><span class="pct">Core</span></div>
+
+        <h4 style="margin-top: 24px;">Ring 2 — Ecosystem</h4>
+        <div class="pf-bar"><span class="name">AVGO</span><div class="track"><div class="fill mint" style="width: 70%"></div></div><span class="pct">Eco</span></div>
+        <div class="pf-bar"><span class="name">MRVL</span><div class="track"><div class="fill mint" style="width: 60%"></div></div><span class="pct">Eco</span></div>
+        <div class="pf-bar"><span class="name">ARM</span><div class="track"><div class="fill mint" style="width: 65%"></div></div><span class="pct">Eco</span></div>
+        <div class="pf-bar"><span class="name">CDNS</span><div class="track"><div class="fill mint" style="width: 55%"></div></div><span class="pct">Eco</span></div>
+        <div class="pf-bar"><span class="name">SNPS</span><div class="track"><div class="fill mint" style="width: 55%"></div></div><span class="pct">Eco</span></div>
+        <div class="pf-bar"><span class="name">KLAC / LRCX</span><div class="track"><div class="fill mint" style="width: 55%"></div></div><span class="pct">Eco</span></div>
+
+        <h4 style="margin-top: 24px;">Ring 3 — Hyperscaler &amp; ETF</h4>
+        <div class="pf-bar"><span class="name">MSFT</span><div class="track"><div class="fill violet" style="width: 80%"></div></div><span class="pct">Hyper</span></div>
+        <div class="pf-bar"><span class="name">GOOGL</span><div class="track"><div class="fill violet" style="width: 75%"></div></div><span class="pct">Hyper</span></div>
+        <div class="pf-bar"><span class="name">META</span><div class="track"><div class="fill violet" style="width: 70%"></div></div><span class="pct">Hyper</span></div>
+        <div class="pf-bar"><span class="name">SMH (ETF)</span><div class="track"><div class="fill violet" style="width: 85%"></div></div><span class="pct">Safety</span></div>
+        <div class="pf-bar"><span class="name">SOXX (ETF)</span><div class="track"><div class="fill violet" style="width: 80%"></div></div><span class="pct">Safety</span></div>
+      </div>
+
+      <div>
+        <h4>Logik der drei Ringe</h4>
+        <p class="muted">
+          <strong style="color: var(--amber)">Ring 1</strong> ist der Kern: NVIDIA baut
+          die Recheneinheiten, ASML die Maschinen dafür, TSMC fertigt sie, AMD ist der
+          einzige ernst­zunehmende Heraus­forderer.
+        </p>
+        <p class="muted">
+          <strong style="color: var(--mint)">Ring 2</strong> ist das Ökosystem:
+          Networking (AVGO/MRVL), CPU-IP (ARM), EDA-Tools (CDNS/SNPS) und
+          Equipment-Specialists (KLAC für Inspektion, LRCX für Ätzen).
+        </p>
+        <p class="muted">
+          <strong style="color: var(--violet)">Ring 3</strong> ist die Capex-Quelle und
+          das Sicherheits­netz: Hyperscaler geben 200+ Mrd $/Jahr für AI aus. ETFs
+          (SMH/SOXX) sind Fallback, wenn keine Einzel­aktie überzeugt.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <span class="cal-label">Merk­regel</span>
+      <strong>„Nie mehr als 40 % in eine einzelne Position, nie mehr als 70 % in Ring 1,
+      Tactical Bucket nie mehr als 20 % des Gesamt­portfolios."</strong>
+      Das System überwacht diese Schwellen automatisch.
+    </div>
+  </div>
+</section>
+
+<!-- § 03 HISTORICAL LEARNING (NEW) -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 03 — Historical Learning <span style="color: var(--amber); font-family: 'Fraunces', serif; font-style: italic; text-transform: none; letter-spacing: -0.01em;">(neu)</span></div>
+    <h2 class="section-title">Das System <em>lernt</em> aus der Vergangenheit.</h2>
+    <p class="section-intro">
+      Bevor es Empfehlungen gibt, baut es sich eine Referenz. 10+ Jahre Kurs­daten,
+      Filings, News und Makro-Events werden durchlaufen und zu einer strukturierten
+      Pattern-Bibliothek verarbeitet. Nicht als „Orakel-Training" — als Kontext-Basis
+      für Claude.
+    </p>
+
+    <div class="learning-grid">
+      <div class="learning-cell">
+        <div class="l-number">01</div>
+        <h5>Event-Annotation</h5>
+        <p>
+          Jede signifikante Kursbewegung (&gt; 3 % Tagesmove, &gt; 10 % Monatsbewegung)
+          für alle Watchlist-Titel wird mit dem zeitnahen News-Kontext annotiert. Was
+          war an dem Tag los? Guidance-Revision? Makro-Schock? Technischer Breakout?
+        </p>
+        <div class="output">
+          → output: events.db mit ~2.000 annotierten Kurs­ereignissen pro Titel
+        </div>
+      </div>
+
+      <div class="learning-cell">
+        <div class="l-number">02</div>
+        <h5>Leading-Indicator-Discovery</h5>
+        <p>
+          Korrelationsanalyse: welche Frühindikatoren gingen großen Bewegungen voraus?
+          Beispiel: reagierte NVDA historisch 2–4 Wochen nach TSMC-Monats­umsätzen?
+          Welche Makro-Signale schlugen vor Semi-Sektor-Reversals aus?
+        </p>
+        <div class="output">
+          → output: leading_indicators.parquet · Lag-Korrelationen mit Significance
+        </div>
+      </div>
+
+      <div class="learning-cell">
+        <div class="l-number">03</div>
+        <h5>Pre-Drawdown-Patterns</h5>
+        <p>
+          Für jeden historischen &gt; 15 % Drawdown wird der Zustand 1 Tag / 1 Woche /
+          1 Monat davor rekonstruiert. Welche Signal­kombinationen waren typisch?
+          Daraus entsteht die Basis für das Alert-System in § 07.
+        </p>
+        <div class="output">
+          → output: drawdown_patterns.json · Die Grundlage für Risk-Scoring
+        </div>
+      </div>
+
+      <div class="learning-cell">
+        <div class="l-number">04</div>
+        <h5>Analogie-Bibliothek</h5>
+        <p>
+          Jede aktuelle Marktlage wird mit historischen Analoga verglichen. „Aktuelles
+          NVDA-Setup ähnelt am stärksten Q3/2018 &amp; Q1/2022 — in beiden Fällen folgte
+          eine 20–30 % Korrektur über 3–6 Monate." Claude bekommt diese Analogien als
+          Kontext mitgeliefert.
+        </p>
+        <div class="output">
+          → output: Analogien werden in jeden Monats­report eingespeist
+        </div>
+      </div>
+
+      <div class="learning-cell">
+        <div class="l-number">05</div>
+        <h5>Signal-Gewicht-Kalibrierung</h5>
+        <p>
+          Die ursprünglichen Signal-Gewichte aus § 04 sind Schätzungen. Nach dem
+          Historical-Backtest werden sie daten­basiert angepasst. Vielleicht stellt
+          sich heraus: Insider-Selling war wichtiger als ursprünglich angenommen, RSI
+          weniger. Das System lernt und kalibriert sich selbst nach.
+        </p>
+        <div class="output">
+          → output: signal_weights.yaml · quartalsweise aktualisiert
+        </div>
+      </div>
+
+      <div class="learning-cell">
+        <div class="l-number">06</div>
+        <h5>Backtesting des Systems</h5>
+        <p>
+          Das Gesamt­system wird gegen die letzten 5 Jahre getestet: hätten die monatlichen
+          DCA-Empfehlungen eine bessere Rendite erzielt als „einfach SMH-ETF kaufen"?
+          Hätten die Alerts relevante Drawdowns gemeldet? Das ist der ultimative
+          Realitäts-Check.
+        </p>
+        <div class="output">
+          → output: backtest_report.html · jährliche Auswertung
+        </div>
+      </div>
+    </div>
+
+    <h3>Beispiele: was die Pattern-Library beinhaltet</h3>
+    <div class="pattern-examples">
+      <div class="pattern-card">
+        <div class="p-era">
+          Q3 / 2018
+          <span class="event">Semi-Korrektur</span>
+        </div>
+        <div>
+          <h6>Pattern: Cyclical Peak + Macro Tightening</h6>
+          <p>
+            Nvidia verlor von Okt 2018 bis Dez 2018 rund 52 %. Im Rückblick
+            erkennbare Vorzeichen: inverted yield curve drohte, Fed-Hikes liefen,
+            Crypto-Nachfrage fiel weg (damals noch GPU-Mining), Gaming-Inventar­über­hang
+            bei Retailern. Analog: 2022.
+          </p>
+          <div class="lesson">
+            Lehre: Wenn &gt; 3 makro-bedingte Headwinds + Sektor-spezifische Nachfrage­probleme
+            zusammenkommen, sind Ring-1-Titel trotz Qualität verwundbar.
+          </div>
+        </div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="p-era">
+          Q4 / 2022
+          <span class="event">ChatGPT-Inflection</span>
+        </div>
+        <div>
+          <h6>Pattern: Structural Demand Shock (positiv)</h6>
+          <p>
+            ChatGPT-Launch am 30. November 2022 war der Startschuss eines neuen AI-Capex-Zyklus.
+            NVIDIA begann stillere Akkumulation ab Mitte Oktober 2022; Smart-Money wusste
+            früher als Retail.
+          </p>
+          <div class="lesson">
+            Lehre: Auf Volumen-Spikes ohne erkennbare News achten — oft sind es
+            institutionelle Front-Runner vor einem makro-ökonomischen Event.
+          </div>
+        </div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="p-era">
+          Okt / 2023
+          <span class="event">China-Export-Schock</span>
+        </div>
+        <div>
+          <h6>Pattern: Regulatorischer Blindside</h6>
+          <p>
+            Neue BIS-Restriktionen trafen NVIDIA (-15 % in 2 Wochen) und ASML unerwartet.
+            Keine charttechnischen Vor­zeichen — pure News-Exogen. Solche Events sind
+            <strong>nicht vorher­sagbar</strong>, nur ex-post einzuordnen.
+          </p>
+          <div class="lesson">
+            Lehre: Regulatorisches Risiko erfordert laufende BIS/EU-Monitoring, nicht
+            Charttechnik. Alert-System muss Regulierungs-Feeds priorisieren.
+          </div>
+        </div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="p-era">
+          Jul / 2024
+          <span class="event">Rotation aus Semi</span>
+        </div>
+        <div>
+          <h6>Pattern: Hot-Sector-Rotation</h6>
+          <p>
+            Trotz intakter AI-Story verlor der Semi-Sektor im Juli/August 2024 ~15 %
+            durch pure Rotation (Small-Caps gewannen). Begleitet von VIX-Spike, carry-trade
+            unwind (Japan), und AI-Monetarisierungs-Zweifeln.
+          </p>
+          <div class="lesson">
+            Lehre: Sektor-Rotationen sind normal und oft kurzfristig. DCA weiter, nicht
+            panisch verkaufen. Tactical Bucket: könnte Chance für Nachkauf sein.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout good">
+      <span class="cal-label">Wichtiger Punkt</span>
+      Diese Pattern-Bibliothek ist <strong>kein trainiertes Modell</strong>, das
+      automatische Entscheidungen trifft. Sie ist eine <strong>Referenz­datenbank</strong>,
+      aus der Claude in jedem Report relevante historische Analoga zitieren kann.
+      Der Mensch (du) bleibt immer im Kreis. Das Ziel: „dieses Mal ist nicht anders" —
+      Marktmuster wiederholen sich mit Variation, nicht identisch.
+    </div>
+  </div>
+</section>
+
+<!-- § 04 SIGNAL HIERARCHY -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 04 — Signal­hierarchie</div>
+    <h2 class="section-title">Was Kurse <em>wirklich</em> bewegt.</h2>
+    <p class="section-intro">
+      Drei Tiefen­ebenen, datenbasiert gewichtet nach historischer Wirksamkeit
+      (dank § 03). Die Prozent­werte werden quartals­weise basierend auf neuen Daten
+      neu kalibriert.
+    </p>
+
+    <div class="signal-grid">
+      <div class="signal-cell">
+        <div class="tier">Tier 1 · Micro</div>
+        <h5>Unter­nehmens­signale</h5>
+        <div class="impact">Impact: sofort · Gewicht: ~40 %</div>
+        <ul>
+          <li>Quartals­zahlen &amp; Guidance <span class="weight">★★★★★</span></li>
+          <li>Hyperscaler-Capex-Kommentare <span class="weight">★★★★★</span></li>
+          <li>EUV/High-NA-Auftragseingänge <span class="weight">★★★★★</span></li>
+          <li>Insider-Transaktionen (Form 4) <span class="weight">★★★★</span></li>
+          <li>Analysten-Upgrades/Downgrades <span class="weight">★★★</span></li>
+          <li>Produkt-Launches <span class="weight">★★★★</span></li>
+          <li>SEC-Filings (8-K, 10-Q) <span class="weight">★★★★</span></li>
+          <li>Unusual Options Activity <span class="weight">★★★★</span></li>
+        </ul>
+      </div>
+      <div class="signal-cell">
+        <div class="tier">Tier 2 · Meso</div>
+        <h5>Sektor­signale</h5>
+        <div class="impact">Impact: Tage-Wochen · Gewicht: ~35 %</div>
+        <ul>
+          <li>TSMC Monats­umsätze <span class="weight">★★★★★</span></li>
+          <li>SIA-Halbleiter-Statistik <span class="weight">★★★★</span></li>
+          <li>Taiwan Export-Daten <span class="weight">★★★★</span></li>
+          <li>DRAM/NAND-Spot­preise <span class="weight">★★★</span></li>
+          <li>SOX-Index Momentum <span class="weight">★★★★</span></li>
+          <li>Foundry-Capex-Guidance <span class="weight">★★★★★</span></li>
+          <li>KI-Modell-Releases <span class="weight">★★★</span></li>
+          <li>ETF-Flows (SMH/SOXX) <span class="weight">★★★</span></li>
+        </ul>
+      </div>
+      <div class="signal-cell">
+        <div class="tier">Tier 3 · Macro</div>
+        <h5>Makro-Signale</h5>
+        <div class="impact">Impact: Monate · Gewicht: ~25 %</div>
+        <ul>
+          <li>Fed Funds Rate &amp; Dot Plot <span class="weight">★★★★★</span></li>
+          <li>US-10Y Treasury Yield <span class="weight">★★★★</span></li>
+          <li>EUR/USD Wechselkurs <span class="weight">★★★★</span></li>
+          <li>US-China Export­kontrollen <span class="weight">★★★★★</span></li>
+          <li>Taiwan-Strait-Spannungen <span class="weight">★★★★★</span></li>
+          <li>VIX / Markt­volatilität <span class="weight">★★★★</span></li>
+          <li>US-CPI &amp; PPI <span class="weight">★★★</span></li>
+          <li>Credit-Spread (HY OAS) <span class="weight">★★★</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="cal-label">Achtung Reddit &amp; Twitter</span>
+      Social-Media-Sentiment wird erfasst, aber nur mit 5–10 % gewichtet und
+      <strong>invertiert als Warn­signal</strong>: extreme Euphorie (r/WSB-Trending)
+      ist historisch ein Kontraindikator. Das System meldet Social-Peaks als
+      <strong>„Vorsicht", nicht als „Kaufen"</strong>.
+    </div>
+  </div>
+</section>
+
+<!-- § 05 DATA SOURCES -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 05 — Daten­quellen</div>
+    <h2 class="section-title">Der <em>Daten-Stack</em>.</h2>
+    <p class="section-intro">
+      Die Quellen aus v1 plus vier neue, die speziell das Historical Learning und
+      die Downside-Alerts speisen.
+    </p>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Quelle</th>
+          <th>Was sie liefert</th>
+          <th>Typ</th>
+          <th>Frequenz</th>
+          <th>Endpoint / Package</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>yfinance</strong></td>
+          <td>OHLCV, Fundamentals, Options-Chain, 10+ J. Historie</td>
+          <td><span class="tag free">Frei</span><span class="tag api">API</span></td>
+          <td>Täglich + Backfill</td>
+          <td class="mono">pip install yfinance</td>
+        </tr>
+        <tr>
+          <td><strong>Alpha Vantage</strong></td>
+          <td>Earnings-Calendar, Economic Indicators</td>
+          <td><span class="tag free">Frei</span><span class="tag api">API</span></td>
+          <td>Täglich</td>
+          <td class="mono">alphavantage.co/query</td>
+        </tr>
+        <tr>
+          <td><strong>Finnhub</strong></td>
+          <td>Insider-Trades, Earnings-Transcripts, News-Sentiment, Peers</td>
+          <td><span class="tag free">Free-Tier</span><span class="tag api">API</span></td>
+          <td>Täglich</td>
+          <td class="mono">finnhub.io/api/v1</td>
+        </tr>
+        <tr>
+          <td><strong>SEC EDGAR</strong></td>
+          <td>10-K, 10-Q, 8-K, Form 4 (Insider), Historie ab 1994</td>
+          <td><span class="tag free">Frei</span><span class="tag api">API</span></td>
+          <td>Realtime</td>
+          <td class="mono">data.sec.gov</td>
+        </tr>
+        <tr>
+          <td><strong>FRED</strong></td>
+          <td>Zinsen, CPI, PPI, Arbeitsmarkt, Historie ab 1947</td>
+          <td><span class="tag free">Frei</span><span class="tag api">API</span></td>
+          <td>Täglich</td>
+          <td class="mono">api.stlouisfed.org</td>
+        </tr>
+        <tr>
+          <td><strong>NewsAPI / GDELT</strong></td>
+          <td>Global News Feed, Sentiment, historische Archive</td>
+          <td><span class="tag free">Free-Tier</span><span class="tag api">API</span></td>
+          <td>Stündlich</td>
+          <td class="mono">newsapi.org / gdeltproject.org</td>
+        </tr>
+        <tr>
+          <td><strong>Reddit API (PRAW)</strong></td>
+          <td>r/wallstreetbets, r/stocks, r/NVDA Sentiment</td>
+          <td><span class="tag free">Frei</span><span class="tag api">API</span></td>
+          <td>Stündlich</td>
+          <td class="mono">praw.readthedocs.io</td>
+        </tr>
+        <tr>
+          <td><strong>TSMC Monthly Reports</strong></td>
+          <td>Foundry-Umsätze, Frühindikator</td>
+          <td><span class="tag free">Frei</span><span class="tag scrape">Scrape</span></td>
+          <td>Monatlich</td>
+          <td class="mono">tsmc.com/investor-relations</td>
+        </tr>
+        <tr>
+          <td><strong>Taiwan MoF Export Data</strong></td>
+          <td>Makro-Frühindikator für Semi-Zyklus</td>
+          <td><span class="tag free">Frei</span><span class="tag scrape">Scrape</span></td>
+          <td>Monatlich</td>
+          <td class="mono">mof.gov.tw</td>
+        </tr>
+        <tr>
+          <td><strong>Google Trends</strong></td>
+          <td>Search-Interest AI-Themen</td>
+          <td><span class="tag free">Frei</span><span class="tag api">API</span></td>
+          <td>Täglich</td>
+          <td class="mono">pip install pytrends</td>
+        </tr>
+        <tr>
+          <td><strong>RSS Feeds (kuratiert)</strong></td>
+          <td>Reuters, Bloomberg, SemiAnalysis, Stratechery</td>
+          <td><span class="tag free">Frei</span><span class="tag api">Feed</span></td>
+          <td>Stündlich</td>
+          <td class="mono">pip install feedparser</td>
+        </tr>
+        <tr>
+          <td><strong>Hyperscaler Earnings Calls</strong></td>
+          <td>Capex-Guidance MSFT/GOOGL/META/AMZN</td>
+          <td><span class="tag free">Frei</span><span class="tag scrape">Scrape</span></td>
+          <td>Quartalsweise</td>
+          <td class="mono">via Finnhub oder direkt</td>
+        </tr>
+        <tr>
+          <td><strong>Stooq Historical</strong> <span class="tag new">Neu</span></td>
+          <td>20+ Jahre OHLCV-Historie als CSV (robuste Quelle neben yfinance)</td>
+          <td><span class="tag free">Frei</span><span class="tag scrape">Download</span></td>
+          <td>Einmal­import</td>
+          <td class="mono">stooq.com/q/d</td>
+        </tr>
+        <tr>
+          <td><strong>BIS/EU Regulatory</strong> <span class="tag new">Neu</span></td>
+          <td>Export­kontrollen, Sanktions-Updates für § 07 Alerts</td>
+          <td><span class="tag free">Frei</span><span class="tag api">Feed</span></td>
+          <td>Täglich</td>
+          <td class="mono">bis.doc.gov/news · RSS</td>
+        </tr>
+        <tr>
+          <td><strong>CBOE Options Data</strong> <span class="tag new">Neu</span></td>
+          <td>Put/Call-Ratio, Unusual Options Activity (Pre-Drawdown-Indikator)</td>
+          <td><span class="tag free">Delayed 15m</span><span class="tag api">API</span></td>
+          <td>Stündlich</td>
+          <td class="mono">cboe.com/us/options/market_statistics</td>
+        </tr>
+        <tr>
+          <td><strong>VIX Term Structure</strong> <span class="tag new">Neu</span></td>
+          <td>Volatilitäts-Regime-Shifts (Kontango/Backwardation)</td>
+          <td><span class="tag free">Frei</span><span class="tag api">API</span></td>
+          <td>Täglich</td>
+          <td class="mono">via yfinance (^VIX, ^VIX9D, ^VIX3M)</td>
+        </tr>
+        <tr>
+          <td><strong>Anthropic Claude API</strong></td>
+          <td>Sentiment, Synthese, Pattern-Matching, Empfehlung</td>
+          <td><span class="tag paid">~0.30 €/Monat</span><span class="tag api">API</span></td>
+          <td>Mehrfach täglich</td>
+          <td class="mono">api.anthropic.com/v1/messages</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout good">
+      <span class="cal-label">Kosten­rechnung v2</span>
+      Datenquellen weiterhin <strong>0 €/Monat</strong>. Die Claude-API-Kosten steigen
+      moderat auf ca. <strong>0,30–0,50 €/Monat</strong> durch die zusätzlichen
+      Alert-Analysen (mehrere kleine Calls statt einem großen) und Backtest-Runs
+      (einmalig). Selbst bei großzügiger Rechnung ist der Stack &lt; 1 €/Monat.
+    </div>
+  </div>
+</section>
+
+<!-- § 06 ARCHITECTURE -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 06 — System-Architektur</div>
+    <h2 class="section-title">Der <em>Stack</em> auf dem Pi 5.</h2>
+    <p class="section-intro">
+      Der Pi 5 (8 GB / 256 GB NVMe) bleibt Computing-Home. Neu: Historical-Learning-Layer
+      und Continuous-Alert-Layer. Der Pi ist auch mit diesen Erweiterungen noch deutlich
+      unterfordert.
+    </p>
+
+    <div class="arch-wrap">
+      <div class="arch-layer">
+        <div class="arch-layer-label">Ingestion</div>
+        <div class="arch-box">yfinance<div class="sub-text">Kurse</div></div>
+        <div class="arch-box">SEC EDGAR<div class="sub-text">Filings</div></div>
+        <div class="arch-box">FRED<div class="sub-text">Makro</div></div>
+        <div class="arch-box">Finnhub<div class="sub-text">Insider</div></div>
+        <div class="arch-box">RSS/News<div class="sub-text">Feeds</div></div>
+        <div class="arch-box">Reddit<div class="sub-text">Sentiment</div></div>
+        <div class="arch-box new-accent">CBOE<div class="sub-text">Options</div></div>
+        <div class="arch-box new-accent">BIS/EU<div class="sub-text">Regulatorik</div></div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-layer">
+        <div class="arch-layer-label">Storage</div>
+        <div class="arch-box accent">SQLite + DuckDB<div class="sub-text">Time-Series · ~5 GB projiziert nach 3 Jahren (10 J. Backfill inkludiert)</div></div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-layer">
+        <div class="arch-layer-label">Historical</div>
+        <div class="arch-box new-accent">Event Annotator<div class="sub-text">Kurs↔News Linking</div></div>
+        <div class="arch-box new-accent">Pattern Mining<div class="sub-text">Drawdown-Detektor</div></div>
+        <div class="arch-box new-accent">Leading Lag<div class="sub-text">Korrelations-Discovery</div></div>
+        <div class="arch-box new-accent">Backtester<div class="sub-text">Strategy-Validation</div></div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-layer">
+        <div class="arch-layer-label">Processing</div>
+        <div class="arch-box">Technical<div class="sub-text">pandas-ta</div></div>
+        <div class="arch-box">Fundamental<div class="sub-text">P/E, FCF</div></div>
+        <div class="arch-box">Sentiment<div class="sub-text">VADER + Claude</div></div>
+        <div class="arch-box">Correlation<div class="sub-text">scipy</div></div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-layer">
+        <div class="arch-layer-label">Intelligence</div>
+        <div class="arch-box accent">Claude API<div class="sub-text">3 Modi: DCA-Recommend · Tactical-Scan · Risk-Alert</div></div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-layer">
+        <div class="arch-layer-label">Output</div>
+        <div class="arch-box">FastAPI Dashboard<div class="sub-text">localhost:8000</div></div>
+        <div class="arch-box">Monats-Report<div class="sub-text">PDF</div></div>
+        <div class="arch-box danger-accent">Risk Alerts<div class="sub-text">Telegram / E-Mail</div></div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-layer">
+        <div class="arch-layer-label">Orchestration</div>
+        <div class="arch-box accent">systemd Timers<div class="sub-text">Ingestion 06:00 · Risk-Scan stündlich · DCA letzter Werktag 18:00 · Retraining quartals­weise</div></div>
+      </div>
+    </div>
+
+    <h3>Projekt­struktur v2</h3>
+    <div class="code-block">
+~/invest-pi/
+├── data/
+│   ├── market.db              <span class="cmt"># OHLCV + Fundamentals (v1)</span>
+│   ├── news.db                <span class="cmt"># News, Filings, Social (v1)</span>
+│   ├── events.db              <span class="cmt"># annotierte historische Events (v2)</span>
+│   ├── patterns.db            <span class="cmt"># Pre-Drawdown-Muster (v2)</span>
+│   ├── alerts.db              <span class="cmt"># Risk-Alert-Historie (v2)</span>
+│   └── reports/               <span class="cmt"># Monats-PDFs</span>
+├── src/
+│   ├── ingestion/             <span class="cmt"># 1 Modul pro Quelle</span>
+│   ├── analysis/
+│   │   ├── technical.py
+│   │   ├── fundamental.py
+│   │   └── sentiment.py
+│   ├── learning/              <span class="cmt"># NEU (v2)</span>
+│   │   ├── annotator.py       <span class="cmt"># Kurs↔News-Event-Matching</span>
+│   │   ├── pattern_miner.py   <span class="cmt"># Pre-Drawdown-Detektor</span>
+│   │   ├── leading_lag.py     <span class="cmt"># Korrelations-Discovery</span>
+│   │   └── backtester.py      <span class="cmt"># Strategie-Backtest</span>
+│   ├── alerts/                <span class="cmt"># NEU (v2)</span>
+│   │   ├── risk_scorer.py     <span class="cmt"># berechnet Risk-Score 0-100</span>
+│   │   ├── tactical_scanner.py <span class="cmt"># sucht Tactical-Setups</span>
+│   │   └── notifier.py        <span class="cmt"># Telegram/E-Mail Dispatch</span>
+│   ├── intelligence/          <span class="cmt"># Claude-Prompts 3 Modi</span>
+│   ├── portfolio.py
+│   └── dashboard.py
+├── prompts/
+│   ├── monthly_dca_v2.md
+│   ├── risk_alert_v1.md       <span class="cmt"># NEU</span>
+│   └── tactical_entry_v1.md   <span class="cmt"># NEU</span>
+├── systemd/
+├── .env
+└── pyproject.toml
+    </div>
+
+    <div class="callout info">
+      <span class="cal-label">Hardware-Check v2</span>
+      Auch mit den neuen Layern: CPU-Peak bei Historical-Backfill ~40 % (einmalig),
+      danach stündlich &lt; 20 %. RAM ~1,2 GB. NVMe-Verbrauch: ~5 GB nach 3 Jahren
+      Laufzeit, inklusive 10-Jahres-Historie. Stromverbrauch bleibt bei ~5 W Schnitt.
+    </div>
+  </div>
+</section>
+
+<!-- § 07 DOWNSIDE RISK ALERT SYSTEM (NEW) -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 07 — Downside Risk Alerts <span style="color: var(--red-danger); font-family: 'Fraunces', serif; font-style: italic; text-transform: none; letter-spacing: -0.01em;">(neu)</span></div>
+    <h2 class="section-title">Wenn eine <em>Position</em> kippt.</h2>
+    <p class="section-intro">
+      Das System wacht kontinuierlich über alle Positionen in deinem Portfolio.
+      Stündlich werden neun Risiko-Indikatoren ausgewertet und zu einem Composite-Score
+      pro Titel aggregiert. Überschreitet er Schwellen, wirst du benachrichtigt.
+    </p>
+
+    <h3>Die neun Risiko-Dimensionen</h3>
+    <table class="data-table">
+      <thead>
+        <tr><th>Dimension</th><th>Was wird beobachtet</th><th>Historisch signifikant bei</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Technical Breakdown</strong></td>
+          <td>Kurs unter 50-Tage / 200-Tage MA, negative MACD-Kreuzung, fallende On-Balance-Volume</td>
+          <td>&gt; 60 % der &gt; 20 % Drawdowns historisch</td>
+        </tr>
+        <tr>
+          <td><strong>Volume Divergence</strong></td>
+          <td>Steigende Kurse bei fallendem Volumen ODER Verkaufs-Volumen-Spikes</td>
+          <td>Klassisches Distribution-Signal</td>
+        </tr>
+        <tr>
+          <td><strong>Insider Selling Cluster</strong></td>
+          <td>3+ Insider verkaufen innerhalb 10 Tage, Volumen &gt; historischer Durchschnitt</td>
+          <td>Präzedenz-Fälle: NVDA Q3/2021, Meta Q4/2021</td>
+        </tr>
+        <tr>
+          <td><strong>Analyst Downgrade Cascade</strong></td>
+          <td>2+ Downgrades oder Price-Target-Cuts innerhalb 5 Tage</td>
+          <td>Oft Tage vor Earnings-Miss</td>
+        </tr>
+        <tr>
+          <td><strong>Options Put/Call Skew</strong></td>
+          <td>Put/Call-Ratio &gt; 1,5 (ungewöhnlicher Put-Appetit), große OTM-Put-Käufe</td>
+          <td>Smart-Money-Hedging vor Events</td>
+        </tr>
+        <tr>
+          <td><strong>Sentiment Reversal</strong></td>
+          <td>News-Sentiment-Score fällt &gt; 2 Standardabweichungen in 7 Tagen</td>
+          <td>Narrativ-Shift voraus</td>
+        </tr>
+        <tr>
+          <td><strong>Peer Weakness</strong></td>
+          <td>Vergleichbare Titel im Sektor zeigen bereits Schwäche</td>
+          <td>Sektor-Rotationen voraus</td>
+        </tr>
+        <tr>
+          <td><strong>Valuation Percentile</strong></td>
+          <td>Aktuelles P/E &gt; 90. Perzentil eigener 5-Jahres-Historie</td>
+          <td>Mean-Reversion-Risiko</td>
+        </tr>
+        <tr>
+          <td><strong>Macro Regime Shift</strong></td>
+          <td>VIX &gt; 25, Credit-Spreads steigen, Yield-Curve-Shift</td>
+          <td>Systemisches Risk-Off</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Vier Alert-Stufen</h3>
+    <div class="alert-thermo">
+      <div class="alert-level l0">
+        <div class="a-label">Stufe 0 · Green</div>
+        <h5>Normal</h5>
+        <div class="score">Score 0–24 · 0–2 Flags</div>
+        <p>Position im Normal­bereich. Keine Aktion nötig.</p>
+        <ul>
+          <li>Keine Benachrichtigung</li>
+          <li>Status im Dashboard</li>
+        </ul>
+      </div>
+      <div class="alert-level l1">
+        <div class="a-label">Stufe 1 · Watch</div>
+        <h5>Beobachten</h5>
+        <div class="score">Score 25–49 · 3 Flags</div>
+        <p>Erste Indikatoren wanken. Kein Handlungs­bedarf, aber bewusst wahrnehmen.</p>
+        <ul>
+          <li>Tages­email-Zusammenfassung</li>
+          <li>Dashboard markiert gelb</li>
+          <li>Position weiter halten</li>
+        </ul>
+      </div>
+      <div class="alert-level l2">
+        <div class="a-label">Stufe 2 · Caution</div>
+        <h5>Vorsicht</h5>
+        <div class="score">Score 50–74 · 4–5 Flags</div>
+        <p>Mehrere Signale konvergieren. Historisch erhöhtes Drawdown-Risiko.</p>
+        <ul>
+          <li>Push/Telegram-Alert</li>
+          <li>Claude liefert Kontext-Analyse</li>
+          <li>Stop-Loss-Überlegung</li>
+          <li>DCA diesen Monat pausieren?</li>
+        </ul>
+      </div>
+      <div class="alert-level l3">
+        <div class="a-label">Stufe 3 · Red</div>
+        <h5>Handlungs­empfehlung</h5>
+        <div class="score">Score 75–100 · 6+ Flags</div>
+        <p>Kritische Signal­häufung. System empfiehlt aktiv Entscheidung zu überprüfen.</p>
+        <ul>
+          <li>Sofort-Alert (Push + E-Mail)</li>
+          <li>Ausführlicher Notfall-Report</li>
+          <li>Teil­verkauf erwägen (z.B. 25–50 %)</li>
+          <li>Tactical-Bucket: Short-Setup prüfen</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Beispiel: hypothetischer Alert</h3>
+    <div class="signal-example">
+      <div class="sig-header">
+        <div>
+          <div class="sig-ticker">NVDA · Risk Alert</div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+            Composite Score: 72 / 100 · 5 aktive Flags
+          </div>
+        </div>
+        <div class="sig-status">Stufe 2 · Caution</div>
+      </div>
+
+      <div class="sig-factors">
+        <div class="factor">
+          <div class="f-mark">!</div>
+          <div class="f-text">
+            <strong>Technical Breakdown</strong>
+            <span>Kurs 4. Tag unter 50-T-MA, MACD bearish crossing</span>
+          </div>
+        </div>
+        <div class="factor">
+          <div class="f-mark">!</div>
+          <div class="f-text">
+            <strong>Insider Selling Cluster</strong>
+            <span>3 Form-4-Filings innerhalb 8 Tage, 180 Mio $ Volumen</span>
+          </div>
+        </div>
+        <div class="factor">
+          <div class="f-mark">!</div>
+          <div class="f-text">
+            <strong>Options Put/Call Skew</strong>
+            <span>Put/Call ratio 1,78 (Perzentil 94)</span>
+          </div>
+        </div>
+        <div class="factor">
+          <div class="f-mark">!</div>
+          <div class="f-text">
+            <strong>Valuation Percentile</strong>
+            <span>P/E bei 96. Perzentil der 5-J-Historie</span>
+          </div>
+        </div>
+        <div class="factor">
+          <div class="f-mark">!</div>
+          <div class="f-text">
+            <strong>Sentiment Reversal</strong>
+            <span>News-Sentiment fiel von +0.4 auf -0.1 in 6 Tagen</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sig-recommendation">
+        Historische Analoga (Okt/2018, Jan/2022): in 65 % der Fälle folgte Korrektur
+        von 15–25 % binnen 60 Tagen. Vorschlag: DCA diesen Monat in SMH-ETF statt
+        NVDA umleiten. Kein Panik-Verkauf — aber Trailing-Stop bei -12 % vom Aktuellen
+        aktivieren sinnvoll. Volle Reanalyse in 2 Wochen.
+      </div>
+    </div>
+
+    <div class="honest-box">
+      <h4>Die Grenze dieses Systems</h4>
+      <p>
+        Dieser Alert <strong>hätte Okt 2018 und Jan 2022 funktioniert.</strong> Er wird
+        auch <strong>False Positives produzieren</strong> — Alerts, auf die keine
+        Korrektur folgt. Historisch: ~30–40 % der Stufe-2-Alerts sind „Fehlalarm".
+      </p>
+      <p>
+        Er wird auch <strong>Stürze verpassen</strong>. Besonders exogene: Oktober 2023
+        (China-Export-Schock), Corona-Crash 2020. Das sind News-Events ohne charttechnische
+        Vorzeichen — dagegen ist das System machtlos.
+      </p>
+      <p>
+        Verwende es deshalb als <strong>ein Input neben anderen</strong>, nicht als
+        Autopilot. Wenn ein Alert kommt, nimm dir 30 Minuten, lies den Kontext-Report,
+        schau dir die aktuelle Nachrichtenlage an und entscheide bewusst.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- § 08 TACTICAL TRADING (NEW) -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 08 — Tactical Bucket <span style="color: var(--violet); font-family: 'Fraunces', serif; font-style: italic; text-transform: none; letter-spacing: -0.01em;">(neu)</span></div>
+    <h2 class="section-title">Die <em>20 %</em>, mit denen du handeln darfst.</h2>
+    <p class="section-intro">
+      Der Kern ist und bleibt Long-Term DCA. Aber du willst gelegentlich handeln —
+      das ist legitim, wenn es mit Disziplin geschieht. Hier der Rahmen dafür.
+    </p>
+
+    <h3>Grundregeln des Tactical Buckets</h3>
+    <div class="code-block">
+<span class="cmt"># Harte Regeln — System blockiert Empfehlungen, die sie verletzen</span>
+
+<span class="kw">max_tactical_allocation</span>: 20 %      <span class="cmt"># des Gesamt-Portfolios</span>
+<span class="kw">max_trades_concurrent</span>: 3           <span class="cmt"># nicht mehr parallel offen</span>
+<span class="kw">min_position_size</span>: 10 €           <span class="cmt"># drunter sind Spreads zu teuer</span>
+<span class="kw">max_position_size</span>: 40 €           <span class="cmt"># Einzel-Risiko begrenzt</span>
+
+<span class="kw">mandatory_stop_loss</span>: -8 %         <span class="cmt"># automatischer Exit-Trigger</span>
+<span class="kw">mandatory_take_profit</span>: +15 %      <span class="cmt"># Gewinn mitnehmen</span>
+<span class="kw">max_hold_duration</span>: 90 Tage        <span class="cmt"># sonst wird es zur Investition</span>
+
+<span class="kw">cooldown_after_loss</span>: 14 Tage      <span class="cmt"># kein Revenge-Trading</span>
+<span class="kw">max_losses_per_quarter</span>: 3         <span class="cmt"># dann Tactical-Pause</span>
+    </div>
+
+    <h3>Welche Setups das System scannt</h3>
+    <div class="learning-grid">
+      <div class="learning-cell">
+        <div class="l-number">A</div>
+        <h5>Post-Earnings-Drift</h5>
+        <p>
+          Nach starken Earnings-Beats driften Kurse historisch 4–8 Wochen weiter nach
+          oben (PEAD-Effekt). System scannt: Beat &gt; 10 %, Guidance hoch, positive
+          Analyst-Reaktion innerhalb 3 Tagen. Entry nach dem ersten Pullback.
+        </p>
+        <div class="output">
+          → Horizont: 4–8 Wochen · Typische Rendite: +8–15 %
+        </div>
+      </div>
+
+      <div class="learning-cell">
+        <div class="l-number">B</div>
+        <h5>Oversold Bounces</h5>
+        <p>
+          Ring-1-Titel mit RSI &lt; 30 nach Sektor-Rotation (nicht nach fundamentalem
+          Problem). Historisch haben Mean-Reversion-Trades bei Qualitätstiteln eine
+          hohe Hit-Rate. Entry bei RSI-Cross über 40, Exit bei RSI &gt; 60.
+        </p>
+        <div class="output">
+          → Horizont: 1–4 Wochen · Typische Rendite: +5–12 %
+        </div>
+      </div>
+
+      <div class="learning-cell">
+        <div class="l-number">C</div>
+        <h5>Breakout-Continuation</h5>
+        <p>
+          Titel, die aus mehrmonatiger Konsolidierung auf neue 52-W-Hochs ausbrechen,
+          mit Volumen-Bestätigung und positivem Fundamental-Trigger. Entry beim Retest
+          der Breakout-Zone.
+        </p>
+        <div class="output">
+          → Horizont: 6–12 Wochen · Typische Rendite: +10–20 %
+        </div>
+      </div>
+
+      <div class="learning-cell">
+        <div class="l-number">D</div>
+        <h5>Pair-Trade-Arbitrage</h5>
+        <p>
+          Wenn korrelierte Paare (z.B. NVDA/AMD) divergieren über historische Norm
+          hinaus, wird Mean-Reversion wahrscheinlich. Long den Schwächeren / Short den
+          Stärkeren — oder bei Cash-Only: Long den Schwächeren mit engem Stop.
+        </p>
+        <div class="output">
+          → Horizont: 2–6 Wochen · Typische Rendite: +4–10 %
+        </div>
+      </div>
+    </div>
+
+    <div class="callout warning">
+      <span class="cal-label">Realitäts-Check</span>
+      <strong>Tactical Trading bei kleinem Kapital ist pädagogisch wertvoll, aber
+      finanziell marginal.</strong> Bei 20 € Einsatz und +10 % Gewinn sind das 2 €.
+      Abzüglich Spread und Steuer bleiben vielleicht 1 €. Das ist okay — der Wert
+      liegt im <em>Lernen</em>. Echte Tactical-Erträge kommen erst ab mehreren 100 €
+      pro Trade zustande. Betrachte das als Trainings­lager, nicht als Einkommens­quelle.
+    </div>
+
+    <h3>Tactical-Trade-Lifecycle</h3>
+    <div class="decision-flow">
+      <div class="decision-step">
+        <div class="step-num">1</div>
+        <div>
+          <h5>Setup-Scan</h5>
+          <div class="when">Täglich 06:00 und nach Marktschluss</div>
+          <p>
+            System scannt Watchlist auf die vier Setup-Typen A–D. Bei Treffer: Entry-Empfehlung
+            mit konkretem Stop-Loss, Take-Profit und Begründung.
+          </p>
+          <span class="action">→ output: tactical_candidates.json</span>
+        </div>
+      </div>
+      <div class="decision-step">
+        <div class="step-num">2</div>
+        <div>
+          <h5>Manuelle Bestätigung</h5>
+          <div class="when">Du entscheidest binnen 24 Stunden</div>
+          <p>
+            Kein Auto-Trade. Du schaust dir das Setup an, liest die Claude-Begründung,
+            entscheidest: rein, ignorieren, oder modifizieren (engerer Stop etc.).
+          </p>
+          <span class="action">→ Du loggst Entry manuell ins System</span>
+        </div>
+      </div>
+      <div class="decision-step">
+        <div class="step-num">3</div>
+        <div>
+          <h5>Monitoring</h5>
+          <div class="when">Kontinuierlich</div>
+          <p>
+            Stop-Loss und Take-Profit werden stündlich gegen Live-Kurs geprüft. Bei
+            Trigger: Alert an dich. Du führst den Exit im Broker aus.
+          </p>
+          <span class="action">→ Alert-Kanäle: Push + E-Mail + Dashboard</span>
+        </div>
+      </div>
+      <div class="decision-step">
+        <div class="step-num">4</div>
+        <div>
+          <h5>Post-Mortem</h5>
+          <div class="when">Nach jedem geschlossenen Trade</div>
+          <p>
+            Automatischer Bericht: Setup korrekt identifiziert? Exit sinnvoll getimed?
+            Was hat funktioniert, was nicht? Diese Reflexion geht zurück in die
+            Pattern-Library als zusätzliches Trainings-Beispiel.
+          </p>
+          <span class="action">→ output: trade_log.db mit Lessons Learned</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout good">
+      <span class="cal-label">Warum überhaupt tactical</span>
+      Der pragmatische Grund: du willst das. Der pädagogische Grund: nichts lehrt
+      schneller über Märkte als selbst (mit kleinen Beträgen) aktive Positions-Entscheidungen
+      zu treffen. Der strategische Grund: in bestimmten Marktphasen (Sektor-Rotationen,
+      Post-Earnings) sind Tactical-Trades statistisch profitabel — wenn Disziplin da ist.
+      Die Regeln oben erzwingen diese Disziplin.
+    </div>
+  </div>
+</section>
+
+<!-- § 09 DECISION ENGINE -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 09 — Decision Engine</div>
+    <h2 class="section-title">Wie aus Daten <em>Empfehlungen</em> werden.</h2>
+    <p class="section-intro">
+      Das System kennt jetzt drei Entscheidungs­modi, die parallel laufen. Jeder hat
+      seine eigene Claude-Prompt-Vorlage, seinen eigenen Trigger-Mechanismus.
+    </p>
+
+    <div class="decision-flow">
+      <div class="decision-step">
+        <div class="step-num">A</div>
+        <div>
+          <h5>Modus A — Monthly DCA Recommendation</h5>
+          <div class="when">Letzter Werktag des Monats, 18:00</div>
+          <p>
+            Der klassische Use-Case: Claude bekommt quantitative Scores +
+            qualitativen News-Brief + Portfolio-Constraints + historische Analoga aus
+            der Pattern-Library. Output: <strong>eine Haupt-Empfehlung für die 50 €</strong>,
+            mit 3–5 Satz Begründung und 4-Wochen-Review-Signal.
+          </p>
+          <span class="action">→ prompts/monthly_dca_v2.md · output: report_YYYY-MM.pdf</span>
+        </div>
+      </div>
+
+      <div class="decision-step">
+        <div class="step-num">B</div>
+        <div>
+          <h5>Modus B — Continuous Risk Scoring</h5>
+          <div class="when">Jede Stunde, 24 / 7</div>
+          <p>
+            Für jede Position im Portfolio wird der Risk-Score (siehe § 07) neu
+            berechnet. Bei Schwellen­überschreitung ruft das System Claude für eine
+            Kontext-Analyse. Output: <strong>Alert-Nachricht mit Handlungs-Vorschlägen</strong>.
+          </p>
+          <span class="action">→ prompts/risk_alert_v1.md · output: alert_YYYY-MM-DD-HH.md</span>
+        </div>
+      </div>
+
+      <div class="decision-step">
+        <div class="step-num">C</div>
+        <div>
+          <h5>Modus C — Tactical Setup Scanner</h5>
+          <div class="when">Täglich 06:00 + nach US-Marktschluss 22:30</div>
+          <p>
+            Die Watchlist wird auf die Setups A–D aus § 08 gescannt. Trifft ein Setup
+            zu, liefert Claude die Einstiegs­empfehlung inklusive Stop-Loss und
+            Take-Profit. <strong>Nie mehr als ein Tactical-Setup pro Woche wird empfohlen</strong>
+            — bewusste Zurückhaltung.
+          </p>
+          <span class="action">→ prompts/tactical_entry_v1.md · output: tactical_alert.md</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>Beispiel: der DCA-Prompt (gekürzt)</h3>
+    <div class="code-block">
+<span class="kw">Rolle:</span> Unabhängiger Semi/AI-Analyst. Langfristig orientiert.
+
+<span class="kw">Kontext:</span>
+- Budget: 50 EUR · Horizont: 10+ Jahre
+- Portfolio: &#123;positions_json&#125;
+- Constraints: max 40% Einzel, max 70% Ring-1, max 20% Tactical
+
+<span class="kw">Historical Analogies</span> (aus Pattern-Library):
+&#123;top_3_historical_parallels_with_outcomes&#125;
+
+<span class="kw">Current Signals:</span>
+- Quant Scores: &#123;scores_json&#125;
+- News Brief (30 Tage): &#123;news_summary&#125;
+- Active Risk Alerts: &#123;current_alerts&#125;
+- Macro Snapshot: &#123;macro_json&#125;
+
+<span class="kw">Aufgabe:</span>
+1. EINE Empfehlung + 1-2 Alternativen
+2. Konkrete Stückzahl aus den 50 EUR
+3. 3-5 Satz Begründung mit Data-Refs
+4. Historical Analogy: welcher Past-Case ähnelt heute?
+5. 4-Wochen-Review-Signal definieren
+
+<span class="kw">Anti-Regeln:</span>
+- Keine Empfehlung für Position mit aktivem <span class="danger">Stufe 2+ Risk Alert</span>
+- Keine Überkonzentration zulassen
+- Bei Unsicherheit → SMH ETF
+- Wenn Pattern-Library Drawdown-Warnung &gt; 60 %: DCA überspringen oder auf ETF umleiten
+    </div>
+  </div>
+</section>
+
+<!-- § 10 MONTHLY WORKFLOW -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 10 — Rhythmus des Systems</div>
+    <h2 class="section-title">Dein <em>Monat</em> im Takt.</h2>
+    <p class="section-intro">
+      DCA zum Monats­wechsel ist der Kern-Rhythmus. Aber Risk-Alerts und Tactical-Scans
+      laufen asynchron und können dich jeden Tag des Monats erreichen.
+    </p>
+
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-week">Tag 1–5 (Kauf + Einbuchung)</div>
+        <h5>Neue Position einbuchen</h5>
+        <ul>
+          <li>Manuell im Broker gekaufte Stückzahl ins System loggen</li>
+          <li>System startet neue Performance-Tracking-Epoche</li>
+          <li>Previous-Month-Report archiviert + Reflexion angehängt</li>
+        </ul>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Tag 6–20 (Kern-Phase)</div>
+        <h5>Daten­sammlung &amp; passives Monitoring</h5>
+        <ul>
+          <li>Tägliches Ingestion-Run (06:00)</li>
+          <li>Stündliches Risk-Scoring über alle Positionen</li>
+          <li>Wöchentlicher Zwischen-Report (Sonntag 20:00)</li>
+          <li>Bei &gt; 5 % Tages­move, SEC-Filing oder Analyst-Aktion: Alert</li>
+        </ul>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Tag 21–25 (Earnings-Check)</div>
+        <h5>Quartals­berichte digerieren</h5>
+        <ul>
+          <li>Earnings-Kalender scannen</li>
+          <li>Claude-Analyse der Earnings-Transcripts</li>
+          <li>Hyperscaler-Capex-Zahlen besonders priorisieren</li>
+        </ul>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Tag 26–28 (Pre-Decision)</div>
+        <h5>Vor-Empfehlung</h5>
+        <ul>
+          <li>Kompletter Analyse-Run mit vorläufigen Scores</li>
+          <li>Top-3-Kandidaten werden E-Mail/Telegram geschickt</li>
+          <li>Zeit für eigene Perspektive (optionale Notiz ans System)</li>
+        </ul>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Letzter Werktag, 18:00</div>
+        <h5>Finale Empfehlung</h5>
+        <ul>
+          <li>Endgültiger PDF-Report mit historischen Analoga</li>
+          <li>Konkrete Order-Anweisung: Titel, Stückzahl, Kurs-Range</li>
+          <li>Begründung + Review-Metrik für Folgemonat</li>
+        </ul>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Kontinuierlich / Jeder Tag</div>
+        <h5>Risk-Alerts &amp; Tactical-Scans</h5>
+        <ul>
+          <li>Stufe-1-Alerts: tägliche E-Mail-Zusammenfassung</li>
+          <li>Stufe-2-Alerts: Push + Kontext-Analyse</li>
+          <li>Stufe-3-Alerts: Sofort-Benachrichtigung (Push + E-Mail + SMS)</li>
+          <li>Tactical-Setups: Max 1 Empfehlung/Woche, mit Entry/Exit-Regeln</li>
+        </ul>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Quartalsweise</div>
+        <h5>System-Retraining</h5>
+        <ul>
+          <li>Pattern-Library mit neuen 3 Monaten Daten erweitern</li>
+          <li>Signal-Gewichte neu kalibrieren</li>
+          <li>Backtest gegen neue Periode laufen lassen</li>
+          <li>Du bekommst einen „Lern-Report", was das System neu verstanden hat</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- § 11 RISK -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 11 — Risiko-Management</div>
+    <h2 class="section-title">Die <em>Risiken</em>, mit denen du lebst.</h2>
+    <p class="section-intro">
+      AI/Semi ist strukturell konzentriert. Zu den fundamentalen Risiken kommen jetzt
+      auch Meta-Risiken des Systems selbst.
+    </p>
+
+    <div class="risk-grid">
+      <div class="risk-cell high">
+        <div class="rlabel">Hoch · Struktural</div>
+        <h5>Taiwan-Konzentration</h5>
+        <p>
+          NVIDIA-Chips werden bei TSMC gefertigt. ASML baut die Maschinen dafür. Eine
+          Eskalation der Taiwan-Frage trifft beide Core-Positionen synchron.
+        </p>
+        <div class="mitigation">
+          Mitigation: Alert-System trackt Taiwan-Spannungs-News-Index. Pattern-Library
+          kennt die Kurs-Reaktion aus 2022 (Pelosi-Besuch).
+        </div>
+      </div>
+
+      <div class="risk-cell high">
+        <div class="rlabel">Hoch · Zyklisch</div>
+        <h5>Semiconductor-Zyklus</h5>
+        <p>
+          Der Chip-Markt schwankt in 3–4-Jahres-Zyklen. 2022 Bust, 2024/25 Boom.
+          Nächster Zyklus-Tiefpunkt mathematisch irgendwann — timing unbekannt.
+        </p>
+        <div class="mitigation">
+          Mitigation: Früh­indikatoren (TSMC-Monatsumsätze, DRAM-Preise, Book-to-Bill)
+          werden wöchentlich geprüft. Pattern-Library kennt Vor-Signale von 2018 und 2022.
+        </div>
+      </div>
+
+      <div class="risk-cell med">
+        <div class="rlabel">Mittel · Regulatorisch</div>
+        <h5>China-Export­kontrollen</h5>
+        <p>
+          ASML hat bereits wesentliche China-Verkäufe verloren. NVIDIA hatte H20-Restriktionen.
+          Weitere Restriktionen strukturell wahrscheinlich.
+        </p>
+        <div class="mitigation">
+          Mitigation: BIS/EU-Feeds werden direkt überwacht, neue Restriktionen triggern
+          unmittelbar Risk-Alert für betroffene Titel.
+        </div>
+      </div>
+
+      <div class="risk-cell med">
+        <div class="rlabel">Mittel · Bewertung</div>
+        <h5>AI-Hype-Multiples</h5>
+        <p>
+          Ring-1-Titel handeln zeitweise zu Multiples, die perfekte Ausführung auf
+          Jahre einpreisen. Bei Enttäuschungen große Drops möglich.
+        </p>
+        <div class="mitigation">
+          Mitigation: P/E-Percentile wird getrackt. Bei &gt; 90. Perzentil empfiehlt
+          System ETF-Alternative. Pattern-Library flagt historische Overvaluation-Peaks.
+        </div>
+      </div>
+
+      <div class="risk-cell high">
+        <div class="rlabel">Hoch · System</div>
+        <h5>Overfitting der Pattern-Library</h5>
+        <p>
+          Das System könnte falsche Muster lernen, die zufällig in historischen Daten
+          aussahen wie Signale, aber nicht kausal sind. Typisches Problem bei jedem
+          data-driven approach.
+        </p>
+        <div class="mitigation">
+          Mitigation: Out-of-Sample-Backtests pflichtig, Signal-Schwellen konservativ,
+          quartals­weise Re-Kalibrierung mit Walk-Forward-Validation statt naivem Fit.
+        </div>
+      </div>
+
+      <div class="risk-cell med">
+        <div class="rlabel">Mittel · Verhalten</div>
+        <h5>Alert-Müdigkeit</h5>
+        <p>
+          Bei zu vielen (false-positive) Alerts ignorierst du irgendwann auch den
+          echten. Klassisches Cry-Wolf-Problem.
+        </p>
+        <div class="mitigation">
+          Mitigation: Schwellen konservativ kalibriert (Stufe 3 soll selten sein,
+          max. 3-4x pro Jahr); Stufe-1-Alerts als Tages­zusammenfassung, nicht einzeln.
+        </div>
+      </div>
+
+      <div class="risk-cell low">
+        <div class="rlabel">Niedrig · Operational</div>
+        <h5>System-Ausfall Pi</h5>
+        <p>
+          Der Pi könnte ausfallen, Datenquellen könnten hängen. Dein Investment darf
+          nicht von 100 %-Uptime abhängen.
+        </p>
+        <div class="mitigation">
+          Mitigation: Fallback-Plan = „wenn keine Empfehlung vorliegt, kaufe SMH-ETF
+          für 50 €". Wöchentliches Backup auf externe SSD.
+        </div>
+      </div>
+
+      <div class="risk-cell med">
+        <div class="rlabel">Mittel · Verhalten-Trading</div>
+        <h5>Tactical-Overtrading</h5>
+        <p>
+          Sobald Trading-Möglichkeit existiert, wächst Versuchung, mehr zu traden als
+          sinnvoll. Jeder überflüssige Trade ist Geld für den Broker.
+        </p>
+        <div class="mitigation">
+          Mitigation: Hard-Limits aus § 08 sind im System kodiert; max. 3 Trades
+          parallel, max. 1 Empfehlung/Woche. System <em>verweigert</em> Setups über Limit.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- § 12 ROADMAP -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 12 — Implementierungs-Roadmap</div>
+    <h2 class="section-title">Vom leeren Pi zum <em>lernenden System</em>.</h2>
+    <p class="section-intro">
+      Acht Wochen von Fresh-Install bis produktiv. Die neuen Module (Historical
+      Learning, Alerts, Tactical) brauchen zusätzliche Zeit, daher 2 Wochen mehr als
+      in v1.
+    </p>
+
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-week">Woche 1 · Foundation</div>
+        <h5>Pi aufsetzen &amp; Basis-Ingestion</h5>
+        <ul>
+          <li>Pi OS 64-bit, SSH + Tailscale</li>
+          <li>uv + Python 3.12, Projekt-Skeleton</li>
+          <li>SQLite-Schema für Kurse + Fundamentals</li>
+          <li>yfinance-Ingestion, systemd-Timer</li>
+        </ul>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Woche 2 · Daten­breite</div>
+        <h5>Macro, Insider, News</h5>
+        <ul>
+          <li>FRED, Finnhub, SEC EDGAR, RSS, Reddit</li>
+          <li>Technical Indicators via pandas-ta</li>
+          <li>Sentiment via VADER Baseline</li>
+        </ul>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Woche 3–4 · Historical Backfill</div>
+        <h5>Die Pattern-Library aufbauen</h5>
+        <ul>
+          <li>10 Jahre Kursdaten via Stooq + yfinance importieren</li>
+          <li>Event-Annotator: Kurs­ereignisse mit News verknüpfen</li>
+          <li>Pattern-Miner: Pre-Drawdown-Muster extrahieren</li>
+          <li>Leading-Lag-Korrelationen berechnen</li>
+          <li>Deliverable: events.db + patterns.db gefüllt</li>
+        </ul>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Woche 5 · Intelligence-Layer</div>
+        <h5>Claude als Analyst</h5>
+        <ul>
+          <li>Prompt-Engineering für 3 Modi</li>
+          <li>Erste End-to-End DCA-Empfehlung mit Pattern-Library-Input</li>
+          <li>Output-Parser für strukturierten JSON-Rückgabe</li>
+        </ul>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Woche 6 · Alert-System</div>
+        <h5>Downside-Risk-Monitor bauen</h5>
+        <ul>
+          <li>9 Risiko-Dimensionen als Scorer implementieren</li>
+          <li>Composite-Score + Schwellen-Logik</li>
+          <li>Telegram-Bot oder E-Mail-Versand</li>
+          <li>Stündlicher systemd-Timer für Continuous-Scoring</li>
+        </ul>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Woche 7 · Tactical-Module</div>
+        <h5>Setup-Scanner + Tracking</h5>
+        <ul>
+          <li>4 Setup-Typen (A–D) als Scanner implementieren</li>
+          <li>Position-Tracking mit Stop-Loss/Take-Profit</li>
+          <li>Cooldown &amp; Limits hart erzwungen</li>
+        </ul>
+      </div>
+      <div class="tl-item">
+        <div class="tl-week">Woche 8 · UI, Backtest, Go-Live</div>
+        <h5>Sichtbar machen &amp; validieren</h5>
+        <ul>
+          <li>FastAPI-Dashboard mit HTMX</li>
+          <li>PDF-Monats-Report (WeasyPrint)</li>
+          <li>Komplett­backtest über 5 Jahre — hätte das System bessere Entscheidungen gebracht?</li>
+          <li>Kalibrierung der Signal-Gewichte basierend auf Backtest</li>
+          <li>Erste echte Live-Empfehlung zum nächsten Monats­wechsel</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <span class="cal-label">Zeit-Budget realistisch</span>
+      8 Wochen ist ambitioniert bei ~5–8 h/Woche. Realistisch sind <strong>12–16
+      Wochen</strong>, wenn du das neben Job/Studium baust. Das ist okay — besser
+      solide als gehetzt. Das System läuft danach jahrelang, die initiale Zeit ist gut
+      investiert.
+    </div>
+  </div>
+</section>
+
+<!-- § 13 SCALING -->
+<section>
+  <div class="container">
+    <div class="section-num">§ 13 — Skalierung</div>
+    <h2 class="section-title">Wenn aus 50 € <em>mehr</em> wird.</h2>
+    <p class="section-intro">
+      Die Architektur wächst mit dir. Der Pi bleibt bis auf absehbare Zeit leistungsfähig,
+      die Datenquellen reichen bis in mittlere Vermögens­größen.
+    </p>
+
+    <h3>Ab 100 €/Monat</h3>
+    <p>
+      Echtes Splitting wird möglich: 2×50 € auf zwei Titel. Die Ring-Logik entfaltet
+      ihre volle Wirkung. Tactical-Bucket: 20 € sind für kleine Setups ausreichend.
+    </p>
+
+    <h3>Ab 250 €/Monat</h3>
+    <p>
+      Upgrade-Punkt: Alpha Vantage Pro (~50 €/Jahr), evtl. Polygon.io für Intraday-Tick-Data.
+      Tactical-Trades werden finanziell relevant (bei +10 % auf 50 € sind das 5 €, ab
+      100 € Einsatz werden es 10 €+). Options-Analyse lohnt jetzt.
+    </p>
+
+    <h3>Ab 500 €/Monat</h3>
+    <p>
+      Broker-API (Interactive Brokers) kann sinnvoll werden für automatische Stop-Loss-Execution,
+      Steueroptimierung (LIFO/FIFO-Strategie), Dividenden-Reinvestment-Automatik.
+      Watchlist-Erweiterung auf Cybersecurity, Software-Infra als korrelierte Themen.
+    </p>
+
+    <h3>Ab 1000 €/Monat</h3>
+    <p>
+      Zweit-System-Überlegung: ein Teil des Kapitals in systematisches Faktor-Investing
+      (Momentum, Quality), getrennt vom AI/Semi-System. Ab hier lohnt ein zweiter Pi
+      oder Cloud-Migration — nicht wegen Compute, sondern wegen Ausfall­redundanz.
+    </p>
+
+    <h3>Wann migrieren</h3>
+    <p>
+      Der Pi reicht wahrscheinlich bis &gt; 10 Jahre Datenhistorie und &gt; 50 Watchlist-Titel.
+      Erst bei echtem ML-Training (Custom-Models auf GPU) oder sehr großen Portfolios
+      (&gt; 50.000 €) wird Cloud/stärkere Hardware relevant. Bis dahin: Pi ist perfekt.
+    </p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="disclaimer">
+      <strong>Haftungsausschluss:</strong> Dieses Dokument ist ein technisches Strategie-Framework,
+      keine Anlageberatung. Jede Investition in Aktien birgt Verlustrisiken, inklusive
+      Total­verlust. Vergangene Performance ist kein Indikator für zukünftige Ergebnisse.
+      Das System ist ein Entscheidungs-Unterstützungswerkzeug — die finale Verantwortung
+      für jede Order trägst du selbst. Das Alert-System liefert keine Vorhersagen,
+      sondern flaggt historisch mit Drawdowns assoziierte Bedingungen — mit bekannten
+      False-Positive- und False-Negative-Raten. Ziehe bei größeren Beträgen einen
+      lizenzierten Finanz­berater hinzu.
+    </div>
+    <div>
+      Plan v2.0 · Historical Learning + Risk Alerts + Tactical Bucket
+    </div>
+    <div style="margin-top: 8px; color: var(--text-dim);">
+      Designed for one investor · Built to evolve · Made to be questioned
+    </div>
+  </div>
+</footer>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.08 });
+
+document.querySelectorAll('section, .hero-grid, .thesis-card, .dual-track, .signal-grid, .arch-wrap, .decision-flow, .timeline, .risk-grid, .data-table, .learning-grid, .alert-thermo, .pattern-examples, .honest-box, .signal-example').forEach(el => {
+  el.classList.add('reveal');
+  observer.observe(el);
+});
+
+const barObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.querySelectorAll('.pf-bar .fill').forEach((fill, i) => {
+        const targetWidth = fill.style.width;
+        fill.style.width = '0%';
+        setTimeout(() => { fill.style.width = targetWidth; }, 100 + i * 50);
+      });
+      barObserver.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.2 });
+
+document.querySelectorAll('.portfolio-bars').forEach(el => barObserver.observe(el));
+</script>
+
+</body>
+</html>

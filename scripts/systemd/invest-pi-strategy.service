@@ -1,0 +1,13 @@
+[Unit]
+Description=Invest-Pi · Trading-Strategy-Run (Mo-Fr 16:00 CET)
+After=invest-pi-score.service
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+EnvironmentFile=/home/investpi/invest-pi/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -B scripts/run_strategy.py
+MemoryMax=2G
+CPUQuota=50%

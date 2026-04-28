@@ -1,0 +1,43 @@
+# Secrets — niemals committen
+.env
+.env.local
+*.pem
+*.key
+
+# Daten + Cache
+data/
+*.db
+*.db-wal
+*.db-shm
+__pycache__/
+*.pyc
+*.pyo
+
+# Sandbox-spezifisches
+invest-pi-extracted/
+*.tar.gz
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Logs
+*.log
+logs/
+
+# Python virtualenvs
+venv/
+.venv/
+env/
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Status-Bus (vom Pi geschrieben)
+_status/snapshot.json

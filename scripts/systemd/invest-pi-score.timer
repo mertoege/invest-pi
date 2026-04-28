@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · Risk-Scoring (stündlich :30)
+
+[Timer]
+OnCalendar=*-*-* *:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

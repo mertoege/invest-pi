@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · Sync stündlich :35
+
+[Timer]
+OnCalendar=*-*-* *:35:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,308 @@
+# ════════════════════════════════════════════════════════════
+#  INVEST-PI · KONFIGURATION
+#  Einzige Wahrheitsquelle: Portfolio + Watchlist + Einstellungen.
+#  Bearbeite diese Datei, um neue Käufe einzubuchen oder Titel hinzuzufügen.
+# ════════════════════════════════════════════════════════════
+
+
+# ─────────────────────────────────────────────────────────────
+# DEIN PORTFOLIO — was du aktuell hältst
+# Format: TICKER: {invested_eur, shares, avg_buy_price, date_first}
+# shares und avg_buy_price werden nach jedem Kauf aktualisiert.
+# ─────────────────────────────────────────────────────────────
+portfolio:
+  NVDA:
+    invested_eur:    50.0
+    shares:          null        # nach erstem Kauf eintragen
+    avg_buy_price:   null        # Ø Kaufpreis in EUR/USD
+    date_first:      "2025-01"
+    currency:        "USD"
+    ring:            1
+    note:            "Core-Position · GPU-Monopol AI"
+
+  ASML:
+    invested_eur:    50.0
+    shares:          null
+    avg_buy_price:   null
+    date_first:      "2025-01"
+    currency:        "EUR"
+    ring:            1
+    note:            "Core-Position · EUV-Monopol"
+
+
+# ─────────────────────────────────────────────────────────────
+# INVESTMENT UNIVERSE — alles was das System beobachtet
+# Du kaufst aus dieser Liste, nicht nur aus dem Portfolio.
+# Kommentiere Titel aus, die du nicht willst.
+# ─────────────────────────────────────────────────────────────
+universe:
+
+  # ── RING 1: Pure-Play AI/Semiconductor ──────────────────
+  # Kein AI-System der Welt kommt ohne diese Titles aus.
+
+  ring_1_semiconductors:
+    - ticker: NVDA
+      name: "NVIDIA"
+      note: "GPU-Duopol · Data-Center · CUDA-Moat"
+
+    - ticker: ASML
+      name: "ASML Holding"
+      note: "EUV-Monopol · niemand kann ohne ASML tiefe Knoten fertigen"
+      yahoo_ticker: "ASML"     # US-ADR, alternativ: ASML.AS für Euronext
+
+    - ticker: TSM
+      name: "Taiwan Semiconductor"
+      note: "größter Foundry · fertigt NVDA, Apple, AMD"
+
+    - ticker: AMD
+      name: "Advanced Micro Devices"
+      note: "einziger echter NVDA-Challenger · MI-Serie"
+
+    - ticker: INTC
+      name: "Intel"
+      note: "Turnaround-Story · Foundry-Ambition · hohes Risiko"
+
+    - ticker: QCOM
+      name: "Qualcomm"
+      note: "Mobile-AI · Edge-AI · Snapdragon X"
+
+    - ticker: MU
+      name: "Micron Technology"
+      note: "HBM-Speicher für AI-GPUs · zyklisch sensitiv"
+
+    - ticker: SMCI
+      name: "Super Micro Computer"
+      note: "AI-Server-Assemblierung · sehr volatil"
+
+  # ── RING 1: Equipment & Lithography ────────────────────
+  ring_1_equipment:
+    - ticker: AMAT
+      name: "Applied Materials"
+      note: "größter Halbleiter-Equipment-Hersteller"
+
+    - ticker: LRCX
+      name: "Lam Research"
+      note: "Ätz-Equipment · unverzichtbar für 3D-NAND"
+
+    - ticker: KLAC
+      name: "KLA Corporation"
+      note: "Prozess-Inspektion · Yield-Monitoring"
+
+    - ticker: TER
+      name: "Teradyne"
+      note: "Chip-Testing · profitiert von Komplexitätszunahme"
+
+  # ── RING 2: AI-Ökosystem ────────────────────────────────
+  ring_2_ecosystem:
+    - ticker: AVGO
+      name: "Broadcom"
+      note: "Custom AI ASICs (Google TPU, Meta etc.) + Networking"
+
+    - ticker: MRVL
+      name: "Marvell Technology"
+      note: "AI-Networking-ICs · Cloud-Custom-Chips"
+
+    - ticker: ARM
+      name: "Arm Holdings"
+      note: "CPU-IP-Lizenz · in jedem Smartphone + AI-Edge-Chip"
+
+    - ticker: CDNS
+      name: "Cadence Design Systems"
+      note: "EDA-Software · kein Chip ohne Cadence designt"
+
+    - ticker: SNPS
+      name: "Synopsys"
+      note: "EDA-Software · Merger mit ANSYS pending"
+
+    - ticker: ANET
+      name: "Arista Networks"
+      note: "AI-Datacenter-Networking · Hyperscaler-Liebling"
+
+    - ticker: DELL
+      name: "Dell Technologies"
+      note: "AI-Server-Verkäufe · überraschend starker AI-Profiteur"
+
+    - ticker: ORCL
+      name: "Oracle"
+      note: "Cloud-Infrastruktur · OCI Wachstum für AI-Workloads"
+
+    - ticker: PLTR
+      name: "Palantir"
+      note: "AI-Analytics-Software · Government + Commercial"
+
+  # ── RING 3: Hyperscaler ─────────────────────────────────
+  # Capex-Quellen: sie zahlen für AI-Infrastruktur.
+  ring_3_hyperscaler:
+    - ticker: MSFT
+      name: "Microsoft"
+      note: "OpenAI-Partner · Azure-AI · Copilot-Monetarisierung"
+
+    - ticker: GOOGL
+      name: "Alphabet"
+      note: "Gemini · TPU · GCP AI · eigene Silicon-Strategie"
+
+    - ticker: META
+      name: "Meta Platforms"
+      note: "Llama-Open-Source · MTIA-Chip · enorm hoher Capex"
+
+    - ticker: AMZN
+      name: "Amazon"
+      note: "AWS-AI · Trainium/Inferentia · Bedrock"
+
+    - ticker: AAPL
+      name: "Apple"
+      note: "Apple Intelligence · On-Device-AI · eigene Neural Engine"
+
+  # ── RING 3: Enterprise AI Software ──────────────────────
+  ring_3_software:
+    - ticker: CRM
+      name: "Salesforce"
+      note: "AI-CRM · Agentforce · Enterprise-AI-Anwendungen"
+
+    - ticker: NOW
+      name: "ServiceNow"
+      note: "AI-Automatisierung in Unternehmens-IT"
+
+    - ticker: SNOW
+      name: "Snowflake"
+      note: "AI-Daten-Cloud · Cortex AI · hohe Bewertung"
+
+    - ticker: AI
+      name: "C3.ai"
+      note: "reines AI-Software-Play · hoch spekulativ"
+
+  # ── RING 3: Europäisches AI/Tech ────────────────────────
+  ring_3_europe:
+    - ticker: SAP.DE
+      name: "SAP SE"
+      note: "Business-AI · Joule · dominant in Enterprise-ERP"
+
+    - ticker: CAPG.PA
+      name: "Capgemini"
+      note: "AI-Consulting + -Implementierung · Europa"
+
+    - ticker: SIE.DE
+      name: "Siemens"
+      note: "Industrial-AI · Digital-Twin"
+
+    - ticker: DSY.PA
+      name: "Dassault Systèmes"
+      note: "3D-Simulation + Digital-Twin · Industrie-KI"
+
+  # ── RING 3: AI-Infrastruktur & Energie ──────────────────
+  ring_3_infra:
+    - ticker: EQIX
+      name: "Equinix"
+      note: "Datacenter-REIT · AI-Rechenzentren brauchen Platz"
+
+    - ticker: VRT
+      name: "Vertiv"
+      note: "Kühlsysteme für AI-Server · extrem hohe Nachfrage"
+
+    - ticker: ETN
+      name: "Eaton"
+      note: "Power-Management für Datacenter · AI-Energie-Infra"
+
+    - ticker: NEE
+      name: "NextEra Energy"
+      note: "Erneuerbare Energie · AI braucht enorme Strommengen"
+
+  # ── FALLBACK: ETFs ──────────────────────────────────────
+  # Wenn kein Einzeltitel überzeugt, kaufe einen ETF.
+  etfs:
+    - ticker: SMH
+      name: "VanEck Semiconductor ETF"
+      note: "Bestes Semiconductor-ETF · breite Diversifikation"
+
+    - ticker: SOXX
+      name: "iShares Semiconductor ETF"
+      note: "Alternative zu SMH"
+
+    - ticker: AIQ
+      name: "Global X AI & Technology ETF"
+      note: "Breites AI-Exposure inkl. Software"
+
+    - ticker: BOTZ
+      name: "Global X Robotics & AI ETF"
+      note: "AI + Robotik"
+
+    - ticker: QQQ
+      name: "Invesco QQQ Trust (Nasdaq 100)"
+      note: "Maximale Diversifikation · niedrigste Rendite-Erwartung"
+
+
+# ─────────────────────────────────────────────────────────────
+# STRATEGISCHE EINSTELLUNGEN
+# ─────────────────────────────────────────────────────────────
+settings:
+  monatliches_budget_eur:    50.0
+  max_position_anteil:       0.40      # max. 40 % in einem Titel
+  max_ring1_anteil:          0.70      # max. 70 % in Ring 1 gesamt
+  max_tactical_anteil:       0.20      # max. 20 % Tactical Bucket
+  drawdown_scan_threshold:   0.15      # Pattern-Mining ab 15 % Drawdown
+  alert_stufe2_trigger:      50        # Composite-Score für Caution-Alert
+  alert_stufe3_trigger:      75        # Composite-Score für Red-Alert
+  dca_fallback_etf:          "SMH"     # wenn kein Titel überzeugt
+
+  # Risiko-Profil: "conservative" | "moderate" | "aggressive"
+  risk_profile:              "conservative"
+
+  # Notification
+  telegram_enabled:          false     # true sobald Bot konfiguriert
+  telegram_min_level:        2         # ab Stufe 2 benachrichtigen
+  email_enabled:             false
+
+  # ─────────────────────────────────────────────────────────────
+  # API-KOSTEN-CAPS (3-Tier, calendar-day Aggregation)
+  # Hard-Stop bei monthly. Ab 70% des Tages-Caps: Cost-Awareness-Block in Prompts.
+  # ─────────────────────────────────────────────────────────────
+  api_costs:
+    hourly_eur:                0.20
+    daily_eur:                 2.00
+    monthly_eur:              50.00     # Mert's max-Budget für API-Analysen
+
+  # ─────────────────────────────────────────────────────────────
+  # AUTONOMOUS TRADING (Demo / Paper-Account auf dem Pi)
+  # ─────────────────────────────────────────────────────────────
+  trading:
+    enabled:                   true
+    broker:                    "alpaca_paper"   # alpaca_paper | mock | (später) alpaca_live
+    live_trading:              false            # MUSS hier UND in env LIVE_TRADING=true sein für echte Orders
+    mode:                      "conservative"   # conservative | moderate | experimental
+
+    # Position-Limits
+    max_open_positions:        5                # gleichzeitig offene Positionen (Paper)
+    max_position_eur:        200.0              # max EUR pro Position
+    min_position_eur:         25.0              # unter diesem Wert wird gar nicht geordert
+    starting_paper_capital:  10000.0            # MockBroker-Startkapital für Simulation
+
+    # Risk-Limits (Conservative-Defaults)
+    score_buy_max:            25                # Buy nur wenn composite < dieser Wert
+    force_skip_alert_min:      2                # Bei alert_level >= 2 IMMER skippen
+    stop_loss_pct:             0.15             # automatischer Verkauf bei -15 %
+    max_daily_loss_pct:        0.05             # Tages-Drawdown der Equity-Curve, Notbremse
+    max_trades_per_day:        3                # Hard-Cap, vermeidet Klick-Hektik
+
+    # Marktöffnung (CET) — keine Orders außerhalb
+    market_open_cet:          "15:30"
+    market_close_cet:         "22:00"
+
+    # Universe-Filter: nur diese Rings dürfen tactical traded werden
+    tradeable_rings:           [1, 2]
+    # ETF-Fallback wenn kein Titel überzeugt (bleibt fix)
+    dca_fallback_ticker:      "SMH"
+
+
+# ─────────────────────────────────────────────────────────────
+# API KEYS (hier oder via Umgebungsvariablen)
+# Leere Strings → System läuft im Stub-Modus für diese Quellen
+# ─────────────────────────────────────────────────────────────
+api_keys:
+  finnhub:             ""    # -> FINNHUB_API_KEY in .env
+  newsapi:             ""    # -> NEWSAPI_KEY in .env
+  telegram_bot_token:  ""
+  telegram_chat_id:    ""
+  alpaca_key:          ""    # -> ALPACA_API_KEY in .env (Paper)
+  alpaca_secret:       ""    # -> ALPACA_API_SECRET in .env
+  alpaca_base_url:     "https://paper-api.alpaca.markets"
+  anthropic:           ""    # -> ANTHROPIC_API_KEY in .env

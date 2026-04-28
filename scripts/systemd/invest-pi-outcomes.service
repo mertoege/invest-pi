@@ -1,0 +1,13 @@
+[Unit]
+Description=Invest-Pi · Outcome-Tracker + Drift-Detection
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+EnvironmentFile=/home/investpi/invest-pi/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -B scripts/track_outcomes.py
+MemoryMax=1G
+CPUQuota=30%

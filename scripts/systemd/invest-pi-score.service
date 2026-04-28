@@ -1,0 +1,13 @@
+[Unit]
+Description=Invest-Pi · Risk-Scoring (Portfolio + Watchlist)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+EnvironmentFile=/home/investpi/invest-pi/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -B scripts/score_portfolio.py --full-scan
+MemoryMax=1G
+CPUQuota=50%
