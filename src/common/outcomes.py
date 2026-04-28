@@ -71,7 +71,7 @@ def _measure_window(prices: pd.DataFrame, start_date: dt.datetime, days: int) ->
     Falls noch nicht genug Tage vergangen sind: return_pct=None.
     """
     end_date = start_date + dt.timedelta(days=days)
-    now = dt.datetime.utcnow()
+    now = dt.datetime.now(dt.timezone.utc)
     if end_date > now:
         return WindowMeasurement(days=days, return_pct=None, max_drawdown=None,
                                  end_date=None, n_observations=0)

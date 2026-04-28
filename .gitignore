@@ -1,41 +1,36 @@
-# Secrets — niemals committen
-.env
-.env.local
-*.pem
-*.key
 
 # Daten + Cache
-data/
+# IDE / OS
+# Logs
+# Python virtualenvs
+# Sandbox-spezifisches
+# Secrets — niemals committen
+# pytest / coverage
 *.db
-*.db-wal
 *.db-shm
-__pycache__/
+*.db-wal
+*.key
+*.log
+*.pem
 *.pyc
 *.pyo
-
-# Sandbox-spezifisches
-invest-pi-extracted/
-*.tar.gz
-
-# IDE / OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
 *.swp
+*.tar.gz
+*.tmp
 *~
-
-# Logs
-*.log
-logs/
-
-# Python virtualenvs
-venv/
-.venv/
-env/
-
-# pytest / coverage
-.pytest_cache/
+.DS_Store
 .coverage
+.env
+.env.local
+.idea/
+.pytest_cache/
+.venv/
+.vscode/
+Thumbs.db
+__pycache__/
+data/
+env/
 htmlcov/
-
+invest-pi-extracted/
+logs/
+venv/

@@ -47,7 +47,7 @@ def sync(broker_kind: str | None = None) -> dict:
 
         # 3. Positions ueberschreiben (broker = source of truth)
         conn.execute("DELETE FROM positions WHERE source = ?", (src,))
-        now = dt.datetime.utcnow().isoformat(timespec="seconds")
+        now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
         for p in positions:
             conn.execute(
                 """

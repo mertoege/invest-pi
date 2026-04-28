@@ -45,7 +45,7 @@ def kill_switch_active() -> bool:
 def activate_kill_switch(reason: str = "manual") -> None:
     """Schreibt .KILL-file. Alle weiteren Trades werden geblockt bis File geloescht ist."""
     KILL_SWITCH_PATH.parent.mkdir(parents=True, exist_ok=True)
-    KILL_SWITCH_PATH.write_text(f"{dt.datetime.utcnow().isoformat()}\n{reason}\n")
+    KILL_SWITCH_PATH.write_text(f"{dt.datetime.now(dt.timezone.utc).isoformat()}\n{reason}\n")
 
 
 def deactivate_kill_switch() -> None:
@@ -64,7 +64,7 @@ def is_market_open(now_utc: Optional[dt.datetime] = None,
     Berechnet CET-Lokalzeit per UTC+1 (Wintertime). Sommerzeit-naive.
     Fuer Pi: das reicht; live wird via systemd-Timer eh nur in den Slots gestartet.
     """
-    now_utc = now_utc or dt.datetime.utcnow()
+    now_utc = now_utc or dt.datetime.now(dt.timezone.utc)
     weekday = now_utc.weekday()  # Mon=0 ... Sun=6
     if weekday >= 5:
         return False

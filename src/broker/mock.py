@@ -117,7 +117,7 @@ class MockBroker(BrokerAdapter):
             bid=last * 0.999,
             ask=last * 1.001,
             last=last,
-            timestamp=dt.datetime.utcnow().isoformat(timespec="seconds"),
+            timestamp=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         )
 
     def place_order(
@@ -140,7 +140,7 @@ class MockBroker(BrokerAdapter):
         last_price = self._fetch_price(ticker)
         fill_price = limit_price or last_price
         cost_eur = fill_price * qty * self._fx
-        now = dt.datetime.utcnow().isoformat(timespec="seconds")
+        now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
 
         if side == "buy":
             if cost_eur > self._cash_eur:

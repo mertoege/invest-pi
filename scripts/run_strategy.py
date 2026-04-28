@@ -58,7 +58,7 @@ def _record_trade(
             """,
             (ticker, side, qty, eur_value, price, status, order_id,
              strategy_label, decision_pred_id,
-             dt.datetime.utcnow().isoformat(timespec="seconds") if status == "filled" else None,
+             dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds") if status == "filled" else None,
              price if status == "filled" else None,
              source, notes),
         )

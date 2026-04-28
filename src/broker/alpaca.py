@@ -134,7 +134,7 @@ class AlpacaPaperBroker(BrokerAdapter):
             bid=last * 0.999,
             ask=last * 1.001,
             last=last,
-            timestamp=dt.datetime.utcnow().isoformat(timespec="seconds"),
+            timestamp=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         )
 
     @api_retry(attempts=3, min_wait=2, max_wait=10)

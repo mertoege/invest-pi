@@ -20,6 +20,8 @@ REPO_DIR="${REPO_DIR:-/home/investpi/invest-pi}"
 DATA_DIR="${DATA_DIR:-$REPO_DIR/data}"
 LOG_DIR="${LOG_DIR:-$REPO_DIR/logs}"
 mkdir -p "$LOG_DIR" "$REPO_DIR/_status"
+# Cleanup leftover .tmp files vor Neu-Generation
+rm -f "$REPO_DIR/_status/"*.tmp 2>/dev/null || true
 LOG="$LOG_DIR/status_push.log"
 
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }

@@ -170,7 +170,7 @@ def record_outcome(
     """
     import datetime as dt
     if measured_at is None:
-        measured_at = dt.datetime.utcnow().isoformat(timespec="seconds")
+        measured_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
 
     outcome_json = json.dumps(outcome, default=str) if outcome is not None else None
 
