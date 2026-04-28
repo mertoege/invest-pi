@@ -1,0 +1,39 @@
+{
+  "equity": {
+    "open_positions": 0
+  },
+  "git": {
+    "branch": "main",
+    "commit": "83da584",
+    "dirty": true
+  },
+  "hardware": {
+    "cpu_temp_c": 56.75,
+    "disk_pct": 9,
+    "load_1min": 0.15,
+    "mem_pct": 20
+  },
+  "last_runs": {
+    "run_strategy": null,
+    "score_portfolio": null,
+    "sync_positions": null,
+    "track_outcomes": null
+  },
+  "predictions": {
+    "correct": 0,
+    "incorrect": 0,
+    "last_24h": 0,
+    "last_7d": 0,
+    "pending": 0,
+    "total": 0
+  },
+  "services": {
+    "auto-pull": "active",
+    "outcomes": "active",
+    "score": "active",
+    "status-push": "active",
+    "strategy": "active",
+    "sync": "active"
+  },
+  "timestamp_utc": "2026-04-28T16:23:17"
+}
