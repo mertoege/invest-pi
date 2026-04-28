@@ -24,6 +24,7 @@ from src.common import config as cfg_mod
 from src.common.data_loader import get_prices
 from src.common.storage import init_all
 from src.learning.pattern_miner import compute_features, find_similar_patterns
+from src.alerts.dispatch import dispatch_new_alerts
 
 
 def main() -> None:
@@ -85,6 +86,15 @@ def main() -> None:
             print("\n  Keine aktiven Alerts.")
 
     _show_concentration(cfg)
+
+    # ── Telegram-Dispatch fuer Stufe>=2 Alerts ────────────────
+    try:
+        stats = dispatch_new_alerts(lookback_hours=6)
+        if not stats.get("skipped"):
+            print(f"\n  Telegram: {stats['sent']} sent, {stats['failed']} failed "
+                  f"(of {stats['candidates']} candidates, min_level={stats['min_level']})")
+    except Exception as e:
+        print(f"\n  Telegram-Dispatch fehlgeschlagen: {e}")
 
 
 def _print_analogs(ticker: str, k: int = 3) -> None:

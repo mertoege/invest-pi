@@ -32,6 +32,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.broker import get_broker, BrokerAdapter
+from src.alerts import notifier
 from src.common import config as cfg_mod
 from src.common.storage import TRADING_DB, connect, init_all
 from src.risk.limits import pre_trade_check, positions_to_stop_loss
@@ -96,6 +97,16 @@ def stop_loss_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
             strategy_label="stop_loss-v1", source=source,
             notes=f"auto stop-loss at {-t_cfg.stop_loss_pct:.0%}",
         )
+        if result.status == "filled":
+            try:
+                notifier.send_trade(
+                    ticker=ticker, side="sell", qty=qty,
+                    eur=qty * price * 0.92, price_usd=price,
+                    reason=f"STOP-LOSS at {-t_cfg.stop_loss_pct:.0%}",
+                    paper=broker.is_paper,
+                )
+            except Exception as e:
+                print(f"  notifier failed: {e}")
     return len(triggered)
 
 
@@ -150,6 +161,16 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             strategy_label=f"{t_cfg.mode}-v1", source=source,
             notes=decision.reason,
         )
+        if result.status == "filled":
+            try:
+                notifier.send_trade(
+                    ticker=entry.ticker, side="buy", qty=sz.qty,
+                    eur=sz.eur_amount, price_usd=quote.last,
+                    reason=decision.reason,
+                    paper=broker.is_paper,
+                )
+            except Exception as e:
+                print(f"  notifier failed: {e}")
         print(f"  BUY {entry.ticker}: {sz.qty} @ {quote.last:.2f} = {sz.eur_amount:.2f} EUR  [{result.status}]")
         decisions["buys"].append({
             "ticker": entry.ticker, "qty": sz.qty,
