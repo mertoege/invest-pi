@@ -24,6 +24,8 @@ darf den Score-Run nicht killen.
 
 from __future__ import annotations
 
+from html import escape as _esc
+
 import json
 import logging
 import os
@@ -136,14 +138,16 @@ def send_alert(
     label = _LEVEL_LABEL.get(alert_level, "?")
     emoji = _LEVEL_EMOJI.get(alert_level, "⚪")
 
-    triggered_str = ", ".join(triggered_dims) if triggered_dims else "—"
+    triggered_str = ", ".join(_esc(d) for d in triggered_dims) if triggered_dims else "—"
     parts = [
-        f"{emoji} <b>{label} Alert · {ticker}</b>",
+        f"{emoji} <b>{label} Alert · {_esc(ticker)}</b>",
         f"Composite: <b>{composite:.1f}</b> / 100",
         f"Triggered: {triggered_str}",
     ]
     if dimensions_summary:
         parts.append("")
+        # dimensions_summary darf <b>/<i>/<code> Tags enthalten — kein full-escape,
+        # aber raw < Zeichen nicht gewollt. Caller ist verantwortlich, hier passthrough.
         parts.append(dimensions_summary)
     text = "\n".join(parts)
 
@@ -184,11 +188,11 @@ def send_trade(
     badge = "📝 Paper" if paper else "💰 LIVE"
     arrow = "🟢" if side == "buy" else "🔴"
     text_parts = [
-        f"{arrow} <b>{side.upper()} {ticker}</b>  {badge}",
+        f"{arrow} <b>{_esc(side.upper())} {_esc(ticker)}</b>  {badge}",
         f"Qty: <b>{qty}</b>  ({eur:.2f} EUR @ {price_usd:.2f} USD)",
     ]
     if reason:
-        text_parts.append(f"<i>{reason}</i>")
+        text_parts.append(f"<i>{_esc(reason)}</i>")
     text = "\n".join(text_parts)
     try:
         result = _send_message(text, None)
