@@ -28,11 +28,11 @@ log() { echo "[$(ts)] $*" | tee -a "$LOG" >&2; }
 cd "$REPO_DIR" || { log "REPO_DIR not found"; exit 1; }
 
 # Snapshot bauen via Python (sauberer als bash + jq)
-python3 - <<PYEOF > "$REPO_DIR/_status/snapshot.json.tmp" 2>>"$LOG"
+python3 - <<'PYEOF' > "$REPO_DIR/_status/snapshot.json.tmp" 2>>"$LOG"
 import json, os, subprocess, sqlite3, datetime as dt
 from pathlib import Path
 
-DATA_DIR = Path(os.environ.get("DATA_DIR", "$DATA_DIR"))
+DATA_DIR = Path(os.environ.get("DATA_DIR", "/home/investpi/invest-pi/data"))
 
 def sh(cmd, default=""):
     try:
