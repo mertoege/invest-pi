@@ -1,0 +1,12 @@
+[Unit]
+Description=Invest-Pi · Hardware-Check (CPU/Disk/Mem) mit Telegram-Push
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+EnvironmentFile=/home/investpi/invest-pi/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -B scripts/hardware_check.py
+MemoryMax=128M
+CPUQuota=10%

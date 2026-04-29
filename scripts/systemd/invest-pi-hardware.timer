@@ -1,0 +1,10 @@
+[Unit]
+Description=Invest-Pi · Hardware-Check alle 30 Minuten
+
+[Timer]
+OnBootSec=180s
+OnUnitActiveSec=1800s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
