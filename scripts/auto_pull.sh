@@ -63,7 +63,24 @@ else
     exit 2
 fi
 
-# Restart systemd services damit Code-Aenderung effektiv wird
+# systemd-Files synchronisieren (nur wenn sich was geaendert hat)
+SYSTEMD_SRC="$REPO_DIR/scripts/systemd"
+SYSTEMD_DST="/etc/systemd/system"
+SYSTEMD_CHANGED=0
+if [ -d "$SYSTEMD_SRC" ]; then
+    for f in "$SYSTEMD_SRC"/*.service "$SYSTEMD_SRC"/*.timer; do
+        [ -f "$f" ] || continue
+        target="$SYSTEMD_DST/$(basename "$f")"
+        if [ ! -f "$target" ] || ! cmp -s "$f" "$target"; then
+            sudo cp "$f" "$target" 2>/dev/null && SYSTEMD_CHANGED=1
+        fi
+    done
+    if [ "$SYSTEMD_CHANGED" -eq 1 ]; then
+        sudo systemctl daemon-reload 2>/dev/null
+        log "systemd-Files synced + daemon-reload"
+    fi
+fi
+
 # Type=oneshot Services laufen eh erst beim naechsten Timer-Trigger,
 # also kein restart noetig.
 log "pull+smoke OK, new HEAD: $(git rev-parse --short HEAD)"
