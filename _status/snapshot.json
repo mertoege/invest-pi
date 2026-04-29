@@ -9,14 +9,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "18252c5",
-    "dirty": false
+    "commit": "3cd7862",
+    "dirty": true
   },
   "hardware": {
     "cpu_temp_c": 57.3,
     "disk_pct": 9,
-    "load_1min": 0.01,
-    "mem_pct": 21
+    "load_1min": 0.0,
+    "mem_pct": 20
   },
   "last_runs": {
     "run_strategy": null,
@@ -40,5 +40,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-04-29T01:43:03"
+  "timestamp_utc": "2026-04-29T01:45:03"
 }
