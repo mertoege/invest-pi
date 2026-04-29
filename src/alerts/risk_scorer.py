@@ -41,6 +41,7 @@ import pandas as pd
 from ..common.data_loader import get_prices, get_fundamentals
 from ..common.storage import ALERTS_DB, connect
 from ..common.predictions import log_prediction
+from ..learning.pattern_miner import compute_features, find_similar_patterns
 
 
 # ────────────────────────────────────────────────────────────
@@ -555,19 +556,42 @@ def score_ticker(
         else "medium" if n_stubs <= 2
         else "low"
     )
+    # Historische Analoga (Pattern-Library) — nur wenn DB nicht leer
+    analogs = []
+    try:
+        features = compute_features(prices, len(prices) - 1)
+        if features is not None:
+            matches = find_similar_patterns(features, lookback_days=7, top_k=3)
+            analogs = [
+                {
+                    "ticker":         m["ticker"],
+                    "peak_date":      m["peak_date"],
+                    "drawdown_pct":   m["drawdown_pct"],
+                    "days_to_trough": m["days_to_trough"],
+                    "regime":         m["regime"],
+                    "recovery_days":  m["recovery_days"],
+                    "distance":       m["distance"],
+                }
+                for m in matches
+            ]
+    except Exception as e:
+        # Pattern-Library leer oder Feature-Computation fehlgeschlagen — ist OK
+        pass
+
     pred_id = log_prediction(
         job_source="daily_score",
         model="heuristic-v1",
         subject_type="ticker",
         subject_id=ticker,
-        prompt="risk_scorer.score_ticker / 9-dim heuristic / weights-v1",
+        prompt="risk_scorer.score_ticker / 9-dim heuristic / weights-v1 / pattern-augmented",
         input_payload={
             "ticker": ticker,
             "n_dimensions": len(dimensions),
             "stubs": n_stubs,
             "weights_version": "v1",
+            "n_analogs": len(analogs),
         },
-        input_summary=f"{ticker}, {len(dimensions)} dims, {n_stubs} stubs",
+        input_summary=f"{ticker}, {len(dimensions)} dims, {n_stubs} stubs, {len(analogs)} analogs",
         output={
             "composite":        report.composite,
             "alert_level":      report.alert_level,
@@ -575,9 +599,10 @@ def score_ticker(
             "triggered_n":      report.triggered_count,
             "triggered_dims":   report.triggered_dimensions,
             "dimensions":       [asdict(d) for d in dimensions],
+            "analogs":          analogs,
         },
         confidence=confidence,
-        cost_estimate_eur=0.0,    # heuristic = kostenlos
+        cost_estimate_eur=0.0,
     )
     _persist(report, prediction_id=pred_id)
     return report
