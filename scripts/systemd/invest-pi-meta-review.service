@@ -1,0 +1,14 @@
+[Unit]
+Description=Invest-Pi · Monthly Meta-Review (Opus)
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+EnvironmentFile=/home/investpi/invest-pi/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -B scripts/meta_review.py --source daily_score
+ExecStartPost=/usr/bin/python3 -B scripts/meta_review.py --source trade_decision
+MemoryMax=512M
+CPUQuota=30%
+TimeoutStartSec=15min

@@ -43,6 +43,7 @@ from src.common import config as cfg_mod
 from src.common.json_utils import safe_parse
 from src.common.llm import call_sonnet, is_configured as llm_configured
 from src.common.predictions import hit_rate_stratified, latest_risk_score_summary, log_prediction
+from src.learning.calibration import calibration_block
 from src.common.storage import LEARNING_DB, connect
 
 log = logging.getLogger("invest_pi.monthly_dca")
@@ -113,9 +114,10 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         "- Vermeide Konzentration: wenn Mert in einem Ticker schon >40% hat, anderen vorschlagen.\n"
         "- Wenn die letzte 30d Hit-Rate unter 50% war: confidence senken.\n"
     )
+    cal = calibration_block("daily_score") + calibration_block("trade_decision") + calibration_block("monthly_dca")
     prompt = (
-        f"## Aktuelle Lern-Statistik (daily_score, 30d):\n"
-        f"{json.dumps(ctx['hit_rate'], indent=2)}\n\n"
+        f"{cal}\n\n" if cal else ""
+    ) + (
         f"## Top-10 Buy-Kandidaten nach niedrigstem Risk-Composite (letzte 24h):\n"
         f"{json.dumps(ctx['candidates'], indent=2)}\n\n"
         f"## Aktuelles Portfolio:\n"
