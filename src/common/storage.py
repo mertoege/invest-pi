@@ -208,6 +208,8 @@ CREATE TABLE IF NOT EXISTS positions (
     opened_at         TEXT,
     last_updated      TEXT NOT NULL DEFAULT (datetime('now')),
     stop_loss_price   REAL,
+    peak_price        REAL,
+    peak_seen_at      TEXT,
     source            TEXT NOT NULL DEFAULT 'paper',
     PRIMARY KEY (ticker, source)
 );
@@ -250,6 +252,24 @@ def connect(db_path: Path) -> Generator[sqlite3.Connection, None, None]:
 
 
 
+def _migrate_positions() -> None:
+    """Idempotente ALTER TABLE-Migrationen fuer positions-Tabelle."""
+    new_cols = [
+        ("peak_price",   "REAL"),
+        ("peak_seen_at", "TEXT"),
+    ]
+    if not TRADING_DB.exists():
+        return
+    with connect(TRADING_DB) as conn:
+        existing = {r[1] for r in conn.execute("PRAGMA table_info(positions)").fetchall()}
+        for col, typ in new_cols:
+            if col not in existing:
+                try:
+                    conn.execute(f"ALTER TABLE positions ADD COLUMN {col} {typ}")
+                except Exception:
+                    pass
+
+
 def _migrate_equity_snapshots() -> None:
     """Idempotente ALTER TABLE-Migrationen (fuer existierende DBs)."""
     new_cols = [
@@ -287,6 +307,7 @@ def init_all() -> None:
             rel = path
         print(f"  initialisiert: {rel}")
     _migrate_equity_snapshots()
+    _migrate_positions()
 
 
 if __name__ == "__main__":

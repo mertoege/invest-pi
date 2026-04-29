@@ -268,20 +268,27 @@ settings:
     enabled:                   true
     broker:                    "alpaca_paper"   # alpaca_paper | mock | (später) alpaca_live
     live_trading:              false            # MUSS hier UND in env LIVE_TRADING=true sein für echte Orders
-    mode:                      "conservative"   # conservative | moderate | experimental
+    mode:                      "moderate"       # conservative | moderate | experimental
 
     # Position-Limits
-    max_open_positions:        5                # gleichzeitig offene Positionen (Paper)
-    max_position_eur:        200.0              # max EUR pro Position
+    max_open_positions:        8                # gleichzeitig offene Positionen (Paper)
+    max_position_eur:        300.0              # max EUR pro Position
     min_position_eur:         25.0              # unter diesem Wert wird gar nicht geordert
     starting_paper_capital:  10000.0            # MockBroker-Startkapital für Simulation
 
-    # Risk-Limits (Conservative-Defaults)
-    score_buy_max:            25                # Buy nur wenn composite < dieser Wert
+    # Buy-Trigger (Conservative-Default in Klammern)
+    score_buy_max:            45                # Buy nur wenn composite < dieser Wert (conservative: 25)
     force_skip_alert_min:      2                # Bei alert_level >= 2 IMMER skippen
-    stop_loss_pct:             0.15             # automatischer Verkauf bei -15 %
+    moderate_alert_max:        1                # moderate-mode erlaubt alert_level<=1 (statt nur 0)
+
+    # Sell-Trigger
+    stop_loss_pct:             0.10             # auto-sell bei -10 % (conservative: 0.15)
+    take_profit_pct:           0.20             # auto-sell bei +20 % (NEU)
+    trailing_stop_pct:         0.08             # ab +12% Profit: -8% vom High = sell (NEU)
+    trailing_activation_pct:   0.12             # ab welchem Profit Trailing-Stop aktiv wird
+
     max_daily_loss_pct:        0.05             # Tages-Drawdown der Equity-Curve, Notbremse
-    max_trades_per_day:        3                # Hard-Cap, vermeidet Klick-Hektik
+    max_trades_per_day:        5                # Hard-Cap (conservative: 3)
 
     # Marktöffnung (CET) — keine Orders außerhalb
     market_open_cet:          "15:30"

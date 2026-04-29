@@ -128,7 +128,7 @@ def decide_action(
     triggered = score["triggered_n"]
     confidence = score["confidence"]
 
-    # Hard-Filter: hohes Alert-Level
+    # Hard-Filter: hohes Alert-Level (immer)
     if alert >= config.force_skip_alert_min:
         return TradeDecision(
             ticker=ticker, action="skip",
@@ -138,8 +138,13 @@ def decide_action(
             based_on_pred_id=score["pred_id"],
         )
 
-    # Konservativ: low-confidence skippen
-    if confidence == "low":
+    # Mode-spezifische Schwellen
+    is_moderate = config.mode == "moderate"
+    is_experimental = config.mode == "experimental"
+    alert_max = config.moderate_alert_max if (is_moderate or is_experimental) else 0
+
+    # Konfidenz-Filter: nur conservative skipt low-confidence
+    if confidence == "low" and not (is_moderate or is_experimental):
         return TradeDecision(
             ticker=ticker, action="skip",
             reason=f"confidence low; conservative skip",
@@ -148,12 +153,25 @@ def decide_action(
             based_on_pred_id=score["pred_id"],
         )
 
-    # Buy-Trigger: composite niedrig UND keine aktiven Signale
-    if risk < config.score_buy_max and triggered == 0:
-        # Conservative target: max_position_eur, sizing.py kann es runter-skalieren
+    # Alert-Level-Filter mode-aware
+    if alert > alert_max:
+        return TradeDecision(
+            ticker=ticker, action="skip",
+            reason=f"alert_level {alert} > mode-max {alert_max} ({config.mode})",
+            risk_composite=risk, alert_level=alert,
+            confidence=confidence,
+            based_on_pred_id=score["pred_id"],
+        )
+
+    # Buy-Trigger: composite unter Schwelle
+    # Moderate erlaubt zusaetzlich triggered_dims > 0 wenn composite ausreichend niedrig
+    triggered_ok = triggered == 0 if not is_moderate else triggered <= 2
+
+    if risk < config.score_buy_max and triggered_ok:
         return TradeDecision(
             ticker=ticker, action="buy",
-            reason=f"composite {risk:.1f} < {config.score_buy_max} and no triggered dims",
+            reason=(f"composite {risk:.1f} < {config.score_buy_max} ({config.mode}) "
+                    f"alert={alert} triggered={triggered}"),
             target_eur=config.max_position_eur,
             risk_composite=risk, alert_level=alert,
             confidence=confidence,

@@ -182,3 +182,40 @@ def positions_to_stop_loss(broker: BrokerAdapter,
         if unrealized_pct <= -config.stop_loss_pct:
             triggered.append((pos.ticker, pos.qty, pos.market_price))
     return triggered
+
+
+def positions_to_take_profit(broker, config) -> list:
+    """
+    Returns [(ticker, qty, current_price), ...] fuer Positionen die +take_profit_pct
+    ueber avg_price sind.
+    """
+    triggered = []
+    for pos in broker.get_positions():
+        if pos.avg_price <= 0:
+            continue
+        gain_pct = (pos.market_price / pos.avg_price) - 1.0
+        if gain_pct >= config.take_profit_pct:
+            triggered.append((pos.ticker, pos.qty, pos.market_price))
+    return triggered
+
+
+def positions_to_trailing_stop(broker, config, peak_prices: dict) -> list:
+    """
+    Trailing-Stop: ab +trailing_activation_pct (default +12%) wird der Trailing-Stop
+    aktiv. Wenn current_price < peak_price * (1 - trailing_stop_pct), sell.
+
+    peak_prices ist ein dict {ticker: peak_price_seen} aus der positions-Tabelle.
+    """
+    triggered = []
+    for pos in broker.get_positions():
+        if pos.avg_price <= 0:
+            continue
+        gain_pct = (pos.market_price / pos.avg_price) - 1.0
+        if gain_pct < config.trailing_activation_pct:
+            continue   # noch nicht aktiv
+        peak = peak_prices.get(pos.ticker, pos.market_price)
+        peak = max(peak, pos.market_price)
+        drawdown_from_peak = (pos.market_price / peak) - 1.0
+        if drawdown_from_peak <= -config.trailing_stop_pct:
+            triggered.append((pos.ticker, pos.qty, pos.market_price, peak))
+    return triggered

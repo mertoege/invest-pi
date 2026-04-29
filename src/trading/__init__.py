@@ -25,7 +25,11 @@ class TradingConfig:
     starting_paper_capital:     float
     score_buy_max:              int
     force_skip_alert_min:       int
+    moderate_alert_max:         int
     stop_loss_pct:              float
+    take_profit_pct:            float
+    trailing_stop_pct:          float
+    trailing_activation_pct:    float
     max_daily_loss_pct:         float
     max_trades_per_day:         int
     market_open_cet:            str
@@ -51,7 +55,11 @@ def load_trading_config(config_path: Optional[Path] = None) -> TradingConfig:
         starting_paper_capital=float(t.get("starting_paper_capital", 10000)),
         score_buy_max=int(t.get("score_buy_max", 25)),
         force_skip_alert_min=int(t.get("force_skip_alert_min", 2)),
+        moderate_alert_max=int(t.get("moderate_alert_max", 1)),
         stop_loss_pct=float(t.get("stop_loss_pct", 0.15)),
+        take_profit_pct=float(t.get("take_profit_pct", 0.20)),
+        trailing_stop_pct=float(t.get("trailing_stop_pct", 0.08)),
+        trailing_activation_pct=float(t.get("trailing_activation_pct", 0.12)),
         max_daily_loss_pct=float(t.get("max_daily_loss_pct", 0.05)),
         max_trades_per_day=int(t.get("max_trades_per_day", 3)),
         market_open_cet=str(t.get("market_open_cet", "15:30")),

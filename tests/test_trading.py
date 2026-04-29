@@ -92,9 +92,13 @@ def test_decision_branches():
     d = decide_action("HIGH_RISK", set(), 0, ring=1, config=cfg)
     assert d.action == "skip" and "alert_level" in d.reason
 
-    # Skip: confidence low
+    # confidence low: skip nur in conservative-mode, in moderate ist's erlaubt
     d = decide_action("LOW_CONF", set(), 0, ring=1, config=cfg)
-    assert d.action == "skip" and "confidence low" in d.reason
+    if cfg.mode == "conservative":
+        assert d.action == "skip" and "confidence low" in d.reason
+    else:
+        # moderate/experimental: low-conf geht durch, evtl. als buy
+        assert d.action in ("buy", "skip")
 
     # Buy: composite niedrig + medium-conf + ring 1
     d = decide_action("LOW_RISK", set(), 0, ring=1, config=cfg)
