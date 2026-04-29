@@ -1,4 +1,3 @@
-# Erlaubt investpi-User das Synchronisieren von systemd-Files + daemon-reload
-# fuer auto_pull.sh ohne Passwort. Alle anderen sudo-Aktionen weiterhin geschuetzt.
-investpi ALL=(root) NOPASSWD: /bin/cp /home/investpi/invest-pi/scripts/systemd/* /etc/systemd/system/
-investpi ALL=(root) NOPASSWD: /usr/bin/systemctl daemon-reload
+# Erlaubt investpi-User das Sync-Skript auszufuehren (NOPASSWD).
+# Skript ist root-owned + nicht beschreibbar von investpi → sicher.
+investpi ALL=(root) NOPASSWD: /home/investpi/invest-pi/scripts/systemd_sync.sh

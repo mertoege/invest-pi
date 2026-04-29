@@ -25,20 +25,12 @@ log() { echo "[$(ts)] $*" | tee -a "$LOG" >&2; }
 # systemd-Sync-Function (idempotent; vergleicht cmp, kopiert bei Diff)
 # ────────────────────────────────────────────────────────────
 sync_systemd_files() {
-    local src="$REPO_DIR/scripts/systemd"
-    local dst="/etc/systemd/system"
-    local changed=0
-    [ -d "$src" ] || return 0
-    for f in "$src"/*.service "$src"/*.timer; do
-        [ -f "$f" ] || continue
-        local target="$dst/$(basename "$f")"
-        if [ ! -f "$target" ] || ! cmp -s "$f" "$target"; then
-            sudo cp "$f" "$target" 2>/dev/null && changed=1
-        fi
-    done
-    if [ "$changed" -eq 1 ]; then
-        sudo systemctl daemon-reload 2>/dev/null
-        log "systemd-Files synced + daemon-reload"
+    # Delegiert an Wrapper-Skript — sudoers erlaubt NOPASSWD genau dafuer.
+    # Wrapper macht cmp + cp + daemon-reload atomisch.
+    local wrapper="$REPO_DIR/scripts/systemd_sync.sh"
+    [ -x "$wrapper" ] || return 0
+    if sudo -n "$wrapper" 2>/dev/null; then
+        log "systemd-sync ran (sudo wrapper)"
     fi
 }
 
