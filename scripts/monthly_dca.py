@@ -122,8 +122,15 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         f"{json.dumps(ctx['current_portfolio'], indent=2)}\n\n"
         f"## Budget diesen Monat:\n"
         f"{ctx['month_budget_eur']:.0f} EUR\n\n"
-        f"## ETF-Fallback (config):\n"
-        f"{ctx['etf_fallback']}\n\n"
+        f"## Verfuegbare ETFs (waehle einen davon als alternative_etf):\n"
+        f"  SMH   - VanEck Semiconductor ETF (Halbleiter, breit)\n"
+        f"  SOXX  - iShares Semiconductor ETF (Alternative zu SMH)\n"
+        f"  AIQ   - Global X AI & Technology ETF (AI-Software inklusive)\n"
+        f"  BOTZ  - Global X Robotics & AI ETF (Robotik + AI)\n"
+        f"  QQQ   - Invesco QQQ Trust (Nasdaq 100, breit gestreut)\n"
+        f"\nDefault wenn unsicher: {ctx['etf_fallback']}\n\n"
+        f"WICHTIG: alternative_etf MUSS einer der obigen Tickers sein, NICHT leer.\n"
+        f"Auch bei verdict=buy_single — der ETF dient als sichtbare Alternative im UI.\n\n"
         "Schreibe deine Empfehlung als JSON-Block."
     )
     return system, prompt
@@ -143,7 +150,7 @@ def _build_telegram_text(verdict: str, data: dict, prediction_id: int, budget_eu
     reason = data.get("reason", "")
     conf   = data.get("confidence", "?")
     risk   = data.get("risk_notes", "")
-    alt    = data.get("alternative_etf", "SMH")
+    alt    = data.get("alternative_etf") or "SMH"   # or-Operator catched empty strings
 
     label = "ETF-Fallback" if is_etf else "Empfohlener Buy"
     emoji = "⚪" if is_etf else "🎯"
@@ -156,6 +163,8 @@ def _build_telegram_text(verdict: str, data: dict, prediction_id: int, budget_eu
     ]
     if risk:
         parts.append(f"\n<i>Risiko: {escape(risk)}</i>")
+    if not is_etf and alt:
+        parts.append(f"\n<i>Alternativer ETF-Korb falls unsicher: <b>{escape(alt)}</b></i>")
     text = "\n".join(parts)
 
     reply_markup = {"inline_keyboard": [[
