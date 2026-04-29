@@ -31,6 +31,7 @@ from typing import Optional
 
 from ..common.json_utils import safe_parse
 from ..common.predictions import log_prediction
+from ..learning.regime import regime_buy_multiplier
 from ..common.storage import LEARNING_DB, connect
 from . import TradingConfig
 
@@ -163,14 +164,21 @@ def decide_action(
             based_on_pred_id=score["pred_id"],
         )
 
-    # Buy-Trigger: composite unter Schwelle
+    # Buy-Trigger: composite unter Regime-adjustierter Schwelle
     # Moderate erlaubt zusaetzlich triggered_dims > 0 wenn composite ausreichend niedrig
     triggered_ok = triggered == 0 if not is_moderate else triggered <= 2
 
-    if risk < config.score_buy_max and triggered_ok:
+    try:
+        regime_mult = regime_buy_multiplier()
+    except Exception:
+        regime_mult = 1.0  # bei Fehler kein adjustierung
+    effective_buy_max = config.score_buy_max * regime_mult
+
+    if risk < effective_buy_max and triggered_ok:
         return TradeDecision(
             ticker=ticker, action="buy",
-            reason=(f"composite {risk:.1f} < {config.score_buy_max} ({config.mode}) "
+            reason=(f"composite {risk:.1f} < {effective_buy_max:.1f} "
+                    f"(mode={config.mode}, regime_mult={regime_mult:.2f}) "
                     f"alert={alert} triggered={triggered}"),
             target_eur=config.max_position_eur,
             risk_composite=risk, alert_level=alert,
@@ -180,7 +188,7 @@ def decide_action(
 
     return TradeDecision(
         ticker=ticker, action="skip",
-        reason=f"composite {risk:.1f} above buy-threshold {config.score_buy_max} or triggered={triggered}",
+        reason=f"composite {risk:.1f} above effective buy-threshold {effective_buy_max:.1f} or triggered={triggered}",
         risk_composite=risk, alert_level=alert,
         confidence=confidence,
         based_on_pred_id=score["pred_id"],

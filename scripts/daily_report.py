@@ -42,6 +42,7 @@ from src.alerts import notifier
 from src.common.outcomes import detect_drift
 from src.common.performance import compute_metrics, format_metrics
 from src.learning.attribution import attribution_block
+from src.learning.regime import current_regime
 from src.common.predictions import hit_rate, hit_rate_stratified
 from src.common.storage import LEARNING_DB, TRADING_DB, connect
 
@@ -150,6 +151,14 @@ def _build_daily_msg(data: dict) -> str:
             parts.append(f"   • {escape(p['ticker'])}: {p['qty']} @ {p['avg_price_eur'] or 0:.2f} EUR{peak_str}")
     else:
         parts.append("📈 Open: keine Positionen")
+
+    # Market-Regime
+    try:
+        regime = current_regime()
+        regime_emoji = {"low_vol_bull": "🟢", "high_vol_mixed": "🟡", "bear": "🔴"}.get(regime.label, "⚪")
+        parts.append(f"{regime_emoji} Regime: <b>{escape(regime.label)}</b> ({regime.probability:.0%}, {regime.method})")
+    except Exception:
+        pass
 
     # Cost
     parts.append(

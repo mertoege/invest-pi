@@ -1,0 +1,14 @@
+[Unit]
+Description=Invest-Pi · Wöchentliches HMM-Regime-Training
+OnFailure=invest-pi-error-alert@%n.service
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+EnvironmentFile=/home/investpi/invest-pi/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -B scripts/train_regime.py
+MemoryMax=1G
+CPUQuota=70%
+TimeoutStartSec=10min
