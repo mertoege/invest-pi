@@ -1,7 +1,15 @@
-yfinance>=0.2.40
-pandas>=2.2.0
-numpy>=1.26.0
-anthropic>=0.40.0
-tenacity>=8.5.0
-PyYAML>=6.0.1
-requests>=2.31.0
+# Core
+yfinance>=0.2.40,<0.3.0
+pandas>=2.2.0,<3.0.0
+numpy>=1.26.0,<3.0.0
+
+# LLM + Trading
+anthropic>=0.40.0,<2.0.0
+alpaca-py>=0.30.0,<1.0.0
+
+# Resilience
+tenacity>=8.5.0,<10.0.0
+requests>=2.31.0,<3.0.0
+
+# Config + I/O
+PyYAML>=6.0.1,<7.0.0
