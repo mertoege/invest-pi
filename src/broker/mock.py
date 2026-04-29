@@ -31,8 +31,9 @@ from .base import (
 
 
 def _eur_per_usd() -> float:
-    """Sehr einfache FX. Spaeter via yfinance EURUSD=X."""
-    return 0.92  # ~ April 2026
+    """Delegate to fx module (24h-cached, yfinance live)."""
+    from ..common.fx import eur_per_usd
+    return eur_per_usd()
 
 
 def _load_starting_capital() -> float:

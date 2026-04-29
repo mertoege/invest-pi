@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.broker import get_broker
+from src.common.fx import eur_per_usd
 from src.common.storage import TRADING_DB, connect, init_all
 from src.trading import load_trading_config
 
@@ -55,7 +56,7 @@ def sync(broker_kind: str | None = None) -> dict:
                     (ticker, qty, avg_price_eur, opened_at, last_updated, source)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (p.ticker, p.qty, p.avg_price * 0.92, now, now, src),
+                (p.ticker, p.qty, p.avg_price * eur_per_usd(), now, now, src),
             )
 
     return {

@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.broker import get_broker, BrokerAdapter
 from src.alerts import notifier
 from src.common import config as cfg_mod
+from src.common.fx import eur_per_usd
 from src.common.storage import TRADING_DB, connect, init_all
 from src.risk.limits import pre_trade_check, positions_to_stop_loss
 from src.trading import TradingConfig, load_trading_config
@@ -92,7 +93,7 @@ def stop_loss_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
         _record_trade(
             decision_pred_id=None,
             ticker=ticker, side="sell", qty=qty,
-            eur_value=qty * price * 0.92, price=price,
+            eur_value=qty * price * eur_per_usd(), price=price,
             status=result.status, order_id=result.order_id,
             strategy_label="stop_loss-v1", source=source,
             notes=f"auto stop-loss at {-t_cfg.stop_loss_pct:.0%}",
@@ -101,7 +102,7 @@ def stop_loss_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
             try:
                 notifier.send_trade(
                     ticker=ticker, side="sell", qty=qty,
-                    eur=qty * price * 0.92, price_usd=price,
+                    eur=qty * price * eur_per_usd(), price_usd=price,
                     reason=f"STOP-LOSS at {-t_cfg.stop_loss_pct:.0%}",
                     paper=broker.is_paper,
                 )
@@ -117,7 +118,7 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
     candidates = [e for e in cfg.universe if e.ring in t_cfg.tradeable_rings]
 
     decisions = {"buys": [], "skips": [], "errors": []}
-    fx = 0.92
+    fx = eur_per_usd()
 
     for entry in candidates:
         # Stoppe wenn wir das Tages-Limit fuer Trades erreichen

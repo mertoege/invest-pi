@@ -36,7 +36,8 @@ _PAPER_BASE_URL = "https://paper-api.alpaca.markets"
 
 
 def _eur_per_usd() -> float:
-    return 0.92
+    from ..common.fx import eur_per_usd
+    return eur_per_usd()
 
 
 class AlpacaPaperBroker(BrokerAdapter):

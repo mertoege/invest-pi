@@ -25,6 +25,7 @@ from src.common.data_loader import get_prices
 from src.common.storage import init_all
 from src.learning.pattern_miner import compute_features, find_similar_patterns
 from src.alerts.dispatch import dispatch_new_alerts
+from src.common.predictions import log_prediction
 from scripts.build_patterns import ensure_patterns_built
 
 
@@ -63,6 +64,7 @@ def main() -> None:
     key_news    = cfg.api_keys.get("newsapi", "")
 
     reports = []
+    skipped: list[dict] = []
     for ticker in tickers:
         entry = cfg.entry_by_ticker(ticker)
         if entry:
@@ -74,7 +76,30 @@ def main() -> None:
             if with_patterns:
                 _print_analogs(ticker)
         except Exception as e:
-            print(f"  Fehler: {e}")
+            err_msg = f"{type(e).__name__}: {e}"
+            print(f"  Skip {ticker}: {err_msg}")
+            try:
+                log_prediction(
+                    job_source="score_skip",
+                    model="heuristic-v1",
+                    subject_type="ticker",
+                    subject_id=ticker,
+                    prompt="risk_scorer.score_ticker / 9-dim heuristic / weights-v1",
+                    input_summary=f"{ticker} skip",
+                    output={"error": err_msg, "ticker": ticker},
+                    confidence=None,
+                    cost_estimate_eur=0.0,
+                )
+            except Exception as log_e:
+                print(f"  (log_prediction failed too: {log_e})")
+            skipped.append({"ticker": ticker, "error": err_msg})
+
+    if skipped:
+        print("\n" + "=" * 62)
+        print(f"  SKIPPED ({len(skipped)} Tickers — siehe predictions.score_skip)")
+        print("=" * 62)
+        for s in skipped:
+            print(f"  ! {s['ticker']:<10} {s['error']}")
 
     if reports:
         print("\n" + "=" * 62)
