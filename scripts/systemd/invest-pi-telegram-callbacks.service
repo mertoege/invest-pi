@@ -1,0 +1,12 @@
+[Unit]
+Description=Invest-Pi · Telegram Callback-Handler (1-min poll)
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+EnvironmentFile=/home/investpi/invest-pi/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -B -m src.jobs.telegram_callbacks
+MemoryMax=128M
+CPUQuota=10%

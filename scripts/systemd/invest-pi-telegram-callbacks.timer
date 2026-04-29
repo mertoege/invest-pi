@@ -1,0 +1,10 @@
+[Unit]
+Description=Invest-Pi · Telegram Callback-Poll alle 60s
+
+[Timer]
+OnBootSec=120s
+OnUnitActiveSec=60s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
