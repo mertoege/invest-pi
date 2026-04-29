@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """
-build_patterns.py — Baut die Pattern-Library für deine Watchlist auf.
+build_patterns.py — Pattern-Library Build/Refresh.
 
-Einmal laufen lassen, dann quartals­weise wiederholen. Lädt 10 Jahre Historie
-für jeden Ticker, extrahiert alle Drawdowns > 15 % und speichert die
-Feature-Vektoren davor.
+Modi:
+  python scripts/build_patterns.py                  # alle Watchlist-Ticker (config.yaml universe)
+  python scripts/build_patterns.py NVDA AMD         # spezifische Ticker
+  python scripts/build_patterns.py --summary-only   # nur Report, kein Mining
+  python scripts/build_patterns.py --missing-only   # nur Tickers ohne Events bisher
 
-Laufzeit: ca. 30-60 Sekunden pro Ticker beim ersten Durchlauf (wegen Download).
-Bei späteren Läufen fast instant, weil gecacht.
-
-Usage:
-    python scripts/build_patterns.py                 # Default-Watchlist
-    python scripts/build_patterns.py NVDA AMD        # spezifische Ticker
-    python scripts/build_patterns.py --summary-only  # nur Report, kein Mining
+Wird von:
+  - setup_pi.sh: einmal nach Initial-Setup
+  - invest-pi-patterns.timer: monatlich Refresh
+  - score_portfolio.py: silent-Bootstrap wenn DB leer (siehe ensure_patterns_built)
 """
 
 from __future__ import annotations
@@ -20,64 +19,96 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Pfad so setzen, dass Imports relativ zum Projekt-Root funktionieren
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.common.storage import init_all
+from src.common import config as cfg_mod
+from src.common.storage import PATTERNS_DB, connect, init_all
 from src.learning.pattern_miner import mine_ticker, summary
 
 
-# ────────────────────────────────────────────────────────────
-# DEINE WATCHLIST — aus § 02 des Plans
-# ────────────────────────────────────────────────────────────
-DEFAULT_WATCHLIST = [
-    # Ring 1 — Core
-    "NVDA", "ASML", "TSM", "AMD",
-    # Ring 2 — Ecosystem
-    "AVGO", "MRVL", "ARM", "CDNS", "SNPS", "KLAC", "LRCX",
-    # Ring 3 — Hyperscaler & ETF
-    "MSFT", "GOOGL", "META",
-    "SMH", "SOXX",
-]
+def existing_event_counts() -> dict[str, int]:
+    """Returns {ticker: event_count} aus patterns.db."""
+    try:
+        with connect(PATTERNS_DB) as conn:
+            rows = conn.execute(
+                "SELECT ticker, COUNT(*) as n FROM drawdown_events GROUP BY ticker"
+            ).fetchall()
+        return {r["ticker"]: int(r["n"]) for r in rows}
+    except Exception:
+        return {}
+
+
+def ensure_patterns_built(min_events_per_ticker: int = 5,
+                          quiet: bool = True) -> dict:
+    """
+    Idempotenter Bootstrap. Prueft pro Ticker ob mind. X Events da sind,
+    sonst wird mine_ticker() aufgerufen.
+
+    Wird auch von score_portfolio.py aufgerufen (silent-mode).
+    """
+    init_all()
+    cfg = cfg_mod.load()
+    counts = existing_event_counts()
+
+    target_tickers = cfg.watchlist_tickers
+    missing = [t for t in target_tickers if counts.get(t, 0) < min_events_per_ticker]
+
+    if not missing:
+        return {"status": "all_present", "tickers_with_events": len(counts)}
+
+    built, errors = 0, 0
+    for ticker in missing:
+        try:
+            result = mine_ticker(ticker, period="10y")
+            if "error" not in result:
+                built += 1
+        except Exception as e:
+            errors += 1
+            if not quiet:
+                print(f"  Error mining {ticker}: {e}")
+    return {
+        "status": "built",
+        "missing": len(missing),
+        "built":   built,
+        "errors":  errors,
+    }
 
 
 def main() -> None:
     args = sys.argv[1:]
+    summary_only = "--summary-only" in args
+    missing_only = "--missing-only" in args
+    explicit = [a for a in args if not a.startswith("--")]
 
-    if "--summary-only" in args:
+    init_all()
+
+    if summary_only:
         summary()
         return
 
-    if "--help" in args or "-h" in args:
-        print(__doc__)
-        return
+    cfg = cfg_mod.load()
+    if explicit:
+        tickers = [t.upper() for t in explicit]
+    else:
+        tickers = cfg.watchlist_tickers
 
-    tickers = [a for a in args if not a.startswith("--")] or DEFAULT_WATCHLIST
+    if missing_only:
+        counts = existing_event_counts()
+        before = len(tickers)
+        tickers = [t for t in tickers if counts.get(t, 0) < 5]
+        print(f"\n  --missing-only: {len(tickers)} of {before} tickers need mining")
 
-    print("=" * 60)
-    print(f"  PATTERN LIBRARY BUILDER")
-    print(f"  {len(tickers)} Ticker · 10 Jahre Historie")
-    print("=" * 60)
-
-    # Datenbanken initialisieren (idempotent)
-    init_all()
-
-    results = []
+    print(f"\n  Mining {len(tickers)} tickers...")
+    built, errors = 0, 0
     for ticker in tickers:
         try:
-            result = mine_ticker(ticker, period="10y")
-            results.append(result)
+            mine_ticker(ticker, period="10y")
+            built += 1
         except Exception as e:
-            print(f"   ❌ Fehler bei {ticker}: {e}")
+            print(f"  Error: {ticker}: {e}")
+            errors += 1
 
-    # Zusammenfassung
-    print("\n" + "=" * 60)
-    print("  DURCHGANG BEENDET")
-    print("=" * 60)
-    total_events = sum(r.get("events_found", 0) for r in results)
-    total_saved  = sum(r.get("events_saved", 0) for r in results)
-    print(f"  Gesamt: {total_events} Drawdowns gefunden, {total_saved} neu gespeichert")
-
+    print(f"\n  Done: {built} built, {errors} errors")
     summary()
 
 

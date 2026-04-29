@@ -25,6 +25,7 @@ from src.common.data_loader import get_prices
 from src.common.storage import init_all
 from src.learning.pattern_miner import compute_features, find_similar_patterns
 from src.alerts.dispatch import dispatch_new_alerts
+from scripts.build_patterns import ensure_patterns_built
 
 
 def main() -> None:
@@ -34,6 +35,14 @@ def main() -> None:
 
     cfg = cfg_mod.load()
     init_all()
+
+    # ── Pattern-Library Auto-Bootstrap (nur first-run effektiv) ─────
+    try:
+        result = ensure_patterns_built(min_events_per_ticker=5, quiet=True)
+        if result.get("status") == "built":
+            print(f"  Pattern-Library: {result['built']}/{result['missing']} tickers gemined")
+    except Exception as e:
+        print(f"  Pattern-Bootstrap skipped: {e}")
 
     explicit = [a for a in args if not a.startswith("--")]
     if explicit:
