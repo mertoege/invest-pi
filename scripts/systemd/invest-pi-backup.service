@@ -1,0 +1,13 @@
+[Unit]
+Description=Invest-Pi · Daily DB-Backup (lokal + optional restic)
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+Environment=REPO_DIR=/home/investpi/invest-pi
+EnvironmentFile=-/home/investpi/invest-pi/.env
+ExecStart=/bin/bash /home/investpi/invest-pi/scripts/backup_databases.sh
+MemoryMax=256M
+CPUQuota=20%
+TimeoutStartSec=10min
