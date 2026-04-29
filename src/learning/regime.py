@@ -48,7 +48,8 @@ REGIME_BUY_MULTIPLIER = {
     "low_vol_bull":   1.0,
     "high_vol_mixed": 0.7,
     "bear":           0.5,
-    "unknown":        0.7,  # konservativer Default
+    "unknown":        1.0,  # frisch deployed / kein hmmlearn → keine Adjustierung,
+                            #  bestehende Risk-Filter bleiben primary defense
 }
 
 
