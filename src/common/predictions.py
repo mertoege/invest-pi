@@ -339,3 +339,24 @@ def log_feedback(
             (prediction_id, feedback_type, reason_code, reason_text),
         )
         return int(cur.lastrowid)
+
+
+
+def latest_risk_score_summary(days: int = 30) -> dict:
+    """Aggregat-Stats fuer monthly_dca / meta_review-Prompts."""
+    sql = """
+        SELECT subject_id,
+               AVG(json_extract(output_json, '$.composite')) AS avg_composite,
+               COUNT(*) AS n
+          FROM predictions
+         WHERE job_source = 'daily_score'
+           AND created_at >= datetime('now', ?)
+         GROUP BY subject_id
+         ORDER BY avg_composite ASC
+    """
+    with connect(LEARNING_DB) as conn:
+        rows = conn.execute(sql, (f"-{days} day",)).fetchall()
+    return [
+        {"ticker": r["subject_id"], "avg_composite": float(r["avg_composite"] or 0), "n": int(r["n"])}
+        for r in rows
+    ]

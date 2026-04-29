@@ -200,6 +200,8 @@ def process_update(update: dict) -> None:
         _process_fb(cq)
     elif data.startswith("fbr:"):
         _process_fbr(cq)
+    elif data.startswith("dca:"):
+        _process_dca(cq)
     else:
         _answer_callback(cq["id"], "unbekanntes callback")
 
@@ -233,3 +235,30 @@ def run_once() -> dict:
 if __name__ == "__main__":
     result = run_once()
     print(json.dumps(result, indent=2))
+
+
+
+def _process_dca(callback_query: dict) -> None:
+    """dca:{pred_id}:{action}  action in {bought, etf, skip}"""
+    data    = callback_query["data"]
+    cq_id   = callback_query["id"]
+    msg     = callback_query.get("message", {})
+    chat_id = msg.get("chat", {}).get("id")
+    msg_id  = msg.get("message_id")
+
+    parts = data.split(":")
+    if len(parts) < 3:
+        _answer_callback(cq_id, "ungueltig")
+        return
+    _, pred_id_str, action = parts[0], parts[1], parts[2]
+    try:
+        pred_id = int(pred_id_str)
+    except ValueError:
+        _answer_callback(cq_id, "ungueltiges pred_id")
+        return
+
+    feedback_map = {"bought": "dca_bought", "etf": "dca_etf", "skip": "dca_skip"}
+    fb_type = feedback_map.get(action, "dca_unknown")
+    log_feedback(pred_id, feedback_type=fb_type)
+    _edit_message_markup(chat_id, msg_id, None)
+    _answer_callback(cq_id, f"✓ DCA-{action} notiert")

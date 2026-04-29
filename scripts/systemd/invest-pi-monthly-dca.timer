@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · Monthly DCA jeden 1. um 14:00 CEST
+
+[Timer]
+OnCalendar=*-*-01 14:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

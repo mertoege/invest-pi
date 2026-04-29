@@ -1,0 +1,12 @@
+[Unit]
+Description=Invest-Pi · Monthly DCA-Empfehlung an Mert via Telegram
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+EnvironmentFile=/home/investpi/invest-pi/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -B scripts/monthly_dca.py
+MemoryMax=512M
+CPUQuota=30%
