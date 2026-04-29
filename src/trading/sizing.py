@@ -21,7 +21,7 @@ CONF_FACTOR = {"high": 1.00, "medium": 0.60, "low": 0.30}
 
 # Vol-Targeting: ziel-Annual-Vola der Position. Bei niedrigerer Vola groessere
 # Position, bei hoeherer kleinere. Cap bei 1.0 (nie ueber max_position_eur).
-TARGET_VOL_ANNUAL = 0.25   # ~25% (NVDA-aehnliche Vola gilt als baseline)
+TARGET_VOL_ANNUAL = 0.18   # ~25% (NVDA-aehnliche Vola gilt als baseline)
 MIN_SCALING       = 0.30   # bei extrem-Vola nicht unter 30% des Max gehen
 MAX_SCALING       = 1.00
 

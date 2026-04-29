@@ -244,6 +244,25 @@ settings:
   alert_stufe3_trigger:      75        # Composite-Score für Red-Alert
   dca_fallback_etf:          "SMH"     # wenn kein Titel überzeugt
 
+
+    # Sector-Map fuer max_per_sector_pct-Constraint
+    # Wird vom risk-limits.sector_concentration_check gelesen.
+    sector_map:
+      semiconductors:
+        [NVDA, AMD, INTC, QCOM, MU, SMCI, TSM, ARM, AVGO, MRVL]
+      equipment:
+        [ASML, AMAT, LRCX, KLAC, TER]
+      software:
+        [CDNS, SNPS, CRM, NOW, SNOW, AI, SAP.DE, CAPG.PA, DSY.PA]
+      hyperscaler:
+        [MSFT, GOOGL, META, AMZN, AAPL, ORCL]
+      networking_storage:
+        [ANET, DELL, PLTR]
+      infrastructure:
+        [EQIX, VRT, ETN, NEE, SIE.DE]
+      etfs:
+        [SMH, SOXX, AIQ, BOTZ, QQQ]
+
   # Risiko-Profil: "conservative" | "moderate" | "aggressive"
   risk_profile:              "conservative"
 

@@ -184,6 +184,64 @@ def positions_to_stop_loss(broker: BrokerAdapter,
     return triggered
 
 
+
+def ticker_sector(ticker: str, sector_map: dict) -> str | None:
+    """Reverse-Lookup: gibt Sector fuer einen Ticker zurueck."""
+    for sector, tickers in (sector_map or {}).items():
+        if ticker in tickers:
+            return sector
+    return None
+
+
+def cash_floor_check(broker, config) -> tuple[bool, str]:
+    """
+    Returns (allowed, reason). Pre-Buy-Check.
+    Verboten wenn nach diesem Buy weniger als cash_floor_pct des Equity in Cash uebrig waere.
+    """
+    floor = getattr(config, "cash_floor_pct", 0.0)
+    if floor <= 0:
+        return True, ""
+    acc = broker.get_account()
+    equity = acc.equity_eur
+    cash = acc.cash_eur
+    if equity <= 0:
+        return True, ""
+    cash_pct = cash / equity
+    if cash_pct < floor:
+        return False, f"cash {cash_pct:.0%} < floor {floor:.0%}"
+    return True, ""
+
+
+def sector_concentration_check(broker, config, ticker: str, eur_value: float) -> tuple[bool, str]:
+    """
+    Pre-Buy-Check: nach diesem Buy darf kein Sektor > max_per_sector_pct sein.
+    """
+    cap = getattr(config, "max_per_sector_pct", 1.0)
+    sector_map = getattr(config, "sector_map", {}) or {}
+    if cap >= 1.0 or not sector_map:
+        return True, ""
+    sector = ticker_sector(ticker, sector_map)
+    if not sector:
+        return True, ""   # ohne Sector-Info kein Block
+
+    acc = broker.get_account()
+    equity = acc.equity_eur
+    if equity <= 0:
+        return True, ""
+
+    # Aktueller Wert in diesem Sektor
+    current_in_sector = 0.0
+    for pos in broker.get_positions():
+        pos_sector = ticker_sector(pos.ticker, sector_map)
+        if pos_sector == sector:
+            current_in_sector += pos.market_value_eur
+
+    new_total = current_in_sector + eur_value
+    sector_pct = new_total / equity
+    if sector_pct > cap:
+        return False, f"sector {sector} {sector_pct:.0%} > cap {cap:.0%}"
+    return True, ""
+
 def positions_to_take_profit(broker, config) -> list:
     """
     Returns [(ticker, qty, current_price), ...] fuer Positionen die +take_profit_pct

@@ -46,12 +46,14 @@ def test_moderate_buys_mid_risk_ticker():
         enabled=True, broker="mock", live_trading=False, mode="moderate",
         max_open_positions=8, max_position_eur=300, min_position_eur=25,
         starting_paper_capital=10000,
+        cash_floor_pct=0.20, max_per_sector_pct=0.40,
         score_buy_max=45, force_skip_alert_min=2, moderate_alert_max=1,
         stop_loss_pct=0.10, take_profit_pct=0.20,
         trailing_stop_pct=0.08, trailing_activation_pct=0.12,
         max_daily_loss_pct=0.05, max_trades_per_day=5,
         market_open_cet="15:30", market_close_cet="22:00",
         tradeable_rings=[1, 2], dca_fallback_ticker="SMH",
+        sector_map={},
     )
     # MID hat composite=35, alert=1 → moderate erlaubt
     d = decide_action("MID", set(), 0, ring=1, config=cfg)
@@ -65,12 +67,14 @@ def test_conservative_skips_mid_risk_ticker():
         enabled=True, broker="mock", live_trading=False, mode="conservative",
         max_open_positions=5, max_position_eur=200, min_position_eur=25,
         starting_paper_capital=10000,
+        cash_floor_pct=0.20, max_per_sector_pct=0.40,
         score_buy_max=25, force_skip_alert_min=2, moderate_alert_max=1,
         stop_loss_pct=0.15, take_profit_pct=0.20,
         trailing_stop_pct=0.08, trailing_activation_pct=0.12,
         max_daily_loss_pct=0.05, max_trades_per_day=3,
         market_open_cet="15:30", market_close_cet="22:00",
         tradeable_rings=[1, 2], dca_fallback_ticker="SMH",
+        sector_map={},
     )
     # MID hat composite=35, das ist ueber conservative-Schwelle 25 → skip
     d = decide_action("MID", set(), 0, ring=1, config=cfg)
@@ -84,12 +88,14 @@ def test_moderate_buys_low_confidence():
         enabled=True, broker="mock", live_trading=False, mode="moderate",
         max_open_positions=8, max_position_eur=300, min_position_eur=25,
         starting_paper_capital=10000,
+        cash_floor_pct=0.20, max_per_sector_pct=0.40,
         score_buy_max=45, force_skip_alert_min=2, moderate_alert_max=1,
         stop_loss_pct=0.10, take_profit_pct=0.20,
         trailing_stop_pct=0.08, trailing_activation_pct=0.12,
         max_daily_loss_pct=0.05, max_trades_per_day=5,
         market_open_cet="15:30", market_close_cet="22:00",
         tradeable_rings=[1, 2], dca_fallback_ticker="SMH",
+        sector_map={},
     )
     # LOW hat conf=low + composite=12 → moderate kauft
     d = decide_action("LOW", set(), 0, ring=1, config=cfg)
@@ -105,12 +111,14 @@ def test_take_profit_detection():
         enabled=True, broker="mock", live_trading=False, mode="moderate",
         max_open_positions=8, max_position_eur=300, min_position_eur=25,
         starting_paper_capital=10000,
+        cash_floor_pct=0.20, max_per_sector_pct=0.40,
         score_buy_max=45, force_skip_alert_min=2, moderate_alert_max=1,
         stop_loss_pct=0.10, take_profit_pct=0.20,
         trailing_stop_pct=0.08, trailing_activation_pct=0.12,
         max_daily_loss_pct=0.05, max_trades_per_day=5,
         market_open_cet="15:30", market_close_cet="22:00",
         tradeable_rings=[1, 2], dca_fallback_ticker="SMH",
+        sector_map={},
     )
     b = get_broker("mock")
     # Synthetic position: avg 100, current 130 (+30%) → take-profit

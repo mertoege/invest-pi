@@ -39,6 +39,7 @@ from src.common.storage import TRADING_DB, connect, init_all
 from src.risk.limits import (
     pre_trade_check, positions_to_stop_loss,
     positions_to_take_profit, positions_to_trailing_stop,
+    cash_floor_check, sector_concentration_check,
 )
 from src.trading import TradingConfig, load_trading_config
 from src.trading.decision import decide_action, log_decision
@@ -232,6 +233,16 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
         sz = size_position(decision, broker.get_account().cash_eur, quote.last, fx, t_cfg)
         if sz.skip:
             decisions["skips"].append({"ticker": entry.ticker, "reason": f"sizing: {sz.skip_reason}"})
+            continue
+
+        # Pre-Buy: cash_floor + sector_concentration
+        cash_ok, cash_reason = cash_floor_check(broker, t_cfg)
+        if not cash_ok:
+            decisions["skips"].append({"ticker": entry.ticker, "reason": f"cash-floor: {cash_reason}"})
+            continue
+        sector_ok, sector_reason = sector_concentration_check(broker, t_cfg, entry.ticker, sz.eur_amount)
+        if not sector_ok:
+            decisions["skips"].append({"ticker": entry.ticker, "reason": f"sector-cap: {sector_reason}"})
             continue
 
         if dry_run:

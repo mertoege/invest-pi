@@ -23,6 +23,8 @@ class TradingConfig:
     max_position_eur:           float
     min_position_eur:           float
     starting_paper_capital:     float
+    cash_floor_pct:             float
+    max_per_sector_pct:         float
     score_buy_max:              int
     force_skip_alert_min:       int
     moderate_alert_max:         int
@@ -36,6 +38,7 @@ class TradingConfig:
     market_close_cet:           str
     tradeable_rings:            list
     dca_fallback_ticker:        str
+    sector_map:                 dict
 
 
 def load_trading_config(config_path: Optional[Path] = None) -> TradingConfig:
@@ -53,6 +56,8 @@ def load_trading_config(config_path: Optional[Path] = None) -> TradingConfig:
         max_position_eur=float(t.get("max_position_eur", 200)),
         min_position_eur=float(t.get("min_position_eur", 25)),
         starting_paper_capital=float(t.get("starting_paper_capital", 10000)),
+        cash_floor_pct=float(t.get("cash_floor_pct", 0.20)),
+        max_per_sector_pct=float(t.get("max_per_sector_pct", 0.40)),
         score_buy_max=int(t.get("score_buy_max", 25)),
         force_skip_alert_min=int(t.get("force_skip_alert_min", 2)),
         moderate_alert_max=int(t.get("moderate_alert_max", 1)),
@@ -66,4 +71,5 @@ def load_trading_config(config_path: Optional[Path] = None) -> TradingConfig:
         market_close_cet=str(t.get("market_close_cet", "22:00")),
         tradeable_rings=list(t.get("tradeable_rings", [1, 2])),
         dca_fallback_ticker=str(t.get("dca_fallback_ticker", "SMH")),
+        sector_map=dict(t.get("sector_map", {})),
     )
