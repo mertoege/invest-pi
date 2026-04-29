@@ -43,12 +43,19 @@ PRE_COMMIT="$LOCAL"
 # Stash any local non-commited changes (z.B. _status/snapshot.json wenn von uns selbst geschrieben)
 git stash push --include-untracked -m "auto_pull-pre-pull-$(ts)" >/dev/null 2>&1 || true
 
-# Pull
+# Pull mit rebase. Bei Conflict: hard-reset auf origin/main.
+# Begruendung: lokale "ahead"-Commits sind nur status_push-Snapshots, die werden
+# beim naechsten Tick eh neu geschrieben. Lieber clean sync als broken state.
 if ! git pull --rebase --no-edit --quiet 2>>"$LOG"; then
-    log "pull failed, abort"
+    log "pull failed, recovering via hard reset to origin/main"
     git rebase --abort 2>/dev/null || true
+    git reset --hard origin/main --quiet 2>>"$LOG" || {
+        log "hard reset failed too — manual intervention needed"
+        git stash pop 2>/dev/null || true
+        exit 1
+    }
     git stash pop 2>/dev/null || true
-    exit 1
+    log "recovered: HEAD now $(git rev-parse --short HEAD)"
 fi
 
 # Smoke test (kein network, schneller als 30s)
