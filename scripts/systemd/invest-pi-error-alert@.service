@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · Error-Alert fuer %i
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+Environment=REPO_DIR=/home/investpi/invest-pi
+ExecStart=/bin/bash /home/investpi/invest-pi/scripts/error_alert.sh %i

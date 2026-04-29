@@ -2,6 +2,7 @@
 Description=Invest-Pi · Auto-Pull (push-to-deploy)
 After=network-online.target
 
+OnFailure=invest-pi-error-alert@%n.service
 [Service]
 Type=oneshot
 User=investpi
