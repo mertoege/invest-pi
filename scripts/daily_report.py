@@ -40,6 +40,7 @@ if env_path.exists():
 
 from src.alerts import notifier
 from src.common.outcomes import detect_drift
+from src.common.performance import compute_metrics, format_metrics
 from src.common.predictions import hit_rate, hit_rate_stratified
 from src.common.storage import LEARNING_DB, TRADING_DB, connect
 
@@ -158,6 +159,12 @@ def _build_daily_msg(data: dict) -> str:
     # Pending outcomes
     if data["pending_t1d"] > 0:
         parts.append(f"⏳ Pending T+1d: {data['pending_t1d']} predictions")
+
+    # Performance-Metriken (nur wenn genug Daten)
+    metrics = compute_metrics(source="paper", days=30)
+    if metrics.n_observations >= 2:
+        parts.append("")
+        parts.append(format_metrics(metrics))
 
     return "\n".join(parts)
 
