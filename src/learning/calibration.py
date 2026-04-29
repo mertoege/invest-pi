@@ -19,6 +19,7 @@ from typing import Optional
 
 from ..common.json_utils import safe_parse
 from ..common.predictions import feedback_summary, hit_rate_stratified
+from .attribution import attribution_block as _attribution_block
 from ..common.storage import LEARNING_DB, connect
 
 
@@ -103,6 +104,12 @@ def calibration_block(job_source: str = "daily_score",
                 parts.append(f"### {prio.replace('_', ' ').title()}")
                 for item in items[:3]:
                     parts.append(f"  - {item}")
+        parts.append("")
+
+    # 4. Risk-Dim-Attribution (welche Dim macht Geld)
+    attrib = _attribution_block(job_source, days=30)
+    if attrib:
+        parts.append(attrib)
         parts.append("")
 
     if not parts:

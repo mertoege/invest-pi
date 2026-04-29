@@ -41,6 +41,7 @@ if env_path.exists():
 from src.alerts import notifier
 from src.common.outcomes import detect_drift
 from src.common.performance import compute_metrics, format_metrics
+from src.learning.attribution import attribution_block
 from src.common.predictions import hit_rate, hit_rate_stratified
 from src.common.storage import LEARNING_DB, TRADING_DB, connect
 
@@ -196,6 +197,12 @@ def _build_weekly_msg() -> str:
     drift = detect_drift("daily_score", window_days=7)
     if drift:
         parts.append(f"\n⚠ Drift: {escape(drift['message'])}")
+
+    # Attribution
+    attrib = attribution_block("daily_score", days=7)
+    if attrib:
+        parts.append("")
+        parts.append(attrib)
 
     return "\n".join(parts)
 
