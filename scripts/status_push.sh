@@ -74,15 +74,21 @@ for svc in ["score", "strategy", "sync", "outcomes", "auto-pull", "status-push"]
 # Equity (latest snapshot from trading.db)
 trading = DATA_DIR / "trading.db"
 row = query_one(trading,
-    "SELECT cash_eur, positions_value_eur, total_eur, source, timestamp "
+    "SELECT cash_eur, positions_value_eur, total_eur, "
+    "       cash_usd, positions_value_usd, total_usd, fx_rate, "
+    "       source, timestamp "
     "FROM equity_snapshots ORDER BY timestamp DESC LIMIT 1")
 if row:
     snap["equity"] = {
         "cash_eur":            round(row[0], 2),
         "positions_value_eur": round(row[1], 2),
         "total_eur":           round(row[2], 2),
-        "source":              row[3],
-        "as_of":               row[4],
+        "cash_usd":            round(row[3], 2) if row[3] is not None else None,
+        "positions_value_usd": round(row[4], 2) if row[4] is not None else None,
+        "total_usd":           round(row[5], 2) if row[5] is not None else None,
+        "fx_rate":             round(row[6], 4) if row[6] is not None else None,
+        "source":              row[7],
+        "as_of":               row[8],
     }
 
 # Open positions count

@@ -87,11 +87,19 @@ class MockBroker(BrokerAdapter):
         for ticker, pos in self._positions.items():
             _, mv_eur = self._market_value_eur(ticker, pos["qty"])
             positions_value_eur += mv_eur
-        equity = self._cash_eur + positions_value_eur
+        equity_eur = self._cash_eur + positions_value_eur
+        # MockBroker speichert intern in EUR (synthetisch). USD = EUR / fx.
+        fx = self._fx if self._fx > 0 else 0.92
+        cash_usd   = self._cash_eur / fx
+        equity_usd = equity_eur / fx
         return AccountState(
             cash_eur=self._cash_eur,
-            equity_eur=equity,
+            equity_eur=equity_eur,
             buying_power_eur=self._cash_eur,
+            cash_usd=cash_usd,
+            equity_usd=equity_usd,
+            buying_power_usd=cash_usd,
+            fx_rate=fx,
             raw={"mock": True, "positions_value_eur": positions_value_eur},
         )
 

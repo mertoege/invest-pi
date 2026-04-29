@@ -80,22 +80,24 @@ def is_market_open(now_utc: Optional[dt.datetime] = None,
 # ────────────────────────────────────────────────────────────
 def daily_loss_pct(source: str = "paper") -> Optional[float]:
     """
-    Rueckgabe: equity-Drawdown vom heutigen Hoch (oder gestern-Close, falls noch keiner
-    heute) bis zum aktuellen Stand. None wenn noch kein Snapshot.
+    Equity-Drawdown vom heutigen Hoch (oder gestern-Close) bis aktuellen Stand.
+    Nutzt USD-Werte als FX-resistente Basis — sonst triggert eine 5%-EUR/USD-
+    Schwankung den daily_loss-Cap ohne dass tatsaechlich Geld verloren wurde.
+    Fallback auf EUR wenn USD-Spalten leer (z.B. aelteste Snapshots vor T37).
     """
     sql_today_max = """
-        SELECT MAX(total_eur) FROM equity_snapshots
+        SELECT MAX(COALESCE(total_usd, total_eur)) FROM equity_snapshots
          WHERE source = ?
            AND date(timestamp, 'localtime') = date('now', 'localtime')
     """
     sql_yesterday = """
-        SELECT total_eur FROM equity_snapshots
+        SELECT COALESCE(total_usd, total_eur) FROM equity_snapshots
          WHERE source = ?
            AND date(timestamp, 'localtime') < date('now', 'localtime')
          ORDER BY timestamp DESC LIMIT 1
     """
     sql_now = """
-        SELECT total_eur FROM equity_snapshots
+        SELECT COALESCE(total_usd, total_eur) FROM equity_snapshots
          WHERE source = ?
          ORDER BY timestamp DESC LIMIT 1
     """

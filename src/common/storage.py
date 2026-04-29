@@ -218,6 +218,10 @@ CREATE TABLE IF NOT EXISTS equity_snapshots (
     cash_eur            REAL NOT NULL,
     positions_value_eur REAL NOT NULL,
     total_eur           REAL NOT NULL,
+    cash_usd            REAL,
+    positions_value_usd REAL,
+    total_usd           REAL,
+    fx_rate             REAL,
     source              TEXT NOT NULL DEFAULT 'paper',
     notes               TEXT
 );
@@ -244,6 +248,27 @@ def connect(db_path: Path) -> Generator[sqlite3.Connection, None, None]:
         conn.close()
 
 
+
+
+def _migrate_equity_snapshots() -> None:
+    """Idempotente ALTER TABLE-Migrationen (fuer existierende DBs)."""
+    new_cols = [
+        ("cash_usd",            "REAL"),
+        ("positions_value_usd", "REAL"),
+        ("total_usd",           "REAL"),
+        ("fx_rate",             "REAL"),
+    ]
+    if not TRADING_DB.exists():
+        return
+    with connect(TRADING_DB) as conn:
+        existing = {r[1] for r in conn.execute("PRAGMA table_info(equity_snapshots)").fetchall()}
+        for col, typ in new_cols:
+            if col not in existing:
+                try:
+                    conn.execute(f"ALTER TABLE equity_snapshots ADD COLUMN {col} {typ}")
+                except Exception:
+                    pass
+
 def init_all() -> None:
     """Erstellt alle fuenf Datenbanken mit ihren Schemas. Idempotent."""
     configs = [
@@ -261,6 +286,7 @@ def init_all() -> None:
         except ValueError:
             rel = path
         print(f"  initialisiert: {rel}")
+    _migrate_equity_snapshots()
 
 
 if __name__ == "__main__":

@@ -91,6 +91,10 @@ class AlpacaPaperBroker(BrokerAdapter):
             cash_eur=cash_usd * self._fx,
             equity_eur=equity_usd * self._fx,
             buying_power_eur=buying_power_usd * self._fx,
+            cash_usd=cash_usd,
+            equity_usd=equity_usd,
+            buying_power_usd=buying_power_usd,
+            fx_rate=self._fx,
             raw={
                 "currency": "USD",
                 "cash_usd": cash_usd,

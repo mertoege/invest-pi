@@ -68,15 +68,21 @@ def _record_trade(
 
 def _take_equity_snapshot(broker: BrokerAdapter, source: str, notes: str = "") -> None:
     acc = broker.get_account()
-    pos_val = sum(p.market_value_eur for p in broker.get_positions())
+    positions = broker.get_positions()
+    pos_val_eur = sum(p.market_value_eur for p in positions)
+    pos_val_usd = pos_val_eur / acc.fx_rate if acc.fx_rate else 0
     with connect(TRADING_DB) as conn:
         conn.execute(
             """
             INSERT INTO equity_snapshots
-                (cash_eur, positions_value_eur, total_eur, source, notes)
-            VALUES (?, ?, ?, ?, ?)
+                (cash_eur, positions_value_eur, total_eur,
+                 cash_usd, positions_value_usd, total_usd,
+                 fx_rate, source, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (acc.cash_eur, pos_val, acc.equity_eur, source, notes),
+            (acc.cash_eur, pos_val_eur, acc.equity_eur,
+             acc.cash_usd, pos_val_usd, acc.equity_usd,
+             acc.fx_rate, source, notes),
         )
 
 

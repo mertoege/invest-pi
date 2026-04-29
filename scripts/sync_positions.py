@@ -36,14 +36,19 @@ def sync(broker_kind: str | None = None) -> dict:
     pos_value = sum(p.market_value_eur for p in positions)
 
     with connect(TRADING_DB) as conn:
-        # 2. Equity-Snapshot
+        # 2. Equity-Snapshot mit USD + FX
+        positions_value_usd = sum(p.market_value_eur for p in positions) / account.fx_rate if account.fx_rate else 0
         conn.execute(
             """
             INSERT INTO equity_snapshots
-                (cash_eur, positions_value_eur, total_eur, source)
-            VALUES (?, ?, ?, ?)
+                (cash_eur, positions_value_eur, total_eur,
+                 cash_usd, positions_value_usd, total_usd,
+                 fx_rate, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (account.cash_eur, pos_value, account.equity_eur, src),
+            (account.cash_eur, pos_value, account.equity_eur,
+             account.cash_usd, positions_value_usd, account.equity_usd,
+             account.fx_rate, src),
         )
 
         # 3. Positions ueberschreiben (broker = source of truth)

@@ -28,6 +28,10 @@ class AccountState:
     cash_eur:         float
     equity_eur:       float
     buying_power_eur: float
+    cash_usd:         float = 0.0
+    equity_usd:       float = 0.0
+    buying_power_usd: float = 0.0
+    fx_rate:          float = 0.0     # EUR per 1 USD zum Zeitpunkt der Messung
     currency:         str = "EUR"
     raw:              dict = field(default_factory=dict)
 
