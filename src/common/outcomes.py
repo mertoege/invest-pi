@@ -31,7 +31,7 @@ from typing import Optional
 
 import pandas as pd
 
-from .data_loader import get_prices
+# data_loader wird lazy in measure_outcome_for importiert (yfinance optional)
 from .json_utils import safe_parse
 from .predictions import (
     pending_outcomes,
@@ -144,6 +144,7 @@ def measure_outcome_for(pred: PredictionRecord) -> Optional[dict]:
     created = dt.datetime.fromisoformat(pred.created_at.replace(" ", "T"))
 
     try:
+        from .data_loader import get_prices
         prices = get_prices(pred.subject_id, period="3mo")
     except Exception as e:
         return {"error": f"price-fetch failed: {e}"}
