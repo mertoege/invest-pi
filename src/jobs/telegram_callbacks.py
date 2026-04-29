@@ -232,12 +232,6 @@ def run_once() -> dict:
     return {"updates": len(updates), "processed": processed, "new_offset": last_id}
 
 
-if __name__ == "__main__":
-    result = run_once()
-    print(json.dumps(result, indent=2))
-
-
-
 def _process_dca(callback_query: dict) -> None:
     """dca:{pred_id}:{action}  action in {bought, etf, skip}"""
     data    = callback_query["data"]
@@ -262,3 +256,9 @@ def _process_dca(callback_query: dict) -> None:
     log_feedback(pred_id, feedback_type=fb_type)
     _edit_message_markup(chat_id, msg_id, None)
     _answer_callback(cq_id, f"✓ DCA-{action} notiert")
+
+
+if __name__ == "__main__":
+    result = run_once()
+    print(json.dumps(result, indent=2))
+
