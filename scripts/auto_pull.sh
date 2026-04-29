@@ -20,6 +20,28 @@ LOG="$LOG_DIR/auto_pull.log"
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 log() { echo "[$(ts)] $*" | tee -a "$LOG" >&2; }
 
+
+# ────────────────────────────────────────────────────────────
+# systemd-Sync-Function (idempotent; vergleicht cmp, kopiert bei Diff)
+# ────────────────────────────────────────────────────────────
+sync_systemd_files() {
+    local src="$REPO_DIR/scripts/systemd"
+    local dst="/etc/systemd/system"
+    local changed=0
+    [ -d "$src" ] || return 0
+    for f in "$src"/*.service "$src"/*.timer; do
+        [ -f "$f" ] || continue
+        local target="$dst/$(basename "$f")"
+        if [ ! -f "$target" ] || ! cmp -s "$f" "$target"; then
+            sudo cp "$f" "$target" 2>/dev/null && changed=1
+        fi
+    done
+    if [ "$changed" -eq 1 ]; then
+        sudo systemctl daemon-reload 2>/dev/null
+        log "systemd-Files synced + daemon-reload"
+    fi
+}
+
 cd "$REPO_DIR" || { log "REPO_DIR $REPO_DIR not found"; exit 1; }
 
 # Ignoriere CRLF-Phantom-Modifications
@@ -31,7 +53,9 @@ LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse origin/main)
 
 if [ "$LOCAL" = "$REMOTE" ]; then
-    # nichts neues
+    # Kein Code-Update — aber systemd-files koennten dennoch out-of-sync sein
+    # (z.B. nach einem Push der nur systemd/ touched, oder beim allerersten Setup)
+    sync_systemd_files
     exit 0
 fi
 
@@ -70,23 +94,7 @@ else
     exit 2
 fi
 
-# systemd-Files synchronisieren (nur wenn sich was geaendert hat)
-SYSTEMD_SRC="$REPO_DIR/scripts/systemd"
-SYSTEMD_DST="/etc/systemd/system"
-SYSTEMD_CHANGED=0
-if [ -d "$SYSTEMD_SRC" ]; then
-    for f in "$SYSTEMD_SRC"/*.service "$SYSTEMD_SRC"/*.timer; do
-        [ -f "$f" ] || continue
-        target="$SYSTEMD_DST/$(basename "$f")"
-        if [ ! -f "$target" ] || ! cmp -s "$f" "$target"; then
-            sudo cp "$f" "$target" 2>/dev/null && SYSTEMD_CHANGED=1
-        fi
-    done
-    if [ "$SYSTEMD_CHANGED" -eq 1 ]; then
-        sudo systemctl daemon-reload 2>/dev/null
-        log "systemd-Files synced + daemon-reload"
-    fi
-fi
+sync_systemd_files
 
 # Type=oneshot Services laufen eh erst beim naechsten Timer-Trigger,
 # also kein restart noetig.
