@@ -48,10 +48,37 @@ log = logging.getLogger("invest_pi.backtest")
 # ────────────────────────────────────────────────────────────
 # DATEN-LADEN (lazy yfinance)
 # ────────────────────────────────────────────────────────────
-def _load_history(tickers: list[str], period: str = "5y") -> dict[str, pd.DataFrame]:
-    """Lade OHLCV-History fuer alle Tickers via market.db-Cache + yfinance."""
-    from ..common.data_loader import get_prices
+def _load_history(tickers: list[str], start: str = None, end: str = None,
+                  period: str = "5y") -> dict[str, pd.DataFrame]:
+    """
+    Lade OHLCV-History fuer alle Tickers.
+
+    Wenn start+end gegeben: direkt yfinance mit explicit Range (cache-bypass).
+    Sonst: data_loader-cache (period-basiert, gut fuer Live-Use, schlecht fuer
+    historische Backtest-Windows).
+    """
     out = {}
+    if start and end:
+        try:
+            import yfinance as yf
+            for t in tickers:
+                try:
+                    df = yf.Ticker(t).history(start=start, end=end, auto_adjust=True)
+                    if df.empty:
+                        log.warning(f"{t}: keine Daten in [{start}, {end}]")
+                        continue
+                    df = df.rename(columns=str.lower)[["open","high","low","close","volume"]]
+                    df.index = pd.to_datetime(df.index).tz_localize(None).normalize()
+                    df.index.name = "date"
+                    out[t] = df
+                except Exception as e:
+                    log.warning(f"konnte {t} nicht laden: {e}")
+            return out
+        except ImportError:
+            log.warning("yfinance fehlt, fallback auf data_loader")
+
+    # Fallback auf cache
+    from ..common.data_loader import get_prices
     for t in tickers:
         try:
             df = get_prices(t, period=period)
@@ -175,7 +202,10 @@ def run_backtest(
 
     Tickers: Liste der tradeable-Tickers. Plus SMH wird automatisch fuer Baseline geladen.
     """
-    history = _load_history(tickers + ["SMH"], period=period)
+    # yfinance.history mit explicit start/end braucht etwas Puffer fuer Look-Behind-Berechnungen
+    import datetime as dt
+    history_start = (dt.datetime.fromisoformat(start) - dt.timedelta(days=120)).strftime("%Y-%m-%d")
+    history = _load_history(tickers + ["SMH"], start=history_start, end=end, period=period)
 
     # Trading-Daten: aligned dates aus allen Tickers (intersection)
     if not history:
