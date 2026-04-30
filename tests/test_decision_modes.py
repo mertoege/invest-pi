@@ -57,6 +57,7 @@ def test_moderate_buys_mid_risk_ticker():
         strategies={"mid_term": {"take_profit_pct": 0.20, "stop_loss_pct": 0.10,
                                   "trailing_activation_pct": 0.10, "trailing_stop_pct": 0.10}},
         long_term_composite_max=25,
+        regime_profiles={},
     )
     # MID hat composite=35, alert=1 → moderate erlaubt
     d = decide_action("MID", set(), 0, ring=1, config=cfg)
@@ -81,6 +82,7 @@ def test_conservative_skips_mid_risk_ticker():
         strategies={"mid_term": {"take_profit_pct": 0.20, "stop_loss_pct": 0.10,
                                   "trailing_activation_pct": 0.10, "trailing_stop_pct": 0.10}},
         long_term_composite_max=25,
+        regime_profiles={},
     )
     # MID hat composite=35, das ist ueber conservative-Schwelle 25 → skip
     d = decide_action("MID", set(), 0, ring=1, config=cfg)
@@ -105,6 +107,7 @@ def test_moderate_buys_low_confidence():
         strategies={"mid_term": {"take_profit_pct": 0.20, "stop_loss_pct": 0.10,
                                   "trailing_activation_pct": 0.10, "trailing_stop_pct": 0.10}},
         long_term_composite_max=25,
+        regime_profiles={},
     )
     # LOW hat conf=low + composite=12 → moderate kauft
     d = decide_action("LOW", set(), 0, ring=1, config=cfg)
@@ -131,6 +134,7 @@ def test_take_profit_detection():
         strategies={"mid_term": {"take_profit_pct": 0.20, "stop_loss_pct": 0.10,
                                   "trailing_activation_pct": 0.10, "trailing_stop_pct": 0.10}},
         long_term_composite_max=25,
+        regime_profiles={},
     )
     b = get_broker("mock")
     # Synthetic position: avg 100, current 130 (+30%) → take-profit
