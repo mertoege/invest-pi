@@ -13,6 +13,7 @@
   },
   "git": {
     "branch": "main",
+<<<<<<< Updated upstream
     "commit": "ded777d",
     "dirty": false
   },
@@ -21,20 +22,30 @@
     "disk_pct": 9,
     "load_1min": 0.0,
     "mem_pct": 21
+=======
+    "commit": "e2c49ca",
+    "dirty": false
+  },
+  "hardware": {
+    "cpu_temp_c": 58.4,
+    "disk_pct": 9,
+    "load_1min": 0.2,
+    "mem_pct": 20
+>>>>>>> Stashed changes
   },
   "last_runs": {
     "run_strategy": "Wed 2026-04-29 16:00:06 CEST",
-    "score_portfolio": "Thu 2026-04-30 02:30:31 CEST",
+    "score_portfolio": "Thu 2026-04-30 03:30:28 CEST",
     "sync_positions": "Thu 2026-04-30 02:35:14 CEST",
     "track_outcomes": "Thu 2026-04-30 02:30:12 CEST"
   },
   "predictions": {
     "correct": 0,
     "incorrect": 0,
-    "last_24h": 1020,
-    "last_7d": 1398,
-    "pending": 1398,
-    "total": 1398
+    "last_24h": 1021,
+    "last_7d": 1441,
+    "pending": 1441,
+    "total": 1441
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +55,9 @@
     "strategy": "active",
     "sync": "active"
   },
+<<<<<<< Updated upstream
   "timestamp_utc": "2026-04-30T01:22:43"
+=======
+  "timestamp_utc": "2026-04-30T01:31:05"
+>>>>>>> Stashed changes
 }
