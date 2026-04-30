@@ -210,16 +210,16 @@ def _profile_for_regime(regime: str, config_dict: dict | None) -> dict:
     """Defaults wenn config_dict None (in backtest).
     Sonst aus config genommen."""
     defaults = {
-        "low_vol_bull":   {"score_buy_max": 60, "max_open_positions": 25,
-                           "max_position_eur": 4000, "stop_loss_pct": 0.12,
-                           "take_profit_pct": 0.50, "trailing_activation": 0.15,
+        "low_vol_bull":   {"score_buy_max": 70, "max_open_positions": 25,
+                           "max_position_eur": 5000, "stop_loss_pct": 0.12,
+                           "take_profit_pct": 0.65, "trailing_activation": 0.20,
                            "trailing_stop_pct": 0.12},
         "high_vol_mixed": {"score_buy_max": 45, "max_open_positions": 20,
                            "max_position_eur": 2500, "stop_loss_pct": 0.10,
                            "take_profit_pct": 0.40, "trailing_activation": 0.10,
                            "trailing_stop_pct": 0.10},
-        "bear":           {"score_buy_max": 20, "max_open_positions": 5,
-                           "max_position_eur": 400, "stop_loss_pct": 0.08,
+        "bear":           {"score_buy_max": 20, "max_open_positions": 8,
+                           "max_position_eur": 800, "stop_loss_pct": 0.08,
                            "take_profit_pct": 0.20, "trailing_activation": 0.05,
                            "trailing_stop_pct": 0.06},
         "unknown":        {"score_buy_max": 45, "max_open_positions": 20,

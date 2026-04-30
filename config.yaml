@@ -306,13 +306,13 @@ settings:
     #   - kombiniert gewinnt adaptive
     regime_profiles:
       low_vol_bull:
-        score_buy_max:        60       # mehr buy-Kandidaten in Bull-Phase
+        score_buy_max:        70       # noch mehr buy-Kandidaten (war 60)
         max_open_positions:   25
-        max_position_eur:     4000     # voller capital-deployment
-        max_trades_per_day:   8
+        max_position_eur:     5000     # mehr Capital pro Position (war 4000)
+        max_trades_per_day:   10
         stop_loss_pct:        0.12
-        take_profit_pct:      0.50
-        trailing_activation:  0.15
+        take_profit_pct:      0.65     # spaeter raus (war 0.50)
+        trailing_activation:  0.20
         trailing_stop_pct:    0.12
       high_vol_mixed:
         score_buy_max:        45       # aktuelles moderate-setup
@@ -324,12 +324,12 @@ settings:
         trailing_activation:  0.10
         trailing_stop_pct:    0.10
       bear:
-        score_buy_max:        20       # sehr selektiv, kaum Buys
-        max_open_positions:   5
-        max_position_eur:     400      # kleine positions in bear
-        max_trades_per_day:   2
+        score_buy_max:        20       # selektiv (gleich)
+        max_open_positions:   8        # mehr Diversifikation (war 5)
+        max_position_eur:     800      # bisschen mehr Capital (war 400)
+        max_trades_per_day:   3
         stop_loss_pct:        0.08     # tight stop
-        take_profit_pct:      0.20     # frueher take-profit
+        take_profit_pct:      0.20
         trailing_activation:  0.05
         trailing_stop_pct:    0.06
       unknown:                # fallback wenn HMM noch nicht trained ist
