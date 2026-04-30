@@ -1,6 +1,5 @@
 [Unit]
 Description=Invest-Pi · Wöchentliches HMM-Regime-Training
-OnFailure=invest-pi-error-alert@%n.service
 
 [Service]
 Type=oneshot

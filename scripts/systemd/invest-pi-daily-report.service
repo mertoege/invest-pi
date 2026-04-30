@@ -1,6 +1,5 @@
 [Unit]
 Description=Invest-Pi · Daily Performance Report (Telegram)
-OnFailure=invest-pi-error-alert@%n.service
 
 [Service]
 Type=oneshot

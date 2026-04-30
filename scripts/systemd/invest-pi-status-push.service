@@ -2,7 +2,6 @@
 Description=Invest-Pi · Status-Snapshot Push
 After=network-online.target
 
-OnFailure=invest-pi-error-alert@%n.service
 [Service]
 Type=oneshot
 User=investpi
