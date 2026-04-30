@@ -183,6 +183,54 @@ class BacktestResult:
         return "\n".join(lines)
 
 
+
+
+def _detect_regime_for_day(spy_window: pd.DataFrame, vix_window: pd.DataFrame) -> str:
+    """
+    Vereinfachte rule-based Regime-Detection fuer Backtest-Tage.
+    Echte HMM ist fuer Live-Use; im Backtest wuerden wir 5y zurueck-trainieren brauchen
+    was zu Look-Ahead-Bias fuehren wuerde. Stattdessen: einfache VIX-Regel:
+
+      vix_close < 20  AND spy_5d_ret > -0.02:  low_vol_bull
+      vix_close > 30  OR  spy_5d_ret < -0.05:  bear
+      sonst:                                    high_vol_mixed
+    """
+    if len(spy_window) < 5 or len(vix_window) < 1:
+        return "unknown"
+    vix = float(vix_window["close"].iloc[-1])
+    spy_5d_ret = float(spy_window["close"].iloc[-1] / spy_window["close"].iloc[-5] - 1) if len(spy_window) >= 5 else 0
+    if vix > 30 or spy_5d_ret < -0.05:
+        return "bear"
+    if vix < 20 and spy_5d_ret > -0.02:
+        return "low_vol_bull"
+    return "high_vol_mixed"
+
+
+def _profile_for_regime(regime: str, config_dict: dict | None) -> dict:
+    """Defaults wenn config_dict None (in backtest).
+    Sonst aus config genommen."""
+    defaults = {
+        "low_vol_bull":   {"score_buy_max": 60, "max_open_positions": 25,
+                           "max_position_eur": 4000, "stop_loss_pct": 0.12,
+                           "take_profit_pct": 0.50, "trailing_activation": 0.15,
+                           "trailing_stop_pct": 0.12},
+        "high_vol_mixed": {"score_buy_max": 45, "max_open_positions": 20,
+                           "max_position_eur": 2500, "stop_loss_pct": 0.10,
+                           "take_profit_pct": 0.40, "trailing_activation": 0.10,
+                           "trailing_stop_pct": 0.10},
+        "bear":           {"score_buy_max": 20, "max_open_positions": 5,
+                           "max_position_eur": 400, "stop_loss_pct": 0.08,
+                           "take_profit_pct": 0.20, "trailing_activation": 0.05,
+                           "trailing_stop_pct": 0.06},
+        "unknown":        {"score_buy_max": 45, "max_open_positions": 20,
+                           "max_position_eur": 2500, "stop_loss_pct": 0.10,
+                           "take_profit_pct": 0.40, "trailing_activation": 0.10,
+                           "trailing_stop_pct": 0.10},
+    }
+    if config_dict:
+        return config_dict.get(regime, defaults.get(regime, defaults["unknown"]))
+    return defaults.get(regime, defaults["unknown"])
+
 def run_backtest(
     *,
     start:           str,                # "2024-01-01"
@@ -196,6 +244,8 @@ def run_backtest(
     position_eur:    float = 2500,
     fee_pct:         float = 0.0005,     # 0.05% slippage
     period:          str = "5y",
+    mode:            str = "static",     # "static" | "adaptive"
+    regime_profiles: dict = None,
 ) -> BacktestResult:
     """
     Walk-Forward-Backtest mit der gegebenen Config gegen historische Daten.
@@ -239,6 +289,15 @@ def run_backtest(
     n_losses = 0
     equity_history = []
 
+    # Initialisiere current-thresholds (werden im adaptive-Mode pro Tag ueberschrieben)
+    current_score_buy_max = score_buy_max
+    current_max_positions = max_positions
+    current_position_eur  = position_eur
+    current_stop_loss     = stop_loss_pct
+    current_take_profit   = take_profit_pct
+    current_trail_act     = 0.10
+    current_trail_stop    = 0.10
+
     tradeable = [t for t in tickers if t in history]
 
     for day_idx in range(len(all_days)):
@@ -264,14 +323,18 @@ def run_backtest(
             px = float(history[tkr]["close"].iloc[day_idx])
             gain_pct = (px / pos.avg_price) - 1
             sell_reason = None
-            if gain_pct <= -stop_loss_pct:
+            # Use current_* fuer adaptive thresholds (set above pro day)
+            sl = current_stop_loss if mode == "adaptive" else stop_loss_pct
+            tp = current_take_profit if mode == "adaptive" else take_profit_pct
+            tr_act = current_trail_act if mode == "adaptive" else 0.10
+            tr_stop = current_trail_stop if mode == "adaptive" else 0.10
+            if gain_pct <= -sl:
                 sell_reason = "stop_loss"
-            elif gain_pct >= take_profit_pct:
+            elif gain_pct >= tp:
                 sell_reason = "take_profit"
             elif pos.peak_price > 0:
-                # Trailing: ab +10% Profit, -10% vom peak
-                if gain_pct >= 0.10:
-                    if (px / pos.peak_price - 1) <= -0.10:
+                if gain_pct >= tr_act:
+                    if (px / pos.peak_price - 1) <= -tr_stop:
                         sell_reason = "trailing"
             if sell_reason:
                 to_sell.append((tkr, px, sell_reason, gain_pct))
@@ -286,10 +349,43 @@ def run_backtest(
             else:
                 n_losses += 1
 
+        # Adaptive-Mode: regime-detection + profile-Auswahl
+        if mode == "adaptive" and "SMH" in history:
+            spy = history.get("SMH")
+            vix_proxy = history.get("SMH")  # Wir haben kein VIX in default-tickers; nutze SMH-Vola als proxy
+            if spy is not None and day_idx >= 30:
+                spy_win = spy.iloc[max(0, day_idx-30):day_idx+1]
+                # Synthetisch: VIX-proxy = 20-day-vola von SMH skaliert
+                if len(spy_win) >= 20:
+                    rets = spy_win["close"].pct_change().dropna()
+                    vol = float(rets.tail(20).std() * (252 ** 0.5)) * 100  # in % p.a. ~= VIX-skala
+                    vix_synth = pd.DataFrame({"close": [vol]}, index=[spy_win.index[-1]])
+                    regime = _detect_regime_for_day(spy_win, vix_synth)
+                else:
+                    regime = "unknown"
+            else:
+                regime = "unknown"
+            profile = _profile_for_regime(regime, regime_profiles)
+            current_score_buy_max = profile["score_buy_max"]
+            current_max_positions = profile["max_open_positions"]
+            current_position_eur  = profile["max_position_eur"]
+            current_stop_loss     = profile["stop_loss_pct"]
+            current_take_profit   = profile["take_profit_pct"]
+            current_trail_act     = profile["trailing_activation"]
+            current_trail_stop    = profile["trailing_stop_pct"]
+        else:
+            current_score_buy_max = score_buy_max
+            current_max_positions = max_positions
+            current_position_eur  = position_eur
+            current_stop_loss     = stop_loss_pct
+            current_take_profit   = take_profit_pct
+            current_trail_act     = 0.10
+            current_trail_stop    = 0.10
+
         # 3. Buy-Pass: pro Ticker check signal_score
-        if len(positions) < max_positions and cash >= position_eur:
+        if len(positions) < current_max_positions and cash >= current_position_eur:
             for tkr in tradeable:
-                if len(positions) >= max_positions:
+                if len(positions) >= current_max_positions:
                     break
                 if tkr in positions:
                     continue
@@ -299,15 +395,15 @@ def run_backtest(
                 if day_idx < 60:
                     continue
                 score = _signal_score(df, day_idx)
-                if score < score_buy_max:
+                if score < current_score_buy_max:
                     px = float(df["close"].iloc[day_idx])
-                    if cash >= position_eur:
-                        qty = (position_eur / px) * (1 - fee_pct)
+                    if cash >= current_position_eur:
+                        qty = (current_position_eur / px) * (1 - fee_pct)
                         positions[tkr] = _Position(
                             ticker=tkr, qty=qty, avg_price=px,
                             peak_price=px, opened_day=day_idx,
                         )
-                        cash -= position_eur
+                        cash -= current_position_eur
                         n_trades += 1
 
     # 4. Final Liquidation: alle offenen Positionen zum letzten Preis

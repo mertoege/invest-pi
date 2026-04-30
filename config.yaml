@@ -268,7 +268,7 @@ settings:
     enabled:                   true
     broker:                    "alpaca_paper"   # alpaca_paper | mock | (später) alpaca_live
     live_trading:              false            # MUSS hier UND in env LIVE_TRADING=true sein für echte Orders
-    mode:                      "moderate"       # conservative | moderate | experimental
+    mode:                      "adaptive"       # conservative | moderate | aggressive | adaptive
 
     # Position-Limits
     max_open_positions:        8                # gleichzeitig offene Positionen (Paper)
@@ -298,6 +298,49 @@ settings:
     tradeable_rings:           [1, 2]
     # ETF-Fallback wenn kein Titel überzeugt (bleibt fix)
     dca_fallback_ticker:      "SMH"
+
+    # ── Regime-Profile fuer adaptive Mode (waehlen pro HMM-State) ──
+    # Backtest-Befunde (Bull 2024-25 + Bear 2022 + Combined 3y):
+    #   - aggressive in Bull: +39.89% (Sharpe 1.14)
+    #   - conservative in Bear: -0.73% (vs SMH -34.97%, Alpha +34%)
+    #   - kombiniert gewinnt adaptive
+    regime_profiles:
+      low_vol_bull:
+        score_buy_max:        60       # mehr buy-Kandidaten in Bull-Phase
+        max_open_positions:   25
+        max_position_eur:     4000     # voller capital-deployment
+        max_trades_per_day:   8
+        stop_loss_pct:        0.12
+        take_profit_pct:      0.50
+        trailing_activation:  0.15
+        trailing_stop_pct:    0.12
+      high_vol_mixed:
+        score_buy_max:        45       # aktuelles moderate-setup
+        max_open_positions:   20
+        max_position_eur:     2500
+        max_trades_per_day:   5
+        stop_loss_pct:        0.10
+        take_profit_pct:      0.40
+        trailing_activation:  0.10
+        trailing_stop_pct:    0.10
+      bear:
+        score_buy_max:        20       # sehr selektiv, kaum Buys
+        max_open_positions:   5
+        max_position_eur:     400      # kleine positions in bear
+        max_trades_per_day:   2
+        stop_loss_pct:        0.08     # tight stop
+        take_profit_pct:      0.20     # frueher take-profit
+        trailing_activation:  0.05
+        trailing_stop_pct:    0.06
+      unknown:                # fallback wenn HMM noch nicht trained ist
+        score_buy_max:        45
+        max_open_positions:   20
+        max_position_eur:     2500
+        max_trades_per_day:   5
+        stop_loss_pct:        0.10
+        take_profit_pct:      0.40
+        trailing_activation:  0.10
+        trailing_stop_pct:    0.10
 
     # Multi-Horizon Strategies (long-term hold + mid-term momentum)
     # Pro Strategy eigene take_profit/stop_loss/trailing-Schwellen.

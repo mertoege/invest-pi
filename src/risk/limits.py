@@ -247,7 +247,24 @@ def sector_concentration_check(broker, config, ticker: str, eur_value: float) ->
 
 
 def _strategy_thresholds(config, label: str) -> dict:
-    """Holt take_profit/stop_loss/trailing-Werte fuer eine Strategy."""
+    """
+    Holt take_profit/stop_loss/trailing-Werte.
+    - Adaptive-Mode: aus aktiver regime-profile (override strategies-block)
+    - Sonst: aus strategies-block oder config-defaults
+    """
+    if getattr(config, "mode", "") == "adaptive":
+        try:
+            from ..trading import get_active_profile
+            profile = get_active_profile(config)
+            return {
+                "take_profit_pct":         float(profile.get("take_profit_pct", config.take_profit_pct)),
+                "stop_loss_pct":           float(profile.get("stop_loss_pct", config.stop_loss_pct)),
+                "trailing_activation_pct": float(profile.get("trailing_activation", config.trailing_activation_pct)),
+                "trailing_stop_pct":       float(profile.get("trailing_stop_pct", config.trailing_stop_pct)),
+            }
+        except Exception:
+            pass
+
     strategies = getattr(config, "strategies", {}) or {}
     s = strategies.get(label) or strategies.get("mid_term") or {}
     return {

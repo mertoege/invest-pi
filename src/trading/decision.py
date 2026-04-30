@@ -33,7 +33,7 @@ from ..common.json_utils import safe_parse
 from ..common.predictions import log_prediction
 from ..learning.regime import regime_buy_multiplier
 from ..common.storage import LEARNING_DB, connect
-from . import TradingConfig
+from . import TradingConfig, get_active_profile
 
 
 @dataclass
@@ -169,11 +169,16 @@ def decide_action(
     # Moderate erlaubt zusaetzlich triggered_dims > 0 wenn composite ausreichend niedrig
     triggered_ok = triggered == 0 if not is_moderate else triggered <= 2
 
+    # Adaptive-Profile holen wenn mode=adaptive, sonst config-Werte
+    profile = get_active_profile(config)
+    profile_buy_max = profile.get("score_buy_max", config.score_buy_max)
+
     try:
-        regime_mult = regime_buy_multiplier()
+        regime_mult = regime_buy_multiplier() if config.mode != "adaptive" else 1.0
     except Exception:
-        regime_mult = 1.0  # bei Fehler kein adjustierung
-    effective_buy_max = config.score_buy_max * regime_mult
+        regime_mult = 1.0
+    # adaptive nutzt schon regime-spezifische Werte → kein zusätzlicher mult
+    effective_buy_max = profile_buy_max * regime_mult
 
     if risk < effective_buy_max and triggered_ok:
         # Strategy-Label-Auswahl: ring 1 + sehr niedriges composite → long_term

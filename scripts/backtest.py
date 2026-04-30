@@ -60,6 +60,9 @@ def main() -> int:
                               "take_profit_pct": 0.40, "position_eur": 2500, "max_positions": 20}),
             ("aggressive",   {"score_buy_max": 60, "stop_loss_pct": 0.12,
                               "take_profit_pct": 0.50, "position_eur": 4000, "max_positions": 25}),
+            ("ADAPTIVE",     {"score_buy_max": 45, "stop_loss_pct": 0.10,
+                              "take_profit_pct": 0.40, "position_eur": 2500, "max_positions": 20,
+                              "mode": "adaptive"}),
         ]
         results = []
         for name, cfg in configs:

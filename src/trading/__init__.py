@@ -41,6 +41,7 @@ class TradingConfig:
     sector_map:                 dict
     strategies:                 dict
     long_term_composite_max:    int
+    regime_profiles:            dict
 
 
 def load_trading_config(config_path: Optional[Path] = None) -> TradingConfig:
@@ -76,4 +77,35 @@ def load_trading_config(config_path: Optional[Path] = None) -> TradingConfig:
         sector_map=dict(t.get("sector_map", {})),
         strategies=dict(t.get("strategies", {})),
         long_term_composite_max=int(t.get("long_term_composite_max", 25)),
+        regime_profiles=dict(t.get("regime_profiles", {})),
     )
+
+
+def get_active_profile(config: TradingConfig) -> dict:
+    """
+    Returns die aktiven Schwellen basierend auf config.mode:
+    - 'adaptive': nutzt aktuelles HMM-Regime und liest aus config.regime_profiles
+    - sonst: returnt config-eigene Werte als Profile-Dict
+    """
+    if config.mode == "adaptive" and config.regime_profiles:
+        try:
+            from ..learning.regime import current_regime
+            regime = current_regime()
+            label = regime.label
+        except Exception:
+            label = "unknown"
+        profile = config.regime_profiles.get(label) or config.regime_profiles.get("unknown") or {}
+        if profile:
+            return profile
+
+    # Fallback: config-eigene Werte
+    return {
+        "score_buy_max":        config.score_buy_max,
+        "max_open_positions":   config.max_open_positions,
+        "max_position_eur":     config.max_position_eur,
+        "max_trades_per_day":   config.max_trades_per_day,
+        "stop_loss_pct":        config.stop_loss_pct,
+        "take_profit_pct":      config.take_profit_pct,
+        "trailing_activation":  config.trailing_activation_pct,
+        "trailing_stop_pct":    config.trailing_stop_pct,
+    }
