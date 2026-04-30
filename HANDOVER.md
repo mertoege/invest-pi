@@ -1,6 +1,6 @@
 # 🚀 Invest-Pi · Handover-Dokumentation
 
-**Last update:** 2026-04-30 nach autonomer Optimierungs-Session  
+**Last update:** 2026-04-30 nach B3-V2-Backtester-Session  
 **Project owner:** Mert Oege (mert.oege@gmail.com)  
 **Repository:** https://github.com/mertoege/invest-pi  
 **Pi-Tailscale-IP:** `100.92.115.43`  
@@ -13,7 +13,7 @@
 1. **Memory ist auto-loaded.** Lies `MEMORY.md` (auto-attached) für vollen Kontext.
 2. **Code ist auf GitHub.** Niemals direkt im Mount git-operieren — immer in `/tmp` clonen:
    ```bash
-   TOKEN=$(grep -oE 'oauth2:[^@]+' /sessions/ecstatic-dreamy-shannon/mnt/Aktien/.git/config | head -1 | cut -d: -f2)
+   TOKEN=$(grep -oE 'oauth2:[^@]+' /sessions/determined-affectionate-clarke/mnt/Aktien/.git/config | head -1 | cut -d: -f2)
    cd /tmp && git clone --quiet "https://oauth2:${TOKEN}@github.com/mertoege/invest-pi.git" invest_pi_work
    cd /tmp/invest_pi_work
    git config core.autocrlf false
@@ -140,7 +140,7 @@ Das System wählt pro Tag automatisch eine von drei Profilen basierend auf HMM-O
 - **Marktöffnung:** Mo-Fr 15:30-22:00 CEST
 - **Kill-Switch:** `touch data/.KILL` blockiert alle Trades sofort
 
-### Tests-Coverage: 30/30 grün
+### Tests-Coverage: 46/46 grün
 
 | Modul | Tests |
 |---|---|
@@ -151,6 +151,7 @@ Das System wählt pro Tag automatisch eine von drei Profilen basierend auf HMM-O
 | `tests/test_decision_modes.py` | 4/4 (moderate_buys, conservative_skips, low_conf, take_profit) |
 | `tests/test_notifier.py` | 5/5 (configured, html_escape, alert_with_buttons, send_trade, 400_handling) |
 | `tests/test_dispatch.py` | 3/3 (no_alerts, pushes_high_level, dedup) |
+| `tests/test_backtest_v2.py` | 16/16 (9-dim-scoring, vol-targeting, composite, integration, V1-compat) |
 
 ---
 
@@ -236,7 +237,7 @@ Claude (Cowork)                GitHub                     Pi
 
 ```bash
 # Session-Start in Cowork
-TOKEN=$(grep -oE 'oauth2:[^@]+' /sessions/ecstatic-dreamy-shannon/mnt/Aktien/.git/config | head -1 | cut -d: -f2)
+TOKEN=$(grep -oE 'oauth2:[^@]+' /sessions/determined-affectionate-clarke/mnt/Aktien/.git/config | head -1 | cut -d: -f2)
 cd /tmp && rm -rf invest_pi_work
 git clone --quiet "https://oauth2:${TOKEN}@github.com/mertoege/invest-pi.git" invest_pi_work
 cd /tmp/invest_pi_work
@@ -377,6 +378,7 @@ Auto-loaded in jeder Session via MEMORY.md:
 | **B1** HMM-Regime-Detection | 3-state Gaussian HMM auf SPY+VIX, wöchentliches Retrain |
 | **B2** Multi-Horizon-Strategy | long_term + mid_term parallel mit eigenen Schwellen |
 | **B3 V1** Backtesting-Engine | Walk-Forward, no-look-ahead, 4-strategy-compare |
+| **B3 V2** Enhanced Backtester | 9-Dim Risk-Scoring, Vol-Targeting, Cash-Floor, Sector-Cap, Daily-Loss-Brake, Multi-Horizon |
 | **Adaptive-Mode** | Regime-basierte Strategy-Auswahl pro Tag |
 | **USD-Tracking** | EUR + USD + FX in equity_snapshots |
 | **Stabilitäts-Setup** | 20 Positionen, Cash-Floor, Sector-Cap, Vol-Targeting |
@@ -389,7 +391,7 @@ Auto-loaded in jeder Session via MEMORY.md:
 | ID | Was | Wartezeit | Aufwand |
 |---|---|---|---|
 | **A4** | Confidence-Auto-Calibration | wartet auf 30+ Outcomes (Tag 14+) | 4h |
-| **B3 V2** | Backtester mit voller 9-Dim risk_scorer + Pattern-Library | nicht-blockiert | 5-6h |
+| ~~**B3 V2**~~ | ~~Backtester mit voller 9-Dim risk_scorer~~ | **DONE** | Session 8 |
 | **B4** | Survivorship-Bias-Mitigation (delisted Tickers) | nicht-blockiert | 6h (alternative Datenquellen) |
 | **C1** | Multi-Agent-LLM-Decision (TradingAgents-Pattern) | nicht-blockiert | 1 Woche, ~+25€/Mo cost |
 | **C2** | Hallucination-Detection für LLM-Outputs | nach C1 | 2 Tage |
@@ -522,7 +524,7 @@ sudo -u investpi rm /home/investpi/invest-pi/data/.KILL
 1. **In Cowork**: einfach neue Session öffnen — MEMORY.md ist auto-loaded
 2. **Diese HANDOVER.md** ist auch im Repo — kann gelesen werden via:
    ```bash
-   cat /sessions/ecstatic-dreamy-shannon/mnt/Aktien/HANDOVER.md
+   cat /sessions/determined-affectionate-clarke/mnt/Aktien/HANDOVER.md
    ```
 3. **Nach Login**: Pi-Status checken (snapshot.json) bevor weitere Aktionen
 4. **Wenn Code-Änderung nötig**: workflow-Boilerplate aus diesem Dokument
@@ -553,7 +555,9 @@ Aus 167-Studien-Meta-Analyse: **>90% akademischer Trading-Strategien failen mit 
 6. **Session 6 (29.04.2026)** Deep Research → Phase A1+A2+A3 + B1 (HMM) + Stabilitäts-Setup + Backtesting V1
 7. **Session 7 (30.04.2026)** TZ-Bug-Fix + Multi-Horizon (B2) + Adaptive-Mode + 3-Jahres-Backtest-Validation
 
-Plus 67 Code-Commits (ohne status-pushes), ~6500 LOC Application-Code, 14 systemd-Timer.
+8. **Session 8 (30.04.2026)** B3 V2: Enhanced Backtester mit 9-Dim-Scoring, Vol-Targeting, Constraints, 16 neue Tests
+
+Plus 68 Code-Commits (ohne status-pushes), ~6500 LOC Application-Code, 14 systemd-Timer.
 
 ---
 
