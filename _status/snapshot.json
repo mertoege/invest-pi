@@ -13,6 +13,7 @@
   },
   "git": {
     "branch": "main",
+<<<<<<< Updated upstream
     "commit": "9b15aa1",
     "dirty": false
   },
@@ -20,6 +21,15 @@
     "cpu_temp_c": 57.3,
     "disk_pct": 9,
     "load_1min": 0.22,
+=======
+    "commit": "834a535",
+    "dirty": false
+  },
+  "hardware": {
+    "cpu_temp_c": 58.4,
+    "disk_pct": 9,
+    "load_1min": 0.08,
+>>>>>>> Stashed changes
     "mem_pct": 21
   },
   "last_runs": {
@@ -44,5 +54,9 @@
     "strategy": "active",
     "sync": "active"
   },
+<<<<<<< Updated upstream
   "timestamp_utc": "2026-04-30T21:37:45"
+=======
+  "timestamp_utc": "2026-04-30T19:12:05"
+>>>>>>> Stashed changes
 }
