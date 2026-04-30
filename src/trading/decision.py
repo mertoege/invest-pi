@@ -45,6 +45,7 @@ class TradeDecision:
     confidence:     str = "low"
     risk_composite: float = 0.0
     alert_level:    int = 0
+    strategy_label: str = "mid_term"   # mid_term | long_term
     based_on_pred_id: Optional[int] = None     # source risk-score
     decision_pred_id: Optional[int] = None     # this decision's prediction-row
     extras:         dict = field(default_factory=dict)
@@ -175,14 +176,22 @@ def decide_action(
     effective_buy_max = config.score_buy_max * regime_mult
 
     if risk < effective_buy_max and triggered_ok:
+        # Strategy-Label-Auswahl: ring 1 + sehr niedriges composite → long_term
+        long_term_max = getattr(config, "long_term_composite_max", 25)
+        if ring == 1 and risk < long_term_max:
+            strategy_label = "long_term"
+        else:
+            strategy_label = "mid_term"
+
         return TradeDecision(
             ticker=ticker, action="buy",
             reason=(f"composite {risk:.1f} < {effective_buy_max:.1f} "
-                    f"(mode={config.mode}, regime_mult={regime_mult:.2f}) "
+                    f"(strategy={strategy_label}, regime_mult={regime_mult:.2f}) "
                     f"alert={alert} triggered={triggered}"),
             target_eur=config.max_position_eur,
             risk_composite=risk, alert_level=alert,
             confidence=confidence,
+            strategy_label=strategy_label,
             based_on_pred_id=score["pred_id"],
         )
 
@@ -202,21 +211,23 @@ def log_decision(decision: TradeDecision, strategy_label: str = "conservative-v1
     """
     pred_id = log_prediction(
         job_source="trade_decision",
-        model=strategy_label,
+        model=f"{strategy_label}-{decision.strategy_label}",
         subject_type="ticker",
         subject_id=decision.ticker,
-        prompt=f"trading.decision / strategy={strategy_label}",
+        prompt=f"trading.decision / strategy={strategy_label} / horizon={decision.strategy_label}",
         input_payload={
             "ticker":          decision.ticker,
             "based_on":        decision.based_on_pred_id,
             "risk_composite":  decision.risk_composite,
             "alert_level":     decision.alert_level,
+            "strategy_label":  decision.strategy_label,
         },
-        input_summary=f"{decision.ticker} composite={decision.risk_composite:.1f} alert={decision.alert_level}",
+        input_summary=f"{decision.ticker} composite={decision.risk_composite:.1f} alert={decision.alert_level} {decision.strategy_label}",
         output={
-            "action":     decision.action,
-            "reason":     decision.reason,
-            "target_eur": decision.target_eur,
+            "action":         decision.action,
+            "reason":         decision.reason,
+            "target_eur":     decision.target_eur,
+            "strategy_label": decision.strategy_label,
         },
         confidence=decision.confidence,
         cost_estimate_eur=0.0,

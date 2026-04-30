@@ -299,6 +299,22 @@ settings:
     # ETF-Fallback wenn kein Titel überzeugt (bleibt fix)
     dca_fallback_ticker:      "SMH"
 
+    # Multi-Horizon Strategies (long-term hold + mid-term momentum)
+    # Pro Strategy eigene take_profit/stop_loss/trailing-Schwellen.
+    # Aktive Strategy-Auswahl beim Buy: ring 1 + composite<25 → long_term, sonst mid_term
+    strategies:
+      mid_term:
+        take_profit_pct:        0.40    # Default-Strategy (T+7d-Outcomes)
+        stop_loss_pct:          0.10
+        trailing_activation_pct: 0.10
+        trailing_stop_pct:      0.10
+      long_term:
+        take_profit_pct:        0.50    # Ring 1 Long-Term-Hold (T+30d-Outcomes)
+        stop_loss_pct:          0.20    # weiter Stop-Loss = mehr Atemluft
+        trailing_activation_pct: 0.25    # Trailing erst ab +25% aktiv
+        trailing_stop_pct:      0.15    # bei -15% vom Hoch
+    long_term_composite_max:    25      # für long_term: composite muss < 25 sein (zusaetzlich zu Ring 1)
+
     # Sector-Map fuer max_per_sector_pct-Constraint (neu)
     sector_map:
       semiconductors:    [NVDA, AMD, INTC, QCOM, MU, SMCI, TSM, ARM, AVGO, MRVL]

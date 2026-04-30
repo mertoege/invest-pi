@@ -210,6 +210,7 @@ CREATE TABLE IF NOT EXISTS positions (
     stop_loss_price   REAL,
     peak_price        REAL,
     peak_seen_at      TEXT,
+    strategy_label    TEXT,
     source            TEXT NOT NULL DEFAULT 'paper',
     PRIMARY KEY (ticker, source)
 );
@@ -255,8 +256,9 @@ def connect(db_path: Path) -> Generator[sqlite3.Connection, None, None]:
 def _migrate_positions() -> None:
     """Idempotente ALTER TABLE-Migrationen fuer positions-Tabelle."""
     new_cols = [
-        ("peak_price",   "REAL"),
-        ("peak_seen_at", "TEXT"),
+        ("peak_price",     "REAL"),
+        ("peak_seen_at",   "TEXT"),
+        ("strategy_label", "TEXT"),
     ]
     if not TRADING_DB.exists():
         return

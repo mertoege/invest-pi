@@ -172,14 +172,16 @@ def positions_to_stop_loss(broker: BrokerAdapter,
                            config: TradingConfig) -> list[Tuple[str, float, float]]:
     """
     Returns [(ticker, qty, current_price), ...] fuer Positionen die unter
-    stop_loss_pct sind. Caller entscheidet ob/wie verkauft wird.
+    der strategy-spezifischen stop_loss_pct sind.
     """
     triggered = []
     for pos in broker.get_positions():
         if pos.avg_price <= 0:
             continue
         unrealized_pct = (pos.market_price / pos.avg_price) - 1.0
-        if unrealized_pct <= -config.stop_loss_pct:
+        label = _position_strategy(broker, pos.ticker)
+        thr = _strategy_thresholds(config, label)
+        if unrealized_pct <= -thr["stop_loss_pct"]:
             triggered.append((pos.ticker, pos.qty, pos.market_price))
     return triggered
 
@@ -242,38 +244,70 @@ def sector_concentration_check(broker, config, ticker: str, eur_value: float) ->
         return False, f"sector {sector} {sector_pct:.0%} > cap {cap:.0%}"
     return True, ""
 
+
+
+def _strategy_thresholds(config, label: str) -> dict:
+    """Holt take_profit/stop_loss/trailing-Werte fuer eine Strategy."""
+    strategies = getattr(config, "strategies", {}) or {}
+    s = strategies.get(label) or strategies.get("mid_term") or {}
+    return {
+        "take_profit_pct":         float(s.get("take_profit_pct",         config.take_profit_pct)),
+        "stop_loss_pct":           float(s.get("stop_loss_pct",           config.stop_loss_pct)),
+        "trailing_activation_pct": float(s.get("trailing_activation_pct", config.trailing_activation_pct)),
+        "trailing_stop_pct":       float(s.get("trailing_stop_pct",       config.trailing_stop_pct)),
+    }
+
+
+def _position_strategy(broker, ticker: str, source: str = "paper") -> str:
+    """Liest strategy_label aus positions-table fuer ticker. Default 'mid_term'."""
+    from ..common.storage import TRADING_DB, connect
+    try:
+        with connect(TRADING_DB) as conn:
+            row = conn.execute(
+                "SELECT strategy_label FROM positions WHERE ticker = ? AND source = ?",
+                (ticker, source),
+            ).fetchone()
+        if row and row["strategy_label"]:
+            return row["strategy_label"]
+    except Exception:
+        pass
+    return "mid_term"
+
 def positions_to_take_profit(broker, config) -> list:
     """
-    Returns [(ticker, qty, current_price), ...] fuer Positionen die +take_profit_pct
-    ueber avg_price sind.
+    Returns [(ticker, qty, current_price), ...] fuer Positionen die strategy-
+    spezifischen take_profit_pct erreichen.
     """
     triggered = []
     for pos in broker.get_positions():
         if pos.avg_price <= 0:
             continue
         gain_pct = (pos.market_price / pos.avg_price) - 1.0
-        if gain_pct >= config.take_profit_pct:
+        label = _position_strategy(broker, pos.ticker)
+        thr = _strategy_thresholds(config, label)
+        if gain_pct >= thr["take_profit_pct"]:
             triggered.append((pos.ticker, pos.qty, pos.market_price))
     return triggered
 
 
 def positions_to_trailing_stop(broker, config, peak_prices: dict) -> list:
     """
-    Trailing-Stop: ab +trailing_activation_pct (default +12%) wird der Trailing-Stop
-    aktiv. Wenn current_price < peak_price * (1 - trailing_stop_pct), sell.
-
-    peak_prices ist ein dict {ticker: peak_price_seen} aus der positions-Tabelle.
+    Trailing-Stop mit strategy-spezifischen Schwellen. mid_term ist enger
+    (12%/8%), long_term breiter (25%/15%) damit Bull-Runs nicht zu früh
+    abgewuergt werden.
     """
     triggered = []
     for pos in broker.get_positions():
         if pos.avg_price <= 0:
             continue
         gain_pct = (pos.market_price / pos.avg_price) - 1.0
-        if gain_pct < config.trailing_activation_pct:
-            continue   # noch nicht aktiv
+        label = _position_strategy(broker, pos.ticker)
+        thr = _strategy_thresholds(config, label)
+        if gain_pct < thr["trailing_activation_pct"]:
+            continue
         peak = peak_prices.get(pos.ticker, pos.market_price)
         peak = max(peak, pos.market_price)
         drawdown_from_peak = (pos.market_price / peak) - 1.0
-        if drawdown_from_peak <= -config.trailing_stop_pct:
+        if drawdown_from_peak <= -thr["trailing_stop_pct"]:
             triggered.append((pos.ticker, pos.qty, pos.market_price, peak))
     return triggered

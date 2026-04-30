@@ -256,7 +256,7 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             ticker=entry.ticker, side="buy", qty=sz.qty,
             eur_value=sz.eur_amount, price=quote.last,
             status=result.status, order_id=result.order_id,
-            strategy_label=f"{t_cfg.mode}-v1", source=source,
+            strategy_label=f"{t_cfg.mode}-{decision.strategy_label}-v1", source=source,
             notes=decision.reason,
         )
         if result.status == "filled":

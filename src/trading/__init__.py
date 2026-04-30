@@ -39,6 +39,8 @@ class TradingConfig:
     tradeable_rings:            list
     dca_fallback_ticker:        str
     sector_map:                 dict
+    strategies:                 dict
+    long_term_composite_max:    int
 
 
 def load_trading_config(config_path: Optional[Path] = None) -> TradingConfig:
@@ -72,4 +74,6 @@ def load_trading_config(config_path: Optional[Path] = None) -> TradingConfig:
         tradeable_rings=list(t.get("tradeable_rings", [1, 2])),
         dca_fallback_ticker=str(t.get("dca_fallback_ticker", "SMH")),
         sector_map=dict(t.get("sector_map", {})),
+        strategies=dict(t.get("strategies", {})),
+        long_term_composite_max=int(t.get("long_term_composite_max", 25)),
     )
