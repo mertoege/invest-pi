@@ -1,19 +1,72 @@
 """
 Zentraler Daten-Lader: yfinance mit SQLite-Caching.
 
-Lädt Kursdaten einmal und speichert sie lokal in market.db. Wiederholte Aufrufe
-greifen auf Cache zu — spart Traffic und macht Offline-Arbeit möglich.
+Lädt Kursdaten und speichert sie lokal in market.db. Cache wird automatisch
+aufgefrischt wenn die neuesten Daten aelter als 1 Handelstag sind.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import logging
+import time
 from typing import Optional
 
 import pandas as pd
 import yfinance as yf
 
 from .storage import MARKET_DB, connect
+
+log = logging.getLogger("invest_pi.data_loader")
+
+# Minimaler Abstand zwischen yfinance-Requests (Rate-Limit-Schutz)
+_RATE_LIMIT_SECONDS = 0.3
+_last_request_ts: float = 0.0
+
+
+def _is_cache_stale(df: pd.DataFrame, max_age_hours: int = 18) -> bool:
+    """
+    Prueft ob der Cache aufgefrischt werden muss.
+
+    Logik: wenn die letzte gecachte Zeile aelter als max_age_hours ist
+    UND mindestens ein Handelstag vergangen ist (Mo-Fr), ist der Cache stale.
+    Default 18h = wenn der Score-Job um 12:30 CEST laeuft und die letzten
+    Daten von gestern 00:00 sind (~36h alt), wird refreshed.
+    """
+    if df.empty:
+        return True
+    last_date = df.index[-1]
+    # Normalisiere auf date (ohne time)
+    if hasattr(last_date, "date"):
+        last_date = last_date.date() if callable(last_date.date) else last_date
+    else:
+        last_date = pd.Timestamp(last_date).date()
+
+    now = dt.datetime.now(dt.timezone.utc)
+    today = now.date()
+
+    # Wie viele Handelstage (Mo-Fr) liegen zwischen last_date und heute?
+    trading_days_missed = 0
+    d = last_date + dt.timedelta(days=1)
+    while d <= today:
+        if d.weekday() < 5:  # Mo=0 .. Fr=4
+            trading_days_missed += 1
+        d += dt.timedelta(days=1)
+
+    # Stale wenn mindestens 1 Handelstag fehlt
+    return trading_days_missed >= 1
+
+
+def _rate_limited_fetch(ticker: str, period: str) -> pd.DataFrame:
+    """yfinance-Request mit Rate-Limiting."""
+    global _last_request_ts
+    elapsed = time.monotonic() - _last_request_ts
+    if elapsed < _RATE_LIMIT_SECONDS:
+        time.sleep(_RATE_LIMIT_SECONDS - elapsed)
+
+    raw = yf.Ticker(ticker).history(period=period, auto_adjust=True)
+    _last_request_ts = time.monotonic()
+    return raw
 
 
 # ────────────────────────────────────────────────────────────
@@ -23,6 +76,7 @@ def get_prices(
     ticker: str,
     period: str = "10y",
     force_refresh: bool = False,
+    max_cache_age_hours: int = 18,
 ) -> pd.DataFrame:
     """
     Lade historische OHLCV-Daten für einen Ticker.
@@ -31,6 +85,7 @@ def get_prices(
         ticker: Yahoo-Finance-Symbol, z.B. "NVDA" oder "ASML.AS"
         period: yfinance-Format: "1mo", "1y", "5y", "10y", "max"
         force_refresh: Wenn True, wird Cache ignoriert und neu geladen
+        max_cache_age_hours: Cache wird aufgefrischt wenn aelter (default 18h)
 
     Returns:
         DataFrame indexed by date, Spalten: open, high, low, close, volume
@@ -38,12 +93,33 @@ def get_prices(
     if not force_refresh:
         cached = _load_from_cache(ticker)
         if cached is not None and len(cached) > 100:
-            return cached
+            if not _is_cache_stale(cached, max_cache_age_hours):
+                return cached
+            # Cache ist stale → inkrementelles Update versuchen
+            try:
+                fresh = _incremental_update(ticker, cached)
+                if fresh is not None:
+                    return fresh
+            except Exception as e:
+                log.warning(f"incremental update failed for {ticker}: {e}")
+                # Fallback: vollstaendigen Refresh versuchen
 
-    print(f"  ↓ lade {ticker} von Yahoo Finance (period={period})…")
-    raw = yf.Ticker(ticker).history(period=period, auto_adjust=True)
+    try:
+        print(f"  ↓ lade {ticker} von Yahoo Finance (period={period})…")
+        raw = _rate_limited_fetch(ticker, period)
+    except Exception as e:
+        # Bei Netzwerk-Fehler: stale Cache ist besser als kein Cache
+        cached = _load_from_cache(ticker)
+        if cached is not None and len(cached) > 0:
+            log.warning(f"yfinance failed for {ticker}, using stale cache: {e}")
+            return cached
+        raise ValueError(f"Keine Daten für {ticker} erhalten: {e}")
 
     if raw.empty:
+        cached = _load_from_cache(ticker)
+        if cached is not None and len(cached) > 0:
+            log.warning(f"yfinance returned empty for {ticker}, using stale cache")
+            return cached
         raise ValueError(f"Keine Daten für {ticker} erhalten")
 
     # Normalisieren
@@ -53,6 +129,28 @@ def get_prices(
 
     _save_to_cache(ticker, df)
     return df
+
+
+def _incremental_update(ticker: str, cached: pd.DataFrame) -> Optional[pd.DataFrame]:
+    """
+    Holt nur die letzten 5 Tage und merged sie in den bestehenden Cache.
+    Viel schneller als full-refresh bei 10y-Daten.
+    """
+    raw = _rate_limited_fetch(ticker, "5d")
+    if raw.empty:
+        return None
+
+    fresh = raw.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]].copy()
+    fresh.index = pd.to_datetime(fresh.index).tz_localize(None).normalize()
+    fresh.index.name = "date"
+
+    # Merge: neue Tage anhaengen, bestehende ueberschreiben
+    combined = pd.concat([cached, fresh])
+    combined = combined[~combined.index.duplicated(keep="last")]
+    combined = combined.sort_index()
+
+    _save_to_cache(ticker, combined)
+    return combined
 
 
 def _load_from_cache(ticker: str) -> Optional[pd.DataFrame]:

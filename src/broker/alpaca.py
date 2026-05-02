@@ -54,6 +54,17 @@ class AlpacaPaperBroker(BrokerAdapter):
         self._base_url = base_url or _PAPER_BASE_URL
         self._client = None
         self._fx = _eur_per_usd()
+        self._fx_ts = __import__("time").monotonic()
+
+    def _refresh_fx_if_stale(self):
+        """FX-Rate alle 30 Min auffrischen."""
+        import time
+        if time.monotonic() - self._fx_ts > 1800:
+            try:
+                self._fx = _eur_per_usd()
+                self._fx_ts = time.monotonic()
+            except Exception:
+                pass  # alten Wert behalten
 
     def _ensure_client(self):
         if self._client is not None:
@@ -82,6 +93,7 @@ class AlpacaPaperBroker(BrokerAdapter):
     # ── BrokerAdapter ──────────────────────────────────────
     @api_retry(attempts=3, min_wait=2, max_wait=10)
     def get_account(self) -> AccountState:
+        self._refresh_fx_if_stale()
         client = self._ensure_client()
         acc = client.get_account()
         cash_usd = float(acc.cash)
@@ -128,18 +140,46 @@ class AlpacaPaperBroker(BrokerAdapter):
 
     @api_retry(attempts=3, min_wait=2, max_wait=10)
     def get_quote(self, ticker: str) -> Quote:
-        # alpaca-py Quote-API liegt im market-data-client, nicht trading.
-        # Fuer Conservative-Strategy reicht der yfinance-Cache als last-Quelle.
+        """
+        Holt aktuellen Kurs. Versucht zuerst Alpaca Market Data API,
+        Fallback auf yfinance-Cache wenn Alpaca fehlschlaegt.
+        """
+        import datetime as _dt
+        # Primaer: Alpaca Market Data API (Echtzeit-Kurse)
+        try:
+            from alpaca.data.historical import StockHistoricalDataClient
+            from alpaca.data.requests import StockLatestQuoteRequest
+            data_client = StockHistoricalDataClient(
+                api_key=self._api_key,
+                secret_key=self._api_secret,
+            )
+            req = StockLatestQuoteRequest(symbol_or_symbols=ticker)
+            quotes = data_client.get_stock_latest_quote(req)
+            if ticker in quotes:
+                q = quotes[ticker]
+                bid = float(q.bid_price) if q.bid_price else 0.0
+                ask = float(q.ask_price) if q.ask_price else 0.0
+                last = (bid + ask) / 2.0 if bid and ask else bid or ask
+                return Quote(
+                    ticker=ticker,
+                    bid=bid,
+                    ask=ask,
+                    last=last,
+                    timestamp=_dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
+                )
+        except Exception:
+            pass  # Fallback auf yfinance-Cache
+
+        # Fallback: yfinance-Cache (mit Freshness-Check)
         from ..common.data_loader import get_prices
         prices = get_prices(ticker, period="5d")
         last = float(prices["close"].iloc[-1])
-        import datetime as dt
         return Quote(
             ticker=ticker,
             bid=last * 0.999,
             ask=last * 1.001,
             last=last,
-            timestamp=dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+            timestamp=_dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
         )
 
     @api_retry(attempts=3, min_wait=2, max_wait=10)

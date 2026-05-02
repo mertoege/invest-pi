@@ -164,11 +164,20 @@ if ! git diff --cached --quiet; then
     git -c commit.gpgsign=false commit -q -m "status: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
     # Race-Schutz vor Push: erst rebase auf remote
-    git pull --rebase --no-edit --quiet 2>>"$LOG" || {
-        log "pull --rebase fehlgeschlagen, abort push"
+    # Bei Konflikten (z.B. nach force-push von aussen): reset auf origin
+    if ! git pull --rebase --no-edit --quiet 2>>"$LOG"; then
+        log "pull --rebase conflict, resetting to origin/main + re-applying snapshot"
         git rebase --abort 2>/dev/null || true
-        exit 1
-    }
+        # Snapshot sichern, auf origin zuruecksetzen, Snapshot neu committen
+        cp "$REPO_DIR/_status/snapshot.json" /tmp/_snapshot_backup.json 2>/dev/null || true
+        git fetch origin --quiet 2>>"$LOG"
+        git reset --hard origin/main 2>>"$LOG"
+        cp /tmp/_snapshot_backup.json "$REPO_DIR/_status/snapshot.json" 2>/dev/null || true
+        git add _status/snapshot.json
+        if ! git diff --cached --quiet; then
+            git -c commit.gpgsign=false commit -q -m "status: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        fi
+    fi
 
     if ! git push --quiet 2>>"$LOG"; then
         # Falls non-fast-forward: force-with-lease
