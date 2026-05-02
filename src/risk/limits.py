@@ -60,18 +60,27 @@ def is_market_open(now_utc: Optional[dt.datetime] = None,
                    open_cet: str = "15:30",
                    close_cet: str = "22:00") -> bool:
     """
-    Naive Pruefung: Mo-Fr, Zeitfenster in CET.
-    Berechnet CET-Lokalzeit per UTC+1 (Wintertime). Sommerzeit-naive.
-    Fuer Pi: das reicht; live wird via systemd-Timer eh nur in den Slots gestartet.
+    Pruefung: Mo-Fr, Zeitfenster in Europe/Berlin (CET/CEST-aware).
+    Nutzt zoneinfo fuer korrekte Sommer-/Winterzeit-Umstellung.
+    Fallback auf UTC+2 (CEST) wenn zoneinfo nicht verfuegbar.
     """
     now_utc = now_utc or dt.datetime.now(dt.timezone.utc)
     weekday = now_utc.weekday()  # Mon=0 ... Sun=6
     if weekday >= 5:
         return False
-    cet = now_utc + dt.timedelta(hours=1)
+    try:
+        from zoneinfo import ZoneInfo
+        berlin = now_utc.astimezone(ZoneInfo("Europe/Berlin"))
+    except ImportError:
+        # Fallback: manuell CEST (Maerz-Okt) vs CET bestimmen
+        month = now_utc.month
+        if 4 <= month <= 10:
+            berlin = now_utc + dt.timedelta(hours=2)  # CEST
+        else:
+            berlin = now_utc + dt.timedelta(hours=1)  # CET
+    minutes = berlin.hour * 60 + berlin.minute
     open_h, open_m = (int(x) for x in open_cet.split(":"))
     close_h, close_m = (int(x) for x in close_cet.split(":"))
-    minutes = cet.hour * 60 + cet.minute
     return (open_h * 60 + open_m) <= minutes < (close_h * 60 + close_m)
 
 
