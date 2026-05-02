@@ -94,7 +94,7 @@ def _gather_context() -> dict:
 
 def _build_prompt(ctx: dict) -> tuple[str, str]:
     system = (
-        "Du bist ein vorsichtiger Investment-Berater fuer einen privaten DCA-Plan im AI/Tech-Sektor.\n"
+        "Du bist ein vorsichtiger Investment-Berater fuer einen diversifizierten DCA-Plan (Sektor-ETFs, Blue Chips, Tech).\n"
         "Mert investiert monatlich 50 EUR. Heute soll ein einziger Titel empfohlen werden — oder ein ETF-Fallback wenn nichts ueberzeugt.\n"
         "Antworte NUR im JSON-Format wie unten beschrieben — kein Prosa drumherum.\n"
         "\n"
@@ -125,11 +125,12 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         f"## Budget diesen Monat:\n"
         f"{ctx['month_budget_eur']:.0f} EUR\n\n"
         f"## Verfuegbare ETFs (waehle einen davon als alternative_etf):\n"
-        f"  SMH   - VanEck Semiconductor ETF (Halbleiter, breit)\n"
-        f"  SOXX  - iShares Semiconductor ETF (Alternative zu SMH)\n"
-        f"  AIQ   - Global X AI & Technology ETF (AI-Software inklusive)\n"
-        f"  BOTZ  - Global X Robotics & AI ETF (Robotik + AI)\n"
-        f"  QQQ   - Invesco QQQ Trust (Nasdaq 100, breit gestreut)\n"
+        f"  SPY   - SPDR S&P 500 ETF (Gesamtmarkt, breit gestreut)\n"
+        f"  QQQ   - Invesco QQQ Trust (Nasdaq 100, Tech-lastig)\n"
+        f"  SMH   - VanEck Semiconductor ETF (Halbleiter)\n"
+        f"  XLK   - Technology Select Sector SPDR\n"
+        f"  XLV   - Health Care Select Sector SPDR\n"
+        f"  XLF   - Financial Select Sector SPDR\n"
         f"\nDefault wenn unsicher: {ctx['etf_fallback']}\n\n"
         f"WICHTIG: alternative_etf MUSS einer der obigen Tickers sein, NICHT leer.\n"
         f"Auch bei verdict=buy_single — der ETF dient als sichtbare Alternative im UI.\n\n"
