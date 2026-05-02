@@ -37,102 +37,125 @@ portfolio:
 # ─────────────────────────────────────────────────────────────
 universe:
 
-  # ── RING 1: Pure-Play AI/Semiconductor ──────────────────
-  # Kein AI-System der Welt kommt ohne diese Titles aus.
+  # ══════════════════════════════════════════════════════════
+  #  RING 1: Sektor-ETFs (Kern-Diversifikation)
+  #  Alle 11 GICS-Sektoren. Niedrige Korrelation untereinander.
+  #  Das System lernt welche Sektoren in welchem Regime performen.
+  # ══════════════════════════════════════════════════════════
+
+  ring_1_sector_etfs:
+    - ticker: XLK
+      name: "Technology Select Sector SPDR"
+      note: "Tech-Sektor · MSFT, AAPL, NVDA"
+
+    - ticker: XLF
+      name: "Financial Select Sector SPDR"
+      note: "Finanzen · JPM, BRK, V · profitiert von steigenden Zinsen"
+
+    - ticker: XLE
+      name: "Energy Select Sector SPDR"
+      note: "Energie · XOM, CVX · negativ korreliert zu Tech"
+
+    - ticker: XLV
+      name: "Health Care Select Sector SPDR"
+      note: "Gesundheit · UNH, JNJ, LLY · defensiv"
+
+    - ticker: XLI
+      name: "Industrial Select Sector SPDR"
+      note: "Industrie · CAT, GE, HON · konjunkturempfindlich"
+
+    - ticker: XLP
+      name: "Consumer Staples Select Sector SPDR"
+      note: "Konsum-Basis · PG, KO, PEP · Rezessions-Hedge"
+
+    - ticker: XLY
+      name: "Consumer Discretionary Select Sector SPDR"
+      note: "Konsum-Zyklisch · AMZN, TSLA · wachstumsgetrieben"
+
+    - ticker: XLU
+      name: "Utilities Select Sector SPDR"
+      note: "Versorger · NEE, SO · Zins-sensitiv, defensiv"
+
+    - ticker: XLRE
+      name: "Real Estate Select Sector SPDR"
+      note: "Immobilien · AMT, PLD · REIT-Dividenden"
+
+    - ticker: XLC
+      name: "Communication Services Select Sector SPDR"
+      note: "Kommunikation · META, GOOGL · Hybrid aus Tech+Media"
+
+    - ticker: XLB
+      name: "Materials Select Sector SPDR"
+      note: "Materialien · LIN, SHW · Inflation-Hedge"
+
+  # ══════════════════════════════════════════════════════════
+  #  RING 1: AI/Semiconductor-Kern (bewährt)
+  #  Unsere ursprüngliche Alpha-Quelle. Jetzt eingebettet in
+  #  ein breiteres Portfolio statt als einziger Fokus.
+  # ══════════════════════════════════════════════════════════
 
   ring_1_semiconductors:
     - ticker: NVDA
       name: "NVIDIA"
       note: "GPU-Duopol · Data-Center · CUDA-Moat"
 
-    - ticker: ASML
-      name: "ASML Holding"
-      note: "EUV-Monopol · niemand kann ohne ASML tiefe Knoten fertigen"
-      yahoo_ticker: "ASML"     # US-ADR, alternativ: ASML.AS für Euronext
+    - ticker: AMD
+      name: "Advanced Micro Devices"
+      note: "einziger echter NVDA-Challenger · MI-Serie"
+
+    - ticker: AVGO
+      name: "Broadcom"
+      note: "Custom AI ASICs (Google TPU, Meta etc.) + Networking"
 
     - ticker: TSM
       name: "Taiwan Semiconductor"
       note: "größter Foundry · fertigt NVDA, Apple, AMD"
 
-    - ticker: AMD
-      name: "Advanced Micro Devices"
-      note: "einziger echter NVDA-Challenger · MI-Serie"
+    - ticker: ASML
+      name: "ASML Holding"
+      note: "EUV-Monopol · niemand kann ohne ASML tiefe Knoten fertigen"
+      yahoo_ticker: "ASML"
 
-    - ticker: INTC
-      name: "Intel"
-      note: "Turnaround-Story · Foundry-Ambition · hohes Risiko"
+  # ══════════════════════════════════════════════════════════
+  #  RING 2: Defensive Blue Chips (Cross-Sektor)
+  #  Niedrige Beta, stabile Dividenden, Rezessions-Resistenz.
+  #  Geben dem Self-Learning-System mehr Diversity zum Lernen.
+  # ══════════════════════════════════════════════════════════
 
-    - ticker: QCOM
-      name: "Qualcomm"
-      note: "Mobile-AI · Edge-AI · Snapdragon X"
+  ring_2_defensive:
+    - ticker: JNJ
+      name: "Johnson & Johnson"
+      note: "Healthcare-Dividenden-Aristokrat · ultra-defensiv"
 
-    - ticker: MU
-      name: "Micron Technology"
-      note: "HBM-Speicher für AI-GPUs · zyklisch sensitiv"
+    - ticker: PG
+      name: "Procter & Gamble"
+      note: "Consumer Staples · 67 Jahre Dividenden-Wachstum"
 
-    - ticker: SMCI
-      name: "Super Micro Computer"
-      note: "AI-Server-Assemblierung · sehr volatil"
+    - ticker: KO
+      name: "Coca-Cola"
+      note: "Consumer Staples · Buffett-Holding · Rezessions-fest"
 
-  # ── RING 1: Equipment & Lithography ────────────────────
-  ring_1_equipment:
-    - ticker: AMAT
-      name: "Applied Materials"
-      note: "größter Halbleiter-Equipment-Hersteller"
+    - ticker: JPM
+      name: "JPMorgan Chase"
+      note: "Größte US-Bank · profitiert von Zinsen + Volatilität"
 
-    - ticker: LRCX
-      name: "Lam Research"
-      note: "Ätz-Equipment · unverzichtbar für 3D-NAND"
+    - ticker: XOM
+      name: "Exxon Mobil"
+      note: "Energie-Leader · negativ korreliert zu Tech"
 
-    - ticker: KLAC
-      name: "KLA Corporation"
-      note: "Prozess-Inspektion · Yield-Monitoring"
+    - ticker: UNH
+      name: "UnitedHealth Group"
+      note: "Healthcare-Leader · stabil, kaum zyklisch"
 
-    - ticker: TER
-      name: "Teradyne"
-      note: "Chip-Testing · profitiert von Komplexitätszunahme"
+    - ticker: LLY
+      name: "Eli Lilly"
+      note: "Pharma-Wachstum · GLP-1/Ozempic-Boom"
 
-  # ── RING 2: AI-Ökosystem ────────────────────────────────
-  ring_2_ecosystem:
-    - ticker: AVGO
-      name: "Broadcom"
-      note: "Custom AI ASICs (Google TPU, Meta etc.) + Networking"
+  # ══════════════════════════════════════════════════════════
+  #  RING 2: Hyperscaler + AI-Software (bekannt)
+  # ══════════════════════════════════════════════════════════
 
-    - ticker: MRVL
-      name: "Marvell Technology"
-      note: "AI-Networking-ICs · Cloud-Custom-Chips"
-
-    - ticker: ARM
-      name: "Arm Holdings"
-      note: "CPU-IP-Lizenz · in jedem Smartphone + AI-Edge-Chip"
-
-    - ticker: CDNS
-      name: "Cadence Design Systems"
-      note: "EDA-Software · kein Chip ohne Cadence designt"
-
-    - ticker: SNPS
-      name: "Synopsys"
-      note: "EDA-Software · Merger mit ANSYS pending"
-
-    - ticker: ANET
-      name: "Arista Networks"
-      note: "AI-Datacenter-Networking · Hyperscaler-Liebling"
-
-    - ticker: DELL
-      name: "Dell Technologies"
-      note: "AI-Server-Verkäufe · überraschend starker AI-Profiteur"
-
-    - ticker: ORCL
-      name: "Oracle"
-      note: "Cloud-Infrastruktur · OCI Wachstum für AI-Workloads"
-
-    - ticker: PLTR
-      name: "Palantir"
-      note: "AI-Analytics-Software · Government + Commercial"
-
-  # ── RING 3: Hyperscaler ─────────────────────────────────
-  # Capex-Quellen: sie zahlen für AI-Infrastruktur.
-  ring_3_hyperscaler:
+  ring_2_hyperscaler:
     - ticker: MSFT
       name: "Microsoft"
       note: "OpenAI-Partner · Azure-AI · Copilot-Monetarisierung"
@@ -153,82 +176,46 @@ universe:
       name: "Apple"
       note: "Apple Intelligence · On-Device-AI · eigene Neural Engine"
 
-  # ── RING 3: Enterprise AI Software ──────────────────────
-  ring_3_software:
+  # ══════════════════════════════════════════════════════════
+  #  RING 3: Spekulative AI-Plays + Europa
+  #  Höheres Risiko, aber Self-Learning kann hier am meisten
+  #  aus Fehlern lernen und sich kalibrieren.
+  # ══════════════════════════════════════════════════════════
+
+  ring_3_speculative:
+    - ticker: PLTR
+      name: "Palantir"
+      note: "AI-Analytics-Software · Government + Commercial"
+
     - ticker: CRM
       name: "Salesforce"
-      note: "AI-CRM · Agentforce · Enterprise-AI-Anwendungen"
+      note: "AI-CRM · Agentforce · Enterprise-AI"
+
+    - ticker: SMCI
+      name: "Super Micro Computer"
+      note: "AI-Server-Assemblierung · sehr volatil"
+
+    - ticker: MRVL
+      name: "Marvell Technology"
+      note: "AI-Networking-ICs · Cloud-Custom-Chips"
 
     - ticker: NOW
       name: "ServiceNow"
       note: "AI-Automatisierung in Unternehmens-IT"
 
-    - ticker: SNOW
-      name: "Snowflake"
-      note: "AI-Daten-Cloud · Cortex AI · hohe Bewertung"
-
-    - ticker: AI
-      name: "C3.ai"
-      note: "reines AI-Software-Play · hoch spekulativ"
-
-  # ── RING 3: Europäisches AI/Tech ────────────────────────
-  ring_3_europe:
-    - ticker: SAP.DE
-      name: "SAP SE"
-      note: "Business-AI · Joule · dominant in Enterprise-ERP"
-
-    - ticker: CAPG.PA
-      name: "Capgemini"
-      note: "AI-Consulting + -Implementierung · Europa"
-
-    - ticker: SIE.DE
-      name: "Siemens"
-      note: "Industrial-AI · Digital-Twin"
-
-    - ticker: DSY.PA
-      name: "Dassault Systèmes"
-      note: "3D-Simulation + Digital-Twin · Industrie-KI"
-
-  # ── RING 3: AI-Infrastruktur & Energie ──────────────────
-  ring_3_infra:
-    - ticker: EQIX
-      name: "Equinix"
-      note: "Datacenter-REIT · AI-Rechenzentren brauchen Platz"
-
-    - ticker: VRT
-      name: "Vertiv"
-      note: "Kühlsysteme für AI-Server · extrem hohe Nachfrage"
-
-    - ticker: ETN
-      name: "Eaton"
-      note: "Power-Management für Datacenter · AI-Energie-Infra"
-
-    - ticker: NEE
-      name: "NextEra Energy"
-      note: "Erneuerbare Energie · AI braucht enorme Strommengen"
-
-  # ── FALLBACK: ETFs ──────────────────────────────────────
-  # Wenn kein Einzeltitel überzeugt, kaufe einen ETF.
+  # ── BENCHMARK-ETFs (für Scoring + Backtesting, nicht getradet) ──
   etfs:
     - ticker: SMH
       name: "VanEck Semiconductor ETF"
-      note: "Bestes Semiconductor-ETF · breite Diversifikation"
+      note: "Semiconductor-Benchmark"
 
-    - ticker: SOXX
-      name: "iShares Semiconductor ETF"
-      note: "Alternative zu SMH"
-
-    - ticker: AIQ
-      name: "Global X AI & Technology ETF"
-      note: "Breites AI-Exposure inkl. Software"
-
-    - ticker: BOTZ
-      name: "Global X Robotics & AI ETF"
-      note: "AI + Robotik"
+    - ticker: SPY
+      name: "SPDR S&P 500 ETF"
+      note: "Gesamtmarkt-Benchmark"
 
     - ticker: QQQ
       name: "Invesco QQQ Trust (Nasdaq 100)"
-      note: "Maximale Diversifikation · niedrigste Rendite-Erwartung"
+      note: "Tech-heavy Benchmark"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -360,13 +347,19 @@ settings:
 
     # Sector-Map fuer max_per_sector_pct-Constraint (neu)
     sector_map:
-      semiconductors:    [NVDA, AMD, INTC, QCOM, MU, SMCI, TSM, ARM, AVGO, MRVL]
-      equipment:         [ASML, AMAT, LRCX, KLAC, TER]
-      software:          [CDNS, SNPS, CRM, NOW, SNOW, AI, SAP.DE, CAPG.PA, DSY.PA]
-      hyperscaler:       [MSFT, GOOGL, META, AMZN, AAPL, ORCL]
-      networking_storage: [ANET, DELL, PLTR]
-      infrastructure:    [EQIX, VRT, ETN, NEE, SIE.DE]
-      etfs:              [SMH, SOXX, AIQ, BOTZ, QQQ]
+      technology:        [XLK, NVDA, AMD, AVGO, TSM, ASML, MSFT, AAPL]
+      financials:        [XLF, JPM]
+      energy:            [XLE, XOM]
+      healthcare:        [XLV, UNH, LLY, JNJ]
+      industrials:       [XLI]
+      consumer_staples:  [XLP, PG, KO]
+      consumer_disc:     [XLY, AMZN]
+      utilities:         [XLU]
+      real_estate:       [XLRE]
+      communication:     [XLC, GOOGL, META]
+      materials:         [XLB]
+      software:          [CRM, NOW, PLTR, MRVL, SMCI]
+      etfs:              [SMH, SPY, QQQ]
 
 
 # ─────────────────────────────────────────────────────────────

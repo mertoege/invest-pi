@@ -337,12 +337,44 @@ def score_sentiment_reversal(ticker: str, news_api_key: Optional[str] = None) ->
 
 # ──────────────── 7. PEER WEAKNESS ──────────────────────────
 PEER_MAP = {
+    # Semiconductors
     "NVDA":  ["AMD", "AVGO", "MRVL"],
-    "ASML":  ["AMAT", "LRCX", "KLAC"],
-    "TSM":   ["UMC", "GFS", "INTC"],
-    "AMD":   ["NVDA", "INTC", "AVGO"],
+    "AMD":   ["NVDA", "AVGO", "MRVL"],
+    "AVGO":  ["NVDA", "AMD", "MRVL"],
+    "TSM":   ["NVDA", "AMD", "ASML"],
+    "ASML":  ["TSM", "NVDA", "AMD"],
+    "MRVL":  ["NVDA", "AMD", "AVGO"],
+    "SMCI":  ["NVDA", "AMD", "AVGO"],
+    # Hyperscalers / Communication
     "MSFT":  ["GOOGL", "AMZN", "META"],
     "GOOGL": ["MSFT", "META", "AMZN"],
+    "META":  ["GOOGL", "MSFT", "AMZN"],
+    "AMZN":  ["MSFT", "GOOGL", "META"],
+    "AAPL":  ["MSFT", "GOOGL", "META"],
+    # Defensive Blue Chips (Peer = Sektor-ETF als Benchmark)
+    "JNJ":   ["UNH", "LLY", "XLV"],
+    "UNH":   ["JNJ", "LLY", "XLV"],
+    "LLY":   ["JNJ", "UNH", "XLV"],
+    "PG":    ["KO", "JNJ", "XLP"],
+    "KO":    ["PG", "JNJ", "XLP"],
+    "JPM":   ["XLF", "MSFT", "AMZN"],
+    "XOM":   ["XLE", "XLI", "XLB"],
+    # Software / Speculative
+    "CRM":   ["NOW", "PLTR", "MSFT"],
+    "NOW":   ["CRM", "PLTR", "MSFT"],
+    "PLTR":  ["CRM", "NOW", "MRVL"],
+    # Sektor-ETFs: Peers = andere Sektor-ETFs
+    "XLK":   ["XLC", "SMH", "QQQ"],
+    "XLF":   ["XLI", "XLE", "SPY"],
+    "XLE":   ["XLB", "XLI", "SPY"],
+    "XLV":   ["XLP", "XLU", "SPY"],
+    "XLI":   ["XLF", "XLB", "SPY"],
+    "XLP":   ["XLV", "XLU", "SPY"],
+    "XLY":   ["XLC", "XLK", "SPY"],
+    "XLU":   ["XLP", "XLRE", "SPY"],
+    "XLRE":  ["XLU", "XLF", "SPY"],
+    "XLC":   ["XLK", "XLY", "SPY"],
+    "XLB":   ["XLE", "XLI", "SPY"],
 }
 
 

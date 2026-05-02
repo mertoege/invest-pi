@@ -193,7 +193,13 @@ def load() -> Config:
     universe: list[WatchlistEntry] = []
     seen_tickers: set[str] = set()
     ring_map = {
+        # Neue Struktur (2026-05-02): Sektor-ETFs + Blue Chips
+        "ring_1_sector_etfs":    1,
         "ring_1_semiconductors": 1,
+        "ring_2_defensive":      2,
+        "ring_2_hyperscaler":    2,
+        "ring_3_speculative":    3,
+        # Legacy (falls alte config geladen wird)
         "ring_1_equipment":      1,
         "ring_2_ecosystem":      2,
         "ring_3_hyperscaler":    3,

@@ -574,12 +574,26 @@ def _bt_peer_weakness(ticker: str, ticker_closes: np.ndarray,
                       day_idx: int) -> tuple[float, bool, str]:
     """Dim 7: Relative performance vs peers."""
     peer_map = {
-        "NVDA": ["AMD","AVGO","MRVL"], "ASML": ["AMAT","LRCX","KLAC"],
-        "TSM": ["UMC","GFS","INTC"], "AMD": ["NVDA","INTC","AVGO"],
+        # Semiconductors
+        "NVDA": ["AMD","AVGO","MRVL"], "AMD": ["NVDA","AVGO","MRVL"],
+        "AVGO": ["NVDA","AMD","MRVL"], "TSM": ["NVDA","AMD","ASML"],
+        "ASML": ["TSM","NVDA","AMD"], "MRVL": ["NVDA","AMD","AVGO"],
+        "SMCI": ["NVDA","AMD","AVGO"],
+        # Hyperscalers / Communication
         "MSFT": ["GOOGL","AMZN","META"], "GOOGL": ["MSFT","META","AMZN"],
         "META": ["GOOGL","MSFT","AMZN"], "AMZN": ["MSFT","GOOGL","META"],
-        "AVGO": ["NVDA","AMD","MRVL"], "LRCX": ["AMAT","KLAC","ASML"],
-        "KLAC": ["AMAT","LRCX","ASML"], "AMAT": ["LRCX","KLAC","ASML"],
+        "AAPL": ["MSFT","GOOGL","META"],
+        # Defensive Blue Chips
+        "JNJ": ["UNH","LLY"], "UNH": ["JNJ","LLY"], "LLY": ["JNJ","UNH"],
+        "PG": ["KO","JNJ"], "KO": ["PG","JNJ"],
+        "JPM": ["MSFT","AMZN"], "XOM": ["XLE","XLI"],
+        # Software / Speculative
+        "CRM": ["NOW","PLTR"], "NOW": ["CRM","PLTR"], "PLTR": ["CRM","NOW"],
+        # Sektor-ETFs: vergleichen sich untereinander
+        "XLK": ["XLC","QQQ"], "XLF": ["XLI","XLE"], "XLE": ["XLB","XLI"],
+        "XLV": ["XLP","XLU"], "XLI": ["XLF","XLB"], "XLP": ["XLV","XLU"],
+        "XLY": ["XLC","XLK"], "XLU": ["XLP","XLRE"], "XLRE": ["XLU","XLF"],
+        "XLC": ["XLK","XLY"], "XLB": ["XLE","XLI"],
     }
     peers = peer_map.get(ticker)
     if not peers or day_idx < 30:
@@ -772,17 +786,34 @@ def _vol_scale_backtest(closes: np.ndarray, day_idx: int) -> float:
 # SECTOR MAPPING
 # ────────────────────────────────────────────────────────────
 _SECTOR_MAP = {
-    "NVDA": "semiconductors", "AMD": "semiconductors", "INTC": "semiconductors",
-    "QCOM": "semiconductors", "MU": "semiconductors", "SMCI": "semiconductors",
-    "TSM": "semiconductors", "ARM": "semiconductors", "AVGO": "semiconductors",
-    "MRVL": "semiconductors",
-    "ASML": "equipment", "AMAT": "equipment", "LRCX": "equipment",
-    "KLAC": "equipment", "TER": "equipment",
-    "MSFT": "hyperscaler", "GOOGL": "hyperscaler", "META": "hyperscaler",
-    "AMZN": "hyperscaler", "AAPL": "hyperscaler", "ORCL": "hyperscaler",
-    "ANET": "networking", "DELL": "networking", "PLTR": "networking",
-    "CDNS": "software", "SNPS": "software", "CRM": "software",
-    "NOW": "software", "SNOW": "software", "AI": "software",
+    # Technology / Semiconductors
+    "XLK": "technology", "NVDA": "technology", "AMD": "technology",
+    "AVGO": "technology", "TSM": "technology", "ASML": "technology",
+    "MSFT": "technology", "AAPL": "technology",
+    # Financials
+    "XLF": "financials", "JPM": "financials",
+    # Energy
+    "XLE": "energy", "XOM": "energy",
+    # Healthcare
+    "XLV": "healthcare", "UNH": "healthcare", "LLY": "healthcare",
+    "JNJ": "healthcare",
+    # Industrials
+    "XLI": "industrials",
+    # Consumer Staples
+    "XLP": "consumer_staples", "PG": "consumer_staples", "KO": "consumer_staples",
+    # Consumer Discretionary
+    "XLY": "consumer_disc", "AMZN": "consumer_disc",
+    # Utilities
+    "XLU": "utilities",
+    # Real Estate
+    "XLRE": "real_estate",
+    # Communication Services
+    "XLC": "communication", "GOOGL": "communication", "META": "communication",
+    # Materials
+    "XLB": "materials",
+    # Software / Speculative
+    "CRM": "software", "NOW": "software", "PLTR": "software",
+    "MRVL": "software", "SMCI": "software",
 }
 
 
