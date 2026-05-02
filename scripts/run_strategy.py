@@ -39,7 +39,7 @@ from src.common.storage import TRADING_DB, connect, init_all
 from src.risk.limits import (
     pre_trade_check, positions_to_stop_loss,
     positions_to_take_profit, positions_to_trailing_stop,
-    cash_floor_check, sector_concentration_check,
+    cash_floor_check, sector_concentration_check, correlation_check,
 )
 from src.trading import TradingConfig, load_trading_config
 from src.trading.decision import decide_action, log_decision
@@ -244,6 +244,10 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
         if not sector_ok:
             decisions["skips"].append({"ticker": entry.ticker, "reason": f"sector-cap: {sector_reason}"})
             continue
+        corr_ok, corr_reason = correlation_check(broker, entry.ticker)
+        if not corr_ok:
+            decisions["skips"].append({"ticker": entry.ticker, "reason": f"correlation: {corr_reason}"})
+            continue
 
         if dry_run:
             print(f"  BUY (dry-run) {entry.ticker}: {sz.qty} @ {quote.last:.2f} = {sz.eur_amount:.2f} EUR  ({decision.reason})")
@@ -302,6 +306,17 @@ def main() -> None:
     if not t_cfg.enabled:
         print("trading.enabled=false in config.yaml — nothing to do.")
         return
+
+    # Apply pending config patches from meta-review
+    try:
+        from src.learning.config_patcher import apply_trading_patches
+        applied = apply_trading_patches(t_cfg)
+        if applied:
+            print(f"  Applied {len(applied)} config patches from meta-review:")
+            for a in applied:
+                print(f"    {a}")
+    except Exception as e:
+        print(f"  config patch application skipped: {e}")
 
     broker = get_broker("mock" if args.mock else t_cfg.broker)
     src = "paper" if broker.is_paper else "live"

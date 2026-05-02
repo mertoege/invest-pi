@@ -1,6 +1,6 @@
 # 🚀 Invest-Pi · Handover-Dokumentation
 
-**Last update:** 2026-04-30 nach B3-V2-Backtester-Session  
+**Last update:** 2026-05-02 nach Self-Learning + Trading-Optimization-Suite  
 **Project owner:** Mert Oege (mert.oege@gmail.com)  
 **Repository:** https://github.com/mertoege/invest-pi  
 **Pi-Tailscale-IP:** `100.92.115.43`  
@@ -64,10 +64,14 @@ NEIN für aktuellen 50€/Monat-DCA-Use-Case. Steuerbürokratie + FX-Friction fr
    │ src/risk       │  │ src/alerts   │  │ src/learning    │
    │  limits        │  │  notifier    │  │  pattern_miner  │
    │ (kill, SL, TP, │  │  dispatch    │  │  calibration    │
-   │  trailing,     │  └──────┬───────┘  │  attribution    │
-   │  cash-floor,   │         │          │  regime (HMM)   │
-   │  sector-cap,   │         │          │  backtest_engine│
-   │  daily-loss)   │         │          └──────┬──────────┘
+   │  trailing,     │  │  risk_scorer │  │  attribution    │
+   │  cash-floor,   │  │  fred_sigs   │  │  reflection     │
+   │  sector-cap,   │  │  breadth     │  │  regime (HMM)   │
+   │  correlation,  │  │  sentiment   │  │  regime_tracker  │
+   │  daily-loss)   │  │  earnings    │  │  config_patcher │
+   │               │  └──────┬───────┘  │  weight_optim   │
+   │               │         │          │  backtest_engine│
+   │               │         │          └──────┬──────────┘
    └───────┬────────┘         │                 │
            │                  │                 │
    ┌───────┴──────────────────┴─────────────────┴─────────┐
@@ -90,10 +94,10 @@ NEIN für aktuellen 50€/Monat-DCA-Use-Case. Steuerbürokratie + FX-Friction fr
 | `market.db` | yfinance-Cache (OHLCV, Fundamentals, FX-Rate) |
 | `patterns.db` | Pre-Drawdown-Muster aus 10y-Historie für Pattern-Matching |
 | `alerts.db` | Risk-Score-Historie + Telegram-Notifications |
-| `learning.db` | predictions + outcomes + feedback_reasons + cost_ledger + meta_reviews |
+| `learning.db` | predictions + outcomes + feedback_reasons + cost_ledger + meta_reviews + reflections + weight_snapshots + regime_snapshots + config_patch_log |
 | `trading.db` | trades + positions (peak_price, strategy_label) + equity_snapshots (USD+EUR+FX) |
 
-### 14 systemd-Timer (alle aktiv auf Pi)
+### 15 systemd-Timer (alle aktiv auf Pi)
 
 | Timer | Schedule | Zweck |
 |---|---|---|
@@ -111,6 +115,7 @@ NEIN für aktuellen 50€/Monat-DCA-Use-Case. Steuerbürokratie + FX-Friction fr
 | invest-pi-backup | täglich 03:30 | DB-Snapshots gzipped, 14d-rotation |
 | invest-pi-daily-report | täglich 21:30 | Telegram-PnL-Push (täglich/wöchentlich) |
 | invest-pi-train-regime | wöchentlich Sa 05:00 | HMM-Regime-Modell-Retrain |
+| invest-pi-weekly-recap | wöchentlich So 19:00 | Wöchentlicher Portfolio-Recap via Telegram |
 
 ---
 

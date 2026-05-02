@@ -342,6 +342,26 @@ def log_feedback(
 
 
 
+def ticker_feedback_summary(ticker: str, days: int = 60) -> list[dict]:
+    """
+    Holt Feedback-Reasons fuer einen bestimmten Ticker.
+    Joined mit predictions ueber prediction_id → subject_id.
+    """
+    sql = """
+        SELECT fr.feedback_type, fr.reason_code, fr.reason_text, fr.created_at
+          FROM feedback_reasons fr
+          JOIN predictions p ON fr.prediction_id = p.id
+         WHERE p.subject_id = ?
+           AND fr.created_at >= datetime('now', ?)
+         ORDER BY fr.created_at DESC
+         LIMIT 20
+    """
+    with connect(LEARNING_DB) as conn:
+        rows = conn.execute(sql, (ticker, f"-{days} day")).fetchall()
+    return [dict(r) for r in rows]
+
+
+
 def latest_risk_score_summary(days: int = 30) -> dict:
     """Aggregat-Stats fuer monthly_dca / meta_review-Prompts."""
     sql = """

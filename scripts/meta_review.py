@@ -7,9 +7,10 @@ Pipeline:
   2. Stratifiziere nach Konfidenz, Ticker, Strategy-Label, alert_level
   3. Aggregate feedback_reasons der letzten 30d
   4. Drift-Detection (recent 7d vs prior 7d)
-  5. Opus-Call mit allem als Kontext, fordert JSON-action_plan
+  5. Opus-Call mit allem als Kontext, fordert JSON-action_plan + config_patches
   6. Schreibe reviews/<date>-<source>.md (Markdown)
   7. Schreibe meta_reviews-Tabellen-Eintrag (mit prediction_id)
+  8. Validiere + logge config_patches (Audit-Trail)
 
 Wird von:
   - invest-pi-meta-review.timer (monatlich, 2. um 04:00 CEST)
@@ -127,13 +128,27 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         '    "prio_1": ["<aktion>", ...],\n'
         '    "prio_2": ["<aktion>", ...],\n'
         '    "prio_3": ["<aktion>", ...]\n'
-        "  }\n"
+        "  },\n"
+        '  "config_patches": [\n'
+        "    {\n"
+        '      "path": "<config.pfad>",\n'
+        '      "old_value": <aktueller_wert>,\n'
+        '      "new_value": <neuer_wert>,\n'
+        '      "reason": "<warum>"\n'
+        "    }\n"
+        "  ]\n"
         "}\n\n"
         "2. Sei spezifisch. Statt 'Schwellen anpassen': 'composite-Schwelle von 45 auf 35 senken weil "
         "moderate-v1 bei composite>40 nur 38% korrekt war'.\n\n"
         "3. Wenn du Konfidenz-Probleme erkennst (z.B. high-conf nur 50% korrekt), nenne das explizit.\n\n"
         "4. action_plan-Items werden in spaetere LLM-Prompts injected — formuliere sie als kurze "
-        "Direktiven die ein anderer LLM beim naechsten Score- oder DCA-Call beachten kann."
+        "Direktiven die ein anderer LLM beim naechsten Score- oder DCA-Call beachten kann.\n\n"
+        "5. config_patches sind maschinenlesbare Config-Aenderungen. Erlaubte Pfade:\n"
+        "   trading.stop_loss_pct (0.03-0.25), trading.take_profit_pct (0.05-0.50),\n"
+        "   trading.trailing_stop_pct (0.03-0.20), trading.score_buy_max (20-60),\n"
+        "   trading.max_open_positions (3-15), trading.cash_floor_pct (0.05-0.50),\n"
+        "   risk_scorer.threshold_caution (30-60), risk_scorer.threshold_red (60-90).\n"
+        "   Nur Patches vorschlagen wenn die Daten das klar rechtfertigen."
     )
     prompt = (
         f"## Job-Source: {ctx['job_source']}\n"
@@ -189,7 +204,7 @@ def run(job_source: str, dry_run: bool = False) -> dict:
     if not result.ok:
         log.error(f"opus call failed: {result.error}")
         if notifier.is_configured():
-            notifier.send_info(f"❌ <b>meta_review {job_source}</b>: {result.error or '?'}", label="meta_error")
+            notifier.send_info(f"<b>meta_review {job_source}</b>: {result.error or '?'}", label="meta_error")
         return {"error": result.error}
 
     parsed = result.parsed_json or safe_parse(result.text, default={})
@@ -221,14 +236,36 @@ def run(job_source: str, dry_run: bool = False) -> dict:
              json.dumps(action_plan), result.prediction_id),
         )
 
+    # Config-Patches verarbeiten
+    config_patches = parsed.get("config_patches", [])
+    patch_summary = ""
+    if config_patches:
+        try:
+            from src.learning.config_patcher import log_patches
+            # meta_review_id aus der gerade geschriebenen Row holen
+            with connect(LEARNING_DB) as conn:
+                mr_row = conn.execute(
+                    "SELECT id FROM meta_reviews ORDER BY id DESC LIMIT 1"
+                ).fetchone()
+            mr_id = mr_row["id"] if mr_row else None
+            results = log_patches(config_patches, meta_review_id=mr_id)
+            accepted = [r for r in results if r.accepted]
+            if accepted:
+                patch_summary = f"\nConfig-Patches: {len(accepted)} akzeptiert"
+                for r in accepted:
+                    patch_summary += f"\n  {r.path}: {r.old_value} -> {r.new_value}"
+        except Exception as e:
+            log.warning(f"config patch processing failed: {e}")
+
     # Telegram-Push
     if notifier.is_configured():
         notifier.send_info(
-            f"📊 <b>Meta-Review fuer {job_source}</b> fertig\n"
+            f"<b>Meta-Review fuer {job_source}</b> fertig\n"
             f"Hit-Rate: {(ctx['hit_rate']['overall']['hit_rate'] or 0):.0%} "
             f"({ctx['hit_rate']['overall']['measured']} measured)\n"
             f"Cost: {result.cost_eur:.3f} EUR\n"
-            f"Datei: reviews/{md_path.name}",
+            f"Datei: reviews/{md_path.name}"
+            f"{patch_summary}",
             label="meta_review",
         )
 

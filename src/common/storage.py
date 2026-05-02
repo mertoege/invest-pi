@@ -190,6 +190,41 @@ CREATE TABLE IF NOT EXISTS reflections (
 );
 CREATE INDEX IF NOT EXISTS idx_refl_ticker ON reflections(ticker, created_at);
 CREATE INDEX IF NOT EXISTS idx_refl_pred   ON reflections(prediction_id);
+
+CREATE TABLE IF NOT EXISTS weight_snapshots (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    weights_json   TEXT NOT NULL,
+    source         TEXT NOT NULL DEFAULT 'auto_optimizer',
+    notes          TEXT
+);
+
+CREATE TABLE IF NOT EXISTS regime_snapshots (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    regime_label   TEXT NOT NULL,
+    probability    REAL,
+    method         TEXT,
+    vix_level      REAL,
+    prediction_id  INTEGER,
+    FOREIGN KEY (prediction_id) REFERENCES predictions(id)
+);
+CREATE INDEX IF NOT EXISTS idx_regime_date ON regime_snapshots(created_at);
+CREATE INDEX IF NOT EXISTS idx_regime_pred ON regime_snapshots(prediction_id);
+
+CREATE TABLE IF NOT EXISTS config_patch_log (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    meta_review_id INTEGER,
+    path           TEXT NOT NULL,
+    old_value      TEXT,
+    new_value      TEXT,
+    accepted       INTEGER NOT NULL DEFAULT 0,
+    applied_at     TEXT,
+    reason         TEXT,
+    source         TEXT NOT NULL DEFAULT 'meta_review'
+);
+CREATE INDEX IF NOT EXISTS idx_cpatch_pending ON config_patch_log(accepted, applied_at);
 """
 
 
@@ -319,16 +354,6 @@ def init_all() -> None:
     for path, schema in configs:
         with connect(path) as conn:
             conn.executescript(schema)
-        try:
-            rel = path.relative_to(DATA_DIR.parent)
-        except ValueError:
-            rel = path
-        print(f"  initialisiert: {rel}")
-    _migrate_equity_snapshots()
+    # Migrationen fuer bestehende DBs
     _migrate_positions()
-
-
-if __name__ == "__main__":
-    print("Invest-Pi Datenbank-Setup")
-    init_all()
-    print("Fertig.")
+    _migrate_equity_snapshots()

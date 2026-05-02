@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · Weekly Recap Sonntag 19:00 CEST
+
+[Timer]
+OnCalendar=Sun *-*-* 19:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

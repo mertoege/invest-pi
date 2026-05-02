@@ -255,6 +255,75 @@ def sector_concentration_check(broker, config, ticker: str, eur_value: float) ->
 
 
 
+def correlation_check(
+    broker,
+    ticker: str,
+    max_avg_corr: float = 0.75,
+    lookback_days: int = 90,
+) -> tuple[bool, str]:
+    """
+    Pre-Buy-Check: prueft ob der neue Ticker zu stark mit bestehenden
+    Positionen korreliert (Rolling-Korrelation ueber lookback_days).
+
+    Inspiriert von Hierarchical Risk Parity (HRP) — nicht 5 Tech-Aktien
+    gleichzeitig kaufen.
+
+    Returns:
+        (allowed: bool, reason: str)
+    """
+    positions = broker.get_positions()
+    if not positions:
+        return True, ""
+
+    held_tickers = [p.ticker for p in positions]
+    if not held_tickers:
+        return True, ""
+
+    try:
+        from ..common.data_loader import get_prices
+        import numpy as np
+
+        # Lade Preisdaten fuer neuen Ticker + alle gehaltenen
+        new_prices = get_prices(ticker, period="6mo")["close"]
+        if len(new_prices) < lookback_days:
+            return True, ""  # zu wenig Daten, kein Block
+
+        correlations = []
+        for held in held_tickers:
+            try:
+                held_prices = get_prices(held, period="6mo")["close"]
+                # Align auf gemeinsame Daten
+                combined = new_prices.to_frame("new").join(
+                    held_prices.to_frame("held"), how="inner"
+                ).dropna()
+                if len(combined) < 30:
+                    continue
+                # Rolling returns
+                rets = combined.pct_change().dropna().tail(lookback_days)
+                if len(rets) < 20:
+                    continue
+                corr = float(np.corrcoef(rets["new"], rets["held"])[0, 1])
+                if not np.isnan(corr):
+                    correlations.append({"ticker": held, "corr": corr})
+            except Exception:
+                continue
+
+        if not correlations:
+            return True, ""
+
+        avg_corr = sum(c["corr"] for c in correlations) / len(correlations)
+        high_corr = [c for c in correlations if c["corr"] > max_avg_corr]
+
+        if avg_corr > max_avg_corr:
+            top = sorted(correlations, key=lambda c: -c["corr"])[:3]
+            names = ", ".join(f"{c['ticker']}({c['corr']:.2f})" for c in top)
+            return False, f"avg corr {avg_corr:.2f} > {max_avg_corr:.2f} mit {names}"
+
+        return True, ""
+    except Exception as e:
+        return True, ""  # bei Fehler nicht blockieren
+
+
 def _strategy_thresholds(config, label: str) -> dict:
     """
     Holt take_profit/stop_loss/trailing-Werte.
@@ -277,7 +346,6 @@ def _strategy_thresholds(config, label: str) -> dict:
     strategies = getattr(config, "strategies", {}) or {}
     s = strategies.get(label) or strategies.get("mid_term") or {}
     return {
-        "take_profit_pct":         float(s.get("take_profit_pct",         config.take_profit_pct)),
         "stop_loss_pct":           float(s.get("stop_loss_pct",           config.stop_loss_pct)),
         "trailing_activation_pct": float(s.get("trailing_activation_pct", config.trailing_activation_pct)),
         "trailing_stop_pct":       float(s.get("trailing_stop_pct",       config.trailing_stop_pct)),

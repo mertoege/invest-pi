@@ -289,6 +289,95 @@ def detect_drift(job_source: str = "daily_score",
     return None
 
 
+def detect_dimension_drift(
+    job_source: str = "daily_score",
+    window_days: int = 14,
+    min_samples: int = 10,
+) -> list[dict]:
+    """
+    Per-Dimension Drift Detection.
+
+    Vergleicht fuer jede Risk-Dimension die Hit-Rate der letzten N Tage
+    mit der vorherigen Periode. Warnt wenn eine einzelne Dimension
+    signifikant schlechter wird (>20pp Drop).
+
+    Returns:
+        Liste von Drift-Warnungen (leer = alles ok).
+    """
+    from .json_utils import safe_parse
+    from .storage import LEARNING_DB, connect
+
+    sql = """
+        SELECT output_json, outcome_correct, created_at
+          FROM predictions
+         WHERE job_source = ?
+           AND outcome_correct IN (0, 1)
+           AND created_at >= datetime('now', ?)
+         ORDER BY created_at
+    """
+    with connect(LEARNING_DB) as conn:
+        rows = conn.execute(sql, (job_source, f"-{window_days * 2} day")).fetchall()
+
+    if len(rows) < min_samples * 2:
+        return []
+
+    # Split in recent und prior
+    midpoint = len(rows) // 2
+    prior_rows = rows[:midpoint]
+    recent_rows = rows[midpoint:]
+
+    def dim_hit_rates(subset):
+        rates = {}  # {dim_name: {"triggered_correct": n, "triggered_total": n}}
+        for r in subset:
+            out = safe_parse(r["output_json"] or "{}", default={})
+            correct = r["outcome_correct"]
+            for d in out.get("dimensions", []):
+                name = d.get("name")
+                triggered = d.get("triggered", False)
+                if not name or not triggered:
+                    continue
+                if name not in rates:
+                    rates[name] = {"correct": 0, "total": 0}
+                rates[name]["total"] += 1
+                if correct == 1:
+                    rates[name]["correct"] += 1
+        return rates
+
+    prior_rates = dim_hit_rates(prior_rows)
+    recent_rates = dim_hit_rates(recent_rows)
+
+    warnings = []
+    for dim_name in set(list(prior_rates.keys()) + list(recent_rates.keys())):
+        p = prior_rates.get(dim_name, {"correct": 0, "total": 0})
+        r = recent_rates.get(dim_name, {"correct": 0, "total": 0})
+
+        if p["total"] < 3 or r["total"] < 3:
+            continue
+
+        p_rate = p["correct"] / p["total"]
+        r_rate = r["correct"] / r["total"]
+        delta = r_rate - p_rate
+
+        if abs(delta) >= 0.20:  # 20pp threshold
+            direction = "DROP" if delta < 0 else "JUMP"
+            warnings.append({
+                "dimension": dim_name,
+                "direction": direction,
+                "prior_rate": round(p_rate, 3),
+                "recent_rate": round(r_rate, 3),
+                "delta_pp": round(delta, 3),
+                "prior_n": p["total"],
+                "recent_n": r["total"],
+                "message": (
+                    f"Dim-Drift {direction}: {dim_name} "
+                    f"{p_rate:.0%} → {r_rate:.0%} (Δ {delta:+.0%})"
+                ),
+            })
+
+    warnings.sort(key=lambda w: abs(w["delta_pp"]), reverse=True)
+    return warnings
+
+
 if __name__ == "__main__":
     print("Invest-Pi · Outcome-Tracker")
     stats = run_tracker()

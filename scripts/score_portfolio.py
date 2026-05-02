@@ -38,6 +38,18 @@ def main() -> None:
     cfg = cfg_mod.load()
     init_all()
 
+    # ── Dynamic Weight Optimization (Self-Learning) ─────
+    try:
+        from src.learning.weight_optimizer import optimize_and_apply
+        w_report = optimize_and_apply(days=60)
+        if w_report["changed"]:
+            changed = [f"{k}: {v['old']}→{v['new']}" for k, v in w_report["deltas"].items() if v["delta"] != 0]
+            print(f"  Weights optimiert: {', '.join(changed[:4])}")
+        else:
+            print("  Weights: keine Aenderung (zu wenig Daten oder stabil)")
+    except Exception as e:
+        print(f"  Weight-Optimizer skipped: {e}")
+
     # ── Pattern-Library Auto-Bootstrap (nur first-run effektiv) ─────
     try:
         result = ensure_patterns_built(min_events_per_ticker=5, quiet=True)

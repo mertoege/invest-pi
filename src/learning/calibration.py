@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Optional
 
 from ..common.json_utils import safe_parse
-from ..common.predictions import feedback_summary, hit_rate_stratified
+from ..common.predictions import feedback_summary, hit_rate_stratified, ticker_feedback_summary
 from .attribution import attribution_block as _attribution_block
 from .reflection import ticker_reflection_block, global_reflection_block
 from ..common.storage import LEARNING_DB, connect
@@ -52,16 +52,6 @@ def calibration_block(job_source: str = "daily_score",
                        feedback_days: int = 30) -> str:
     """
     Liefert einen Markdown-Block der in jeden Score- oder DCA-Prompt injected wird.
-
-    Format:
-        ## Aktuelle Lern-Statistik (job_source, 30d)
-        ...hit-rate stratifiziert...
-
-        ## User-Feedback-Patterns (feedback_reasons, 30d)
-        ...
-
-        ## Letzte Meta-Review-Erkenntnisse (Action-Plan)
-        ...
     """
     parts = []
 
@@ -83,7 +73,7 @@ def calibration_block(job_source: str = "daily_score",
                 )
         parts.append("")
 
-    # 2. User-Feedback
+    # 2. User-Feedback (global)
     fb = feedback_summary(days=feedback_days)
     if fb["by_type_reason"]:
         parts.append(f"## User-Feedback (letzte {feedback_days}d)")
@@ -113,6 +103,15 @@ def calibration_block(job_source: str = "daily_score",
         parts.append(attrib)
         parts.append("")
 
+    # 5. Per-Regime Hit-Rate
+    try:
+        from .regime_tracker import regime_calibration_block
+        regime_block = regime_calibration_block(job_source, days=60)
+        if regime_block:
+            parts.append(regime_block)
+    except Exception:
+        pass
+
     if not parts:
         return ""
     return "\n".join(parts)
@@ -141,7 +140,21 @@ def ticker_calibration_block(
     if ticker_refl:
         parts.append(ticker_refl)
 
-    # 2. Cross-Ticker Lessons (globale Muster)
+    # 2. Per-Ticker User-Feedback (Telegram-Buttons)
+    ticker_fb = ticker_feedback_summary(ticker, days=60)
+    if ticker_fb:
+        disagrees = [f for f in ticker_fb if f["feedback_type"] == "disagree"]
+        agrees = [f for f in ticker_fb if f["feedback_type"] == "agree"]
+        if disagrees or agrees:
+            parts.append(f"## User-Feedback fuer {ticker}")
+            if disagrees:
+                reasons = [f["reason_code"] or f["reason_text"] or "?" for f in disagrees[:5]]
+                parts.append(f"  Disagree ({len(disagrees)}x): {', '.join(reasons)}")
+            if agrees:
+                parts.append(f"  Agree ({len(agrees)}x)")
+            parts.append("")
+
+    # 3. Cross-Ticker Lessons (globale Muster)
     global_refl = global_reflection_block(limit=10)
     if global_refl:
         parts.append(global_refl)
@@ -169,6 +182,15 @@ def ticker_calibration_block(
     if attrib:
         parts.append(attrib)
         parts.append("")
+
+    # 5. Per-Regime Hit-Rate
+    try:
+        from .regime_tracker import regime_calibration_block
+        regime_block = regime_calibration_block(job_source, days=60)
+        if regime_block:
+            parts.append(regime_block)
+    except Exception:
+        pass
 
     if not parts:
         return ""

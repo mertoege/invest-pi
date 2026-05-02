@@ -66,6 +66,7 @@ DIMENSION_WEIGHTS = {
     "peer_weakness":            0.9,
     "valuation_percentile":     1.0,
     "macro_regime":             1.1,
+    "earnings_proximity":       1.0,
 }
 
 
@@ -233,16 +234,6 @@ def score_insider_selling(ticker: str, finnhub_key: Optional[str] = None) -> Dim
             {"todo": "siehe Finnhub /stock/insider-transactions endpoint"},
             weight=DIMENSION_WEIGHTS["insider_selling"],
         )
-
-    # TODO: Implementierung
-    # import requests
-    # resp = requests.get(
-    #     "https://finnhub.io/api/v1/stock/insider-transactions",
-    #     params={"symbol": ticker, "token": finnhub_key}
-    # ).json()
-    # transactions = resp.get("data", [])
-    # ... 30 Tage filtern, Sells zählen, Volumen auswerten ...
-
     return DimensionScore("insider_selling", 0, False, "not implemented yet", {},
                           weight=DIMENSION_WEIGHTS["insider_selling"])
 
@@ -257,7 +248,6 @@ def score_analyst_downgrades(ticker: str, finnhub_key: Optional[str] = None) -> 
             {"todo": "siehe Finnhub /stock/recommendation endpoint"},
             weight=DIMENSION_WEIGHTS["analyst_downgrades"],
         )
-    # TODO: Implementierung
     return DimensionScore("analyst_downgrades", 0, False, "not implemented yet", {},
                           weight=DIMENSION_WEIGHTS["analyst_downgrades"])
 
@@ -316,17 +306,33 @@ def score_options_skew(ticker: str) -> DimensionScore:
 
 # ──────────────── 6. SENTIMENT REVERSAL ─────────────────────
 def score_sentiment_reversal(ticker: str, news_api_key: Optional[str] = None) -> DimensionScore:
-    """STUB: 2σ-Sentiment-Fall in 7 Tagen."""
-    if not news_api_key:
+    """News-Sentiment via yfinance-Headlines + VADER. Kein API-Key noetig."""
+    try:
+        from .sentiment import compute_sentiment_score
+        result = compute_sentiment_score(ticker)
+        if not result["available"]:
+            return DimensionScore(
+                "sentiment_reversal", 0, False,
+                result["reason"],
+                {"todo": "pip install vaderSentiment --break-system-packages"},
+                weight=DIMENSION_WEIGHTS["sentiment_reversal"],
+            )
         return DimensionScore(
-            "sentiment_reversal", 0, False,
-            "Stub — NEWSAPI_KEY nicht gesetzt",
-            {"todo": "NewsAPI + VADER-Sentiment über 30 Tage"},
+            "sentiment_reversal",
+            result["sentiment_score"],
+            result["triggered"],
+            result["reason"],
+            {
+                "n_headlines": result["n_headlines"],
+                "avg_sentiment": result["avg_sentiment"],
+                "negative_ratio": result["negative_ratio"],
+            },
             weight=DIMENSION_WEIGHTS["sentiment_reversal"],
         )
-    # TODO: Implementierung
-    return DimensionScore("sentiment_reversal", 0, False, "not implemented yet", {},
-                          weight=DIMENSION_WEIGHTS["sentiment_reversal"])
+    except Exception as e:
+        return DimensionScore("sentiment_reversal", 0, False,
+                              f"sentiment error: {e}", {},
+                              weight=DIMENSION_WEIGHTS["sentiment_reversal"])
 
 
 # ──────────────── 7. PEER WEAKNESS ──────────────────────────
@@ -407,10 +413,6 @@ def score_valuation_percentile(ticker: str) -> DimensionScore:
                                   "P/E nicht verfügbar", {},
                                   weight=DIMENSION_WEIGHTS["valuation_percentile"])
 
-        # yfinance liefert nur aktuelles P/E; für Percentile bräuchten wir
-        # historische Earnings. Näherung: wir verwenden Price-Percentile als Proxy,
-        # weil EPS meist stabiler wächst als der Preis. Das ist eine Näherung,
-        # aber brauchbar solange kein historisches Fundamentals-Feed angebunden ist.
         prices = get_prices(ticker, period="5y")["close"]
         if len(prices) < 252:
             return DimensionScore("valuation_percentile", 0, False,
@@ -448,56 +450,109 @@ def score_valuation_percentile(ticker: str) -> DimensionScore:
 # ──────────────── 9. MACRO REGIME SHIFT ─────────────────────
 def score_macro_regime() -> DimensionScore:
     """
-    VIX, Credit-Spreads, Yield-Curve. Ticker-unabhängig (gleicher Score für alle
-    Positionen in einem Durchlauf).
+    Macro-Regime-Score: kombiniert yfinance-VIX (Echtzeit-Spike-Detection)
+    mit FRED Cross-Asset-Signalen (Yield-Curve, Credit-Spreads, Dollar, Inflation).
+
+    Gewichtung: 50% VIX-Realtime + 50% FRED-Cross-Asset (max 100).
     """
     try:
-        vix = get_prices("^VIX", period="3mo")
-        current_vix = float(vix["close"].iloc[-1])
-        vix_5d_change = float(vix["close"].iloc[-1] / vix["close"].iloc[-5] - 1)
+        # ── Teil A: VIX via yfinance (Echtzeit-Spikes) ──────────
+        vix_score = 0.0
+        vix_reasons = []
+        current_vix = 0.0
+        vix_5d_change = 0.0
 
-        score = 0.0
-        reasons = []
-
-        # VIX-Niveau
-        if current_vix > 30:
-            score += 45
-            reasons.append(f"VIX {current_vix:.1f} (stress)")
-        elif current_vix > 20:
-            score += 25
-            reasons.append(f"VIX {current_vix:.1f} (elevated)")
-
-        # VIX-Spike (5-Tage-Beschleunigung)
-        if vix_5d_change > 0.30:
-            score += 30
-            reasons.append(f"VIX +{vix_5d_change:.0%} in 5T")
-        elif vix_5d_change > 0.15:
-            score += 15
-            reasons.append(f"VIX +{vix_5d_change:.0%} in 5T")
-
-        # Yield-Curve: 10Y - 2Y. Versuche über yfinance.
         try:
-            ten_y = get_prices("^TNX", period="1mo")["close"].iloc[-1] / 10
-            two_y = get_prices("^IRX", period="1mo")["close"].iloc[-1] / 10  # 13-week als 2Y-proxy
-            spread = float(ten_y - two_y)
-            if spread < -0.5:
-                score += 15
-                reasons.append(f"Yield-Curve invertiert ({spread:+.2f}%)")
+            vix = get_prices("^VIX", period="3mo")
+            current_vix = float(vix["close"].iloc[-1])
+            vix_5d_change = float(vix["close"].iloc[-1] / vix["close"].iloc[-5] - 1)
+
+            if current_vix > 30:
+                vix_score += 45
+                vix_reasons.append(f"VIX {current_vix:.1f} (stress)")
+            elif current_vix > 20:
+                vix_score += 25
+                vix_reasons.append(f"VIX {current_vix:.1f} (elevated)")
+
+            if vix_5d_change > 0.30:
+                vix_score += 30
+                vix_reasons.append(f"VIX +{vix_5d_change:.0%} in 5T")
+            elif vix_5d_change > 0.15:
+                vix_score += 15
+                vix_reasons.append(f"VIX +{vix_5d_change:.0%} in 5T")
         except Exception:
             pass
 
+        # ── Teil B: FRED Cross-Asset-Signale ─────────────────────
+        fred_result = {"score": 0, "reasons": [], "details": {}}
+        try:
+            from .fred_signals import macro_risk_score
+            fred_result = macro_risk_score()
+        except Exception:
+            pass
+
+        # ── Teil C: Market Breadth ───────────────────────────────
+        breadth_result = {"score": 0, "reasons": []}
+        try:
+            from .market_breadth import market_breadth_score
+            breadth_result = market_breadth_score()
+        except Exception:
+            pass
+
+        # ── Kombination: 40% VIX + 35% FRED + 25% Breadth ───────
+        vix_score = min(100.0, vix_score)
+        fred_score = min(100.0, fred_result["score"])
+        breadth_score = min(100.0, breadth_result.get("score", 0))
+        score = (vix_score * 0.40) + (fred_score * 0.35) + (breadth_score * 0.25)
         score = min(100.0, score)
-        triggered = score >= 40
+
+        reasons = vix_reasons + fred_result.get("reasons", []) + breadth_result.get("reasons", [])
+        triggered = score >= 35
+
+        details = {
+            "vix": current_vix,
+            "vix_5d_change": vix_5d_change,
+            "vix_sub_score": vix_score,
+            "fred_sub_score": fred_score,
+            "breadth_sub_score": breadth_score,
+            "fred_details": fred_result.get("details", {}),
+            "breadth_details": {k: v for k, v in breadth_result.items() if k not in ("score", "reasons")},
+        }
+
         return DimensionScore(
             "macro_regime", score, triggered,
             "; ".join(reasons) if reasons else f"VIX {current_vix:.1f} ruhig",
-            {"vix": current_vix, "vix_5d_change": vix_5d_change},
+            details,
             weight=DIMENSION_WEIGHTS["macro_regime"],
         )
     except Exception as e:
         return DimensionScore("macro_regime", 0, False,
                               f"error: {e}", {},
                               weight=DIMENSION_WEIGHTS["macro_regime"])
+
+
+# ──────────────── 10. EARNINGS PROXIMITY ─────────────────────
+def score_earnings_proximity(ticker: str) -> DimensionScore:
+    """Erhoehtes Risiko rund um Earnings-Termine (Gap-Risk, IV-Crush, PEAD)."""
+    try:
+        from .earnings import compute_earnings_risk
+        result = compute_earnings_risk(ticker)
+        return DimensionScore(
+            "earnings_proximity",
+            result["score"],
+            result["triggered"],
+            result["reason"],
+            {
+                "next_earnings": result["next_earnings"],
+                "days_until": result["days_until"],
+                "days_since_last": result["days_since_last"],
+            },
+            weight=DIMENSION_WEIGHTS["earnings_proximity"],
+        )
+    except Exception as e:
+        return DimensionScore("earnings_proximity", 0, False,
+                              f"earnings error: {e}", {},
+                              weight=DIMENSION_WEIGHTS["earnings_proximity"])
 
 
 # ════════════════════════════════════════════════════════════
@@ -523,6 +578,7 @@ def score_ticker(
         score_peer_weakness(ticker),
         score_valuation_percentile(ticker),
         score_macro_regime(),
+        score_earnings_proximity(ticker),
     ]
 
     # Composite: gewichteter Durchschnitt, bei dem nicht-implementierte Stubs
@@ -549,15 +605,13 @@ def score_ticker(
     )
 
     # ── Self-Learning-Loop: jede Score-Berechnung als prediction-Row ──────
-    # (LESSONS_FOR_INVEST_PI.md TL;DR Punkt 1+2 — auch im deterministischen
-    #  Modus schon das Gerüst bauen, damit Sonnet später dazu-andocken kann.)
     n_stubs = sum(1 for d in dimensions if d.evidence.get("todo") is not None)
     confidence = (
         "high"   if n_stubs == 0 and report.triggered_count >= 3
         else "medium" if n_stubs <= 2
         else "low"
     )
-    # Historische Analoga (Pattern-Library) — nur wenn DB nicht leer
+    # Historische Analoga (Pattern-Library)
     analogs = []
     try:
         features = compute_features(prices, len(prices) - 1)
@@ -575,8 +629,7 @@ def score_ticker(
                 }
                 for m in matches
             ]
-    except Exception as e:
-        # Pattern-Library leer oder Feature-Computation fehlgeschlagen — ist OK
+    except Exception:
         pass
 
     _prompt_desc = "risk_scorer.score_ticker / 9-dim heuristic / weights-v1 / pattern-augmented"
@@ -610,6 +663,14 @@ def score_ticker(
         cost_estimate_eur=0.0,
     )
     _persist(report, prediction_id=pred_id)
+
+    # ── Regime-Snapshot: welches Regime war bei dieser Prediction aktiv? ──
+    try:
+        from ..learning.regime_tracker import snap_regime
+        snap_regime(prediction_id=pred_id)
+    except Exception:
+        pass
+
     return report
 
 

@@ -1,0 +1,13 @@
+[Unit]
+Description=Invest-Pi · Weekly Trading Recap (Telegram)
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+EnvironmentFile=/home/investpi/invest-pi/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -B scripts/weekly_recap.py
+MemoryMax=256M
+CPUQuota=20%
+TimeoutStartSec=5min
