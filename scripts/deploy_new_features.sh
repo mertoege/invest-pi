@@ -39,7 +39,7 @@ python3 -c "
 import sys; sys.path.insert(0, '.')
 from src.alerts.fred_signals import macro_risk_score
 from src.alerts.market_breadth import market_breadth_score
-from src.alerts.sentiment import news_sentiment_score
+from src.alerts.sentiment import compute_sentiment_score
 from src.alerts.earnings import earnings_risk_score
 from src.learning.regime_tracker import snap_regime, regime_calibration_block
 from src.learning.config_patcher import pending_patches
