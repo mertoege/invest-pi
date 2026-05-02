@@ -13,14 +13,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "abd0562",
+    "commit": "d300c03",
     "dirty": false
   },
   "hardware": {
-    "cpu_temp_c": 57.85,
+    "cpu_temp_c": 56.75,
     "disk_pct": 8,
-    "load_1min": 0.0,
-    "mem_pct": 21
+    "load_1min": 0.01,
+    "mem_pct": 20
   },
   "last_runs": {
     "run_strategy": "Fri 2026-05-01 16:00:10 CEST",
@@ -44,5 +44,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-05-02T15:11:53"
+  "timestamp_utc": "2026-05-02T15:13:55"
 }
