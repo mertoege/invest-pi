@@ -41,7 +41,7 @@ def main() -> int:
     parser.add_argument("--start", default="2024-01-01")
     parser.add_argument("--end",   default=dt.date.today().isoformat())
     parser.add_argument("--tickers",
-                        default="NVDA,ASML,TSM,AMD,AVGO,MSFT,GOOGL,META,LRCX,KLAC")
+                        default="XLK,XLF,XLE,XLV,XLI,XLP,XLY,XLU,XLRE,XLC,XLB,NVDA,AMD,AVGO,TSM,ASML,JNJ,PG,KO,JPM,XOM,UNH,LLY,MSFT,GOOGL,META,AMZN,AAPL,PLTR,CRM,SMCI,MRVL,NOW")
     parser.add_argument("--capital",      type=float, default=50000)
     parser.add_argument("--score-buy-max", type=float, default=45)
     parser.add_argument("--stop-loss",     type=float, default=0.10)

@@ -213,7 +213,7 @@ class TestBacktestV2Integration(unittest.TestCase):
         dates = pd.bdate_range("2022-01-01", periods=n)
         history = {}
         # Many tickers to test position limits
-        for t in ["NVDA","AMD","MSFT","GOOGL","META","ASML","TSM","AVGO","LRCX","KLAC","SMH"]:
+        for t in ["NVDA","AMD","MSFT","GOOGL","META","ASML","TSM","AVGO","AMZN","AAPL","SMH"]:
             closes = 100 * np.cumprod(1 + np.random.normal(0.001, 0.01, n))
             history[t] = pd.DataFrame({
                 "open": closes*0.99, "high": closes*1.01,
@@ -224,7 +224,7 @@ class TestBacktestV2Integration(unittest.TestCase):
 
         result = run_backtest_v2(
             start="2022-06-01", end="2023-06-01",
-            tickers=["NVDA","AMD","MSFT","GOOGL","META","ASML","TSM","AVGO","LRCX","KLAC"],
+            tickers=["NVDA","AMD","MSFT","GOOGL","META","ASML","TSM","AVGO","AMZN","AAPL"],
             initial_capital=10000,
             position_eur=2000,
             cash_floor_pct=0.20,
