@@ -17,13 +17,58 @@ from . import TradingConfig
 from .decision import TradeDecision
 
 
-CONF_FACTOR = {"high": 1.00, "medium": 0.60, "low": 0.30}
+CONF_FACTOR_DEFAULT = {"high": 1.00, "medium": 0.60, "low": 0.30}
+
+# Minimale Anzahl gemessener Outcomes pro Konfidenz-Level bevor wir
+# den empirischen Faktor statt des Defaults nehmen.
+_MIN_SAMPLES_FOR_CALIBRATION = 10
 
 # Vol-Targeting: ziel-Annual-Vola der Position. Bei niedrigerer Vola groessere
 # Position, bei hoeherer kleinere. Cap bei 1.0 (nie ueber max_position_eur).
 TARGET_VOL_ANNUAL = 0.18   # ~25% (NVDA-aehnliche Vola gilt als baseline)
 MIN_SCALING       = 0.30   # bei extrem-Vola nicht unter 30% des Max gehen
 MAX_SCALING       = 1.00
+
+
+def _calibrated_confidence_factors(days: int = 60) -> dict[str, float]:
+    """
+    Berechnet empirische Confidence-Faktoren basierend auf tatsaechlichen
+    Hit-Rates pro Konfidenz-Level.
+
+    Logik (inspiriert von TradingAgents Confidence-Calibration):
+      - Fuer jedes Level (high/medium/low): berechne die Hit-Rate der letzten N Tage
+      - Faktor = hit_rate / baseline_hit_rate (normalisiert)
+      - Clamp auf [0.15, 1.0] damit nie komplett null
+      - Fallback auf CONF_FACTOR_DEFAULT wenn zu wenig Daten
+
+    Returns:
+        {"high": 0.95, "medium": 0.72, "low": 0.25} (Beispiel)
+    """
+    try:
+        from ..common.predictions import hit_rate_stratified
+        rates = hit_rate_stratified("daily_score", days=days)
+    except Exception:
+        return CONF_FACTOR_DEFAULT.copy()
+
+    result = CONF_FACTOR_DEFAULT.copy()
+    overall_rate = rates["overall"].get("hit_rate")
+
+    for level in ("high", "medium", "low"):
+        stats = rates[level]
+        if stats["measured"] < _MIN_SAMPLES_FOR_CALIBRATION:
+            continue  # zu wenig Daten, Default behalten
+
+        level_rate = stats["hit_rate"]
+        if level_rate is None or overall_rate is None or overall_rate == 0:
+            continue
+
+        # Faktor: wie viel besser/schlechter performt dieses Level vs. Durchschnitt?
+        # Skaliert relativ zum Default-Faktor
+        ratio = level_rate / overall_rate  # >1 = besser als Durchschnitt
+        calibrated = CONF_FACTOR_DEFAULT[level] * ratio
+        result[level] = max(0.15, min(1.0, calibrated))
+
+    return result
 
 
 def asset_volatility_from_pred(ticker: str) -> float | None:
@@ -96,7 +141,13 @@ def size_position(
     if decision.action != "buy":
         return SizingResult(0.0, 0.0, skip=True, skip_reason="not a buy")
 
-    factor = CONF_FACTOR.get(decision.confidence, 0.30)
+    # Empirisch kalibrierte Confidence-Faktoren (Self-Learning)
+    conf_factors = _calibrated_confidence_factors()
+    factor = conf_factors.get(decision.confidence, 0.30)
+    decision.extras["confidence_factor"] = factor
+    decision.extras["confidence_calibrated"] = (
+        conf_factors != CONF_FACTOR_DEFAULT
+    )
 
     # Volatility-Targeting: pro-Asset-Adjustierung
     asset_vol = asset_volatility_from_pred(decision.ticker)

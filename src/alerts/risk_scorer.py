@@ -507,6 +507,7 @@ def score_ticker(
     ticker: str,
     finnhub_key: Optional[str] = None,
     news_api_key: Optional[str] = None,
+    learning_context: Optional[str] = None,
 ) -> RiskReport:
     """Berechne Composite-Risk-Score für einen einzelnen Ticker."""
     print(f"\n🔍 Scoring {ticker}…")
@@ -578,12 +579,16 @@ def score_ticker(
         # Pattern-Library leer oder Feature-Computation fehlgeschlagen — ist OK
         pass
 
+    _prompt_desc = "risk_scorer.score_ticker / 9-dim heuristic / weights-v1 / pattern-augmented"
+    if learning_context:
+        _prompt_desc += f"\n\n--- LEARNING CONTEXT ---\n{learning_context}"
+
     pred_id = log_prediction(
         job_source="daily_score",
         model="heuristic-v1",
         subject_type="ticker",
         subject_id=ticker,
-        prompt="risk_scorer.score_ticker / 9-dim heuristic / weights-v1 / pattern-augmented",
+        prompt=_prompt_desc,
         input_payload={
             "ticker": ticker,
             "n_dimensions": len(dimensions),

@@ -24,6 +24,7 @@ from src.common import config as cfg_mod
 from src.common.data_loader import get_prices
 from src.common.storage import init_all
 from src.learning.pattern_miner import compute_features, find_similar_patterns
+from src.learning.calibration import ticker_calibration_block
 from src.alerts.dispatch import dispatch_new_alerts
 from src.common.predictions import log_prediction
 from scripts.build_patterns import ensure_patterns_built
@@ -63,14 +64,35 @@ def main() -> None:
     key_finnhub = cfg.api_keys.get("finnhub", "")
     key_news    = cfg.api_keys.get("newsapi", "")
 
+    # ── Self-Learning-Kontext laden (einmalig pro Lauf) ─────
+    _global_calibration = ""
+    try:
+        from src.learning.calibration import calibration_block
+        _global_calibration = calibration_block("daily_score")
+        if _global_calibration:
+            print("\n  Self-Learning aktiv: Reflections + Attribution geladen")
+    except Exception as e:
+        print(f"  (calibration load skipped: {e})")
+
     reports = []
     skipped: list[dict] = []
     for ticker in tickers:
         entry = cfg.entry_by_ticker(ticker)
         if entry:
             print(f"\n  [Ring {entry.ring}] {entry.name} ({ticker})")
+
+        # Per-Ticker Reflection-Kontext (Self-Learning-Loop)
+        _ticker_context = ""
         try:
-            report = score_ticker(ticker, key_finnhub or None, key_news or None)
+            _ticker_context = ticker_calibration_block(ticker)
+        except Exception:
+            pass
+
+        try:
+            report = score_ticker(
+                ticker, key_finnhub or None, key_news or None,
+                learning_context=_ticker_context or None,
+            )
             reports.append(report)
             print_report(report)
             if with_patterns:

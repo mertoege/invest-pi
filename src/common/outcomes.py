@@ -39,6 +39,7 @@ from .predictions import (
     hit_rate,
     PredictionRecord,
 )
+from ..learning.reflection import generate_reflection
 
 
 # ────────────────────────────────────────────────────────────
@@ -226,6 +227,22 @@ def run_tracker(
             stats["by_correctness"]["wrong"] += 1
         else:
             stats["by_correctness"]["neutral"] += 1
+
+        # ── Reflection generieren (Self-Learning-Loop) ──────
+        try:
+            generate_reflection(
+                prediction_id=pred.id,
+                ticker=pred.subject_id,
+                alert_level=int(result.get("alert_level", 0)),
+                outcome_correct=result.get("_correct"),
+                outcome_data=result,
+                output_json=pred.output_json,
+            )
+        except Exception as _refl_err:
+            import logging
+            logging.getLogger("invest_pi.outcomes").warning(
+                f"reflection generation failed for pred {pred.id}: {_refl_err}"
+            )
 
     return stats
 

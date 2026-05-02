@@ -174,6 +174,22 @@ CREATE TABLE IF NOT EXISTS meta_reviews (
     prediction_id  INTEGER,
     FOREIGN KEY (prediction_id) REFERENCES predictions(id)
 );
+
+CREATE TABLE IF NOT EXISTS reflections (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    prediction_id  INTEGER NOT NULL,
+    ticker         TEXT NOT NULL,
+    alert_level    INTEGER,
+    outcome_correct INTEGER,
+    reflection_md  TEXT NOT NULL,
+    dimension_blame TEXT,
+    return_7d      REAL,
+    max_dd_7d      REAL,
+    FOREIGN KEY (prediction_id) REFERENCES predictions(id)
+);
+CREATE INDEX IF NOT EXISTS idx_refl_ticker ON reflections(ticker, created_at);
+CREATE INDEX IF NOT EXISTS idx_refl_pred   ON reflections(prediction_id);
 """
 
 

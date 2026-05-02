@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · Rebalance/Sell-Pass Mo-Fr 20:00
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 20:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

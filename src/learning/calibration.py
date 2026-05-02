@@ -20,6 +20,7 @@ from typing import Optional
 from ..common.json_utils import safe_parse
 from ..common.predictions import feedback_summary, hit_rate_stratified
 from .attribution import attribution_block as _attribution_block
+from .reflection import ticker_reflection_block, global_reflection_block
 from ..common.storage import LEARNING_DB, connect
 
 
@@ -115,3 +116,62 @@ def calibration_block(job_source: str = "daily_score",
     if not parts:
         return ""
     return "\n".join(parts)
+
+
+def ticker_calibration_block(
+    ticker: str,
+    job_source: str = "daily_score",
+    hit_rate_days: int = 30,
+) -> str:
+    """
+    Liefert den kombinierten Self-Learning-Block fuer einen einzelnen Ticker.
+
+    Enthaelt:
+      1. Per-Ticker Outcome-Reflections (letzte 5 same-ticker)
+      2. Global Cross-Ticker-Lessons (letzte 10 ueber alle)
+      3. Globale Hit-Rate-Statistik
+      4. Risk-Dim-Attribution
+
+    Wird in score_portfolio.py VOR dem Score-Call eines Tickers injiziert.
+    """
+    parts = []
+
+    # 1. Per-Ticker Reflections (TradingAgents-Pattern: same-ticker lessons)
+    ticker_refl = ticker_reflection_block(ticker, limit=5)
+    if ticker_refl:
+        parts.append(ticker_refl)
+
+    # 2. Cross-Ticker Lessons (globale Muster)
+    global_refl = global_reflection_block(limit=10)
+    if global_refl:
+        parts.append(global_refl)
+
+    # 3. Hit-Rate
+    rates = hit_rate_stratified(job_source, days=hit_rate_days)
+    o = rates["overall"]
+    if o["measured"] > 0:
+        parts.append(f"## Lern-Statistik ({job_source}, {hit_rate_days}d)")
+        parts.append(
+            f"Total: {o['total']} Predictions, {o['measured']} measured, "
+            f"hit-rate {(o['hit_rate'] or 0):.0%}"
+        )
+        for level in ("high", "medium", "low"):
+            s = rates[level]
+            if s["measured"] > 0:
+                parts.append(
+                    f"  Konfidenz {level}: {s['correct']}/{s['measured']} korrekt "
+                    f"({(s['hit_rate'] or 0):.0%})"
+                )
+        parts.append("")
+
+    # 4. Risk-Dim-Attribution
+    attrib = _attribution_block(job_source, days=30)
+    if attrib:
+        parts.append(attrib)
+        parts.append("")
+
+    if not parts:
+        return ""
+
+    header = "# Self-Learning-Kontext (automatisch generiert)\n"
+    return header + "\n".join(parts)
