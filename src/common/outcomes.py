@@ -167,6 +167,10 @@ def measure_outcome_for(pred: PredictionRecord) -> Optional[dict]:
     if not any_measured:
         return None  # zu jung, später nochmal versuchen
 
+    has_7d = measurements["7d"]["max_drawdown"] is not None
+    if not has_7d and alert_level != 1:
+        return None  # 7d noch nicht abgelaufen, später nochmal versuchen
+
     correctness = _correctness_for_alert(
         alert_level, measurements["7d"]["max_drawdown"]
     )

@@ -346,6 +346,7 @@ def _strategy_thresholds(config, label: str) -> dict:
     strategies = getattr(config, "strategies", {}) or {}
     s = strategies.get(label) or strategies.get("mid_term") or {}
     return {
+        "take_profit_pct":         float(s.get("take_profit_pct",         config.take_profit_pct)),
         "stop_loss_pct":           float(s.get("stop_loss_pct",           config.stop_loss_pct)),
         "trailing_activation_pct": float(s.get("trailing_activation_pct", config.trailing_activation_pct)),
         "trailing_stop_pct":       float(s.get("trailing_stop_pct",       config.trailing_stop_pct)),

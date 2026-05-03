@@ -143,10 +143,12 @@ def decide_action(
     # Mode-spezifische Schwellen
     is_moderate = config.mode == "moderate"
     is_experimental = config.mode == "experimental"
-    alert_max = config.moderate_alert_max if (is_moderate or is_experimental) else 0
+    is_adaptive = config.mode == "adaptive"
+    is_relaxed = is_moderate or is_experimental or is_adaptive
+    alert_max = config.moderate_alert_max if is_relaxed else 0
 
     # Konfidenz-Filter: nur conservative skipt low-confidence
-    if confidence == "low" and not (is_moderate or is_experimental):
+    if confidence == "low" and not is_relaxed:
         return TradeDecision(
             ticker=ticker, action="skip",
             reason=f"confidence low; conservative skip",
@@ -166,8 +168,8 @@ def decide_action(
         )
 
     # Buy-Trigger: composite unter Regime-adjustierter Schwelle
-    # Moderate erlaubt zusaetzlich triggered_dims > 0 wenn composite ausreichend niedrig
-    triggered_ok = triggered == 0 if not is_moderate else triggered <= 2
+    # Relaxed modes erlauben triggered_dims > 0 wenn composite ausreichend niedrig
+    triggered_ok = triggered == 0 if not is_relaxed else triggered <= 2
 
     # Adaptive-Profile holen wenn mode=adaptive, sonst config-Werte
     profile = get_active_profile(config)
