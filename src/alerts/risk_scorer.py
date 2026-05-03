@@ -218,38 +218,160 @@ def score_volume_divergence(prices: pd.DataFrame) -> DimensionScore:
     )
 
 
-# ──────────────── 3. INSIDER SELLING CLUSTER ────────────────
+# ──────────────── 3. INSIDER SELLING CLUSTER ──────────────���─
 def score_insider_selling(ticker: str, finnhub_key: Optional[str] = None) -> DimensionScore:
     """
-    STUB: benötigt Finnhub API für Form-4-Daten.
-    Implementierung:
-      - letzte 30 Tage Insider-Transaktionen laden
-      - wenn >= 3 Insider verkauft haben UND Volumen > historischer Schnitt
-      - Score proportional zu Cluster-Intensität
+    Finnhub /stock/insider-transactions: Form-4-Daten der letzten 90 Tage.
+    Scoring:
+      - Zaehle Sell-Transaktionen der letzten 30 Tage
+      - >= 3 verschiedene Insider verkaufen → triggered
+      - Score proportional zu Anzahl Seller
     """
     if not finnhub_key:
         return DimensionScore(
             "insider_selling", 0, False,
             "Stub — FINNHUB_API_KEY nicht gesetzt",
-            {"todo": "siehe Finnhub /stock/insider-transactions endpoint"},
+            {"stub": True},
             weight=DIMENSION_WEIGHTS["insider_selling"],
         )
-    return DimensionScore("insider_selling", 0, False, "not implemented yet", {},
-                          weight=DIMENSION_WEIGHTS["insider_selling"])
+    try:
+        import requests
+        from_date = (dt.datetime.now() - dt.timedelta(days=90)).strftime("%Y-%m-%d")
+        to_date = dt.datetime.now().strftime("%Y-%m-%d")
+        resp = requests.get(
+            "https://finnhub.io/api/v1/stock/insider-transactions",
+            params={"symbol": ticker, "from": from_date, "to": to_date, "token": finnhub_key},
+            timeout=10,
+        )
+        if resp.status_code == 429:
+            return DimensionScore("insider_selling", 0, False, "rate limited", {},
+                                  weight=DIMENSION_WEIGHTS["insider_selling"])
+        data = resp.json().get("data", [])
+
+        cutoff = (dt.datetime.now() - dt.timedelta(days=30)).strftime("%Y-%m-%d")
+        recent_sells = [t for t in data
+                        if t.get("transactionType") in ("S - Sale", "S - Sale+OE")
+                        and (t.get("filingDate", "") >= cutoff)]
+
+        unique_sellers = len(set(t.get("name", "") for t in recent_sells))
+        total_shares_sold = sum(abs(t.get("share", 0)) for t in recent_sells)
+
+        score = 0.0
+        reasons = []
+        if unique_sellers >= 5:
+            score = min(80.0, unique_sellers * 12)
+            reasons.append(f"{unique_sellers} Insider verkauft (30d)")
+        elif unique_sellers >= 3:
+            score = unique_sellers * 10
+            reasons.append(f"{unique_sellers} Insider verkauft (30d)")
+        elif unique_sellers >= 1:
+            score = unique_sellers * 5
+            reasons.append(f"{unique_sellers} Insider verkauft (30d)")
+
+        triggered = score >= 30
+        return DimensionScore(
+            "insider_selling", min(100, score), triggered,
+            "; ".join(reasons) if reasons else "keine auffälligen Insider-Verkäufe",
+            {"unique_sellers_30d": unique_sellers, "total_shares_sold": total_shares_sold,
+             "transactions_90d": len(data)},
+            weight=DIMENSION_WEIGHTS["insider_selling"],
+        )
+    except Exception as e:
+        return DimensionScore("insider_selling", 0, False, f"error: {e}", {},
+                              weight=DIMENSION_WEIGHTS["insider_selling"])
 
 
 # ──────────────── 4. ANALYST DOWNGRADES ─────────────────────
 def score_analyst_downgrades(ticker: str, finnhub_key: Optional[str] = None) -> DimensionScore:
-    """STUB: 2+ Downgrades/Price-Target-Cuts in 5 Tagen → high score."""
+    """
+    Finnhub /stock/recommendation + /stock/price-target.
+    Scoring:
+      - 2+ neue Downgrades → Score 35-50
+      - Consensus-Target unter Kurs → Score += 20-40
+    """
     if not finnhub_key:
         return DimensionScore(
             "analyst_downgrades", 0, False,
             "Stub — FINNHUB_API_KEY nicht gesetzt",
-            {"todo": "siehe Finnhub /stock/recommendation endpoint"},
+            {"stub": True},
             weight=DIMENSION_WEIGHTS["analyst_downgrades"],
         )
-    return DimensionScore("analyst_downgrades", 0, False, "not implemented yet", {},
-                          weight=DIMENSION_WEIGHTS["analyst_downgrades"])
+    try:
+        import requests
+        resp = requests.get(
+            "https://finnhub.io/api/v1/stock/recommendation",
+            params={"symbol": ticker, "token": finnhub_key},
+            timeout=10,
+        )
+        if resp.status_code == 429:
+            return DimensionScore("analyst_downgrades", 0, False, "rate limited", {},
+                                  weight=DIMENSION_WEIGHTS["analyst_downgrades"])
+        recs = resp.json()
+
+        score = 0.0
+        reasons = []
+        evidence = {}
+
+        if recs and len(recs) >= 2:
+            recent = recs[0]
+            prior = recs[1]
+            recent_sells = recent.get("sell", 0) + recent.get("strongSell", 0)
+            prior_sells = prior.get("sell", 0) + prior.get("strongSell", 0)
+            recent_buys = recent.get("buy", 0) + recent.get("strongBuy", 0)
+
+            new_downgrades = max(0, recent_sells - prior_sells)
+            evidence["recent_sells"] = recent_sells
+            evidence["prior_sells"] = prior_sells
+            evidence["recent_buys"] = recent_buys
+            evidence["new_downgrades"] = new_downgrades
+
+            if new_downgrades >= 3:
+                score += 50
+                reasons.append(f"{new_downgrades} neue Sell-Ratings")
+            elif new_downgrades >= 2:
+                score += 35
+                reasons.append(f"{new_downgrades} neue Sell-Ratings")
+            elif new_downgrades >= 1:
+                score += 15
+                reasons.append(f"{new_downgrades} neues Sell-Rating")
+
+            if recent_sells > recent_buys and recent_sells >= 3:
+                score += 20
+                reasons.append(f"Sell-dominiert ({recent_sells}S vs {recent_buys}B)")
+
+        resp2 = requests.get(
+            "https://finnhub.io/api/v1/stock/price-target",
+            params={"symbol": ticker, "token": finnhub_key},
+            timeout=10,
+        )
+        if resp2.status_code == 200:
+            pt = resp2.json()
+            target_mean = pt.get("targetMean")
+            last_price = pt.get("lastUpdatedPrice")
+            evidence["target_mean"] = target_mean
+            evidence["last_price"] = last_price
+
+            if target_mean and last_price and last_price > 0:
+                upside = (target_mean / last_price) - 1.0
+                evidence["upside_pct"] = round(upside, 3)
+                if upside < -0.10:
+                    score += 40
+                    reasons.append(f"Consensus-Target {upside:+.0%} unter Kurs")
+                elif upside < 0:
+                    score += 20
+                    reasons.append(f"Consensus-Target {upside:+.0%} unter Kurs")
+
+        score = min(100.0, score)
+        triggered = score >= 30
+        return DimensionScore(
+            "analyst_downgrades", score, triggered,
+            "; ".join(reasons) if reasons else "keine Downgrades",
+            evidence,
+            weight=DIMENSION_WEIGHTS["analyst_downgrades"],
+        )
+    except Exception as e:
+        return DimensionScore("analyst_downgrades", 0, False, f"error: {e}", {},
+                              weight=DIMENSION_WEIGHTS["analyst_downgrades"])
 
 
 # ──────────────── 5. OPTIONS PUT/CALL SKEW ──────────────────
