@@ -150,6 +150,7 @@ def compute_earnings_risk(ticker: str) -> dict:
         "next_earnings": str(next_date) if next_date else None,
         "days_until": days_until,
         "days_since_last": days_since,
+        "score": score,
         "triggered": triggered,
         "reason": "; ".join(reasons) if reasons else "kein Earnings-Termin in Sicht",
     }

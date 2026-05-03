@@ -68,10 +68,12 @@ def _fetch_yfinance_news(ticker: str, max_items: int = 20) -> list[dict]:
         _last_fetch_ts = time.monotonic()
         results = []
         for item in news[:max_items]:
-            title = item.get("title", "")
-            publisher = item.get("publisher", "unknown")
-            pub_date = None
-            if "providerPublishTime" in item:
+            content = item.get("content", item)
+            title = content.get("title", "") or item.get("title", "")
+            provider = content.get("provider", {})
+            publisher = provider.get("displayName", "") or item.get("publisher", "unknown")
+            pub_date = content.get("pubDate") or None
+            if not pub_date and "providerPublishTime" in item:
                 pub_date = dt.datetime.fromtimestamp(
                     item["providerPublishTime"]
                 ).isoformat()
