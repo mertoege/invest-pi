@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import time
 from dataclasses import dataclass, asdict, field
 from typing import Optional
 
@@ -42,6 +43,21 @@ from ..common.data_loader import get_prices, get_fundamentals
 from ..common.storage import ALERTS_DB, connect
 from ..common.predictions import log_prediction
 from ..learning.pattern_miner import compute_features, find_similar_patterns
+
+# Finnhub Rate-Limiter: Free-Tier = 60 calls/min
+_finnhub_calls: list[float] = []
+_FINNHUB_RATE_LIMIT = 55  # etwas unter 60 als Sicherheitsmarge
+_FINNHUB_WINDOW = 60.0
+
+def _finnhub_throttle():
+    """Wartet wenn noetig, damit Finnhub Rate-Limit nicht ueberschritten wird."""
+    now = time.monotonic()
+    _finnhub_calls[:] = [t for t in _finnhub_calls if now - t < _FINNHUB_WINDOW]
+    if len(_finnhub_calls) >= _FINNHUB_RATE_LIMIT:
+        wait = _FINNHUB_WINDOW - (now - _finnhub_calls[0]) + 0.1
+        if wait > 0:
+            time.sleep(wait)
+    _finnhub_calls.append(time.monotonic())
 
 
 # ────────────────────────────────────────────────────────────
@@ -238,6 +254,7 @@ def score_insider_selling(ticker: str, finnhub_key: Optional[str] = None) -> Dim
         import requests
         from_date = (dt.datetime.now() - dt.timedelta(days=90)).strftime("%Y-%m-%d")
         to_date = dt.datetime.now().strftime("%Y-%m-%d")
+        _finnhub_throttle()
         resp = requests.get(
             "https://finnhub.io/api/v1/stock/insider-transactions",
             params={"symbol": ticker, "from": from_date, "to": to_date, "token": finnhub_key},
@@ -298,6 +315,7 @@ def score_analyst_downgrades(ticker: str, finnhub_key: Optional[str] = None) -> 
         )
     try:
         import requests
+        _finnhub_throttle()
         resp = requests.get(
             "https://finnhub.io/api/v1/stock/recommendation",
             params={"symbol": ticker, "token": finnhub_key},
@@ -339,6 +357,7 @@ def score_analyst_downgrades(ticker: str, finnhub_key: Optional[str] = None) -> 
                 score += 20
                 reasons.append(f"Sell-dominiert ({recent_sells}S vs {recent_buys}B)")
 
+        _finnhub_throttle()
         resp2 = requests.get(
             "https://finnhub.io/api/v1/stock/price-target",
             params={"symbol": ticker, "token": finnhub_key},
