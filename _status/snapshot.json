@@ -13,14 +13,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "cf84597",
+    "commit": "cb7812a",
     "dirty": true
   },
   "hardware": {
     "cpu_temp_c": 59.5,
     "disk_pct": 9,
-    "load_1min": 0.33,
-    "mem_pct": 33
+    "load_1min": 1.08,
+    "mem_pct": 38
   },
   "last_runs": {
     "run_strategy": "Mon 2026-05-04 16:01:39 CEST",
@@ -32,9 +32,9 @@
     "correct": 0,
     "incorrect": 0,
     "last_24h": 890,
-    "last_7d": 5903,
-    "pending": 5789,
-    "total": 5903
+    "last_7d": 5936,
+    "pending": 5822,
+    "total": 5936
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-05-04T14:30:15"
+  "timestamp_utc": "2026-05-04T14:32:17"
 }
