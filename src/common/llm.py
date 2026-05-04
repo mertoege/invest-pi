@@ -1,9 +1,9 @@
 """
-LLM-Wrapper — Anthropic-Calls mit Cost-Tracking + Predictions-Logging.
+LLM-Wrapper — Claude Code CLI mit Cost-Tracking + Predictions-Logging.
 
+Nutzt `claude -p` (Claude Code CLI) statt direktem Anthropic SDK.
 Pre-Check: cost_caps.can_call() bevor jeder Call.
 Post-Call: log_cost in cost_ledger + log_prediction mit Token-Counts.
-Markdown-Strip auf Output.
 
 Usage:
     from src.common.llm import call_sonnet, call_opus
@@ -15,15 +15,10 @@ Usage:
         subject_id="NVDA",
     )
     if result.ok:
-        data = result.parsed_json or {}    # Markdown-stripped, JSON-parsed
+        data = result.parsed_json or {}
 
 Konfiguration:
-  ANTHROPIC_API_KEY (env)
-
-Pricing (Stand April 2026, anpassbar):
-  Sonnet 4.6:  $3.00 / $15.00 per 1M input/output tokens
-  Opus 4.6:   $15.00 / $75.00 per 1M input/output tokens
-  EUR-Conversion via fx.eur_per_usd
+  ANTHROPIC_API_KEY (env) — wird von Claude Code CLI genutzt
 """
 
 from __future__ import annotations
@@ -31,39 +26,21 @@ from __future__ import annotations
 import json
 import logging
 import os
+import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional
 
 from .cost_caps import can_call, log_cost
 from .fx import eur_per_usd
 from .json_utils import safe_parse, strip_codefence
 from .predictions import log_prediction
-from .retry import anthropic_retry
 
 log = logging.getLogger("invest_pi.llm")
 
-
-# ────────────────────────────────────────────────────────────
-# PRICING (Stand April 2026, in USD per 1M tokens)
-# ────────────────────────────────────────────────────────────
-PRICING = {
-    "claude-sonnet-4-6":  {"input": 3.00,  "output": 15.00},
-    "claude-opus-4-6":    {"input": 15.00, "output": 75.00},
-    "claude-haiku-4-5":   {"input": 0.80,  "output": 4.00},
-}
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _cost_eur(model: str, input_tokens: int, output_tokens: int) -> float:
-    p = PRICING.get(model)
-    if not p:
-        return 0.0
-    usd = (input_tokens / 1_000_000) * p["input"] + (output_tokens / 1_000_000) * p["output"]
-    return usd * eur_per_usd()
-
-
-# ────────────────────────────────────────────────────────────
-# RESULT TYPE
-# ────────────────────────────────────────────────────────────
 @dataclass
 class LLMResult:
     ok:                bool
@@ -78,46 +55,78 @@ class LLMResult:
     raw:               dict = field(default_factory=dict)
 
 
-# ────────────────────────────────────────────────────────────
-# CORE CALL
-# ────────────────────────────────────────────────────────────
-@anthropic_retry
+MODEL_MAP = {
+    "claude-sonnet-4-6": "sonnet",
+    "claude-opus-4-6":   "opus",
+    "claude-haiku-4-5":  "haiku",
+}
+
+
 def _raw_call(model: str, system: str, prompt: str,
               max_tokens: int, temperature: float) -> dict:
-    """Tenacity-retried Anthropic-Call. Returns raw response dict."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY env-var nicht gesetzt")
-    try:
-        from anthropic import Anthropic
-    except ImportError as e:
-        raise RuntimeError(
-            f"anthropic SDK nicht installiert: pip install anthropic --break-system-packages\n"
-            f"Original: {e}"
-        )
+    """Ruft Claude Code CLI auf. Returns parsed JSON response."""
+    cli_model = MODEL_MAP.get(model, "sonnet")
 
-    client = Anthropic(api_key=api_key)
-    resp = client.messages.create(
-        model=model,
-        system=system,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=temperature,
+    full_prompt = f"{system}\n\n---\n\n{prompt}"
+
+    env = os.environ.copy()
+    api_key = env.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        env_path = REPO_ROOT / ".env"
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
+                line = line.strip()
+                if line.startswith("ANTHROPIC_API_KEY="):
+                    api_key = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    env["ANTHROPIC_API_KEY"] = api_key
+                    break
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY nicht gesetzt")
+
+    cmd = [
+        "claude", "-p", full_prompt,
+        "--model", cli_model,
+        "--output-format", "json",
+        "--max-turns", "1",
+    ]
+
+    result = subprocess.run(
+        cmd, capture_output=True, text=True,
+        timeout=300, env=env, cwd=str(REPO_ROOT),
     )
+
+    if result.returncode != 0:
+        stderr = result.stderr[:500] if result.stderr else ""
+        raise RuntimeError(f"claude CLI failed (rc={result.returncode}): {stderr}")
+
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"claude CLI output not JSON: {e}\n{result.stdout[:200]}")
+
+    if data.get("is_error"):
+        raise RuntimeError(f"claude CLI error: {data.get('result', '?')[:300]}")
+
+    usage = data.get("usage", {})
+    input_tokens = usage.get("input_tokens", 0) + usage.get("cache_read_input_tokens", 0) + usage.get("cache_creation_input_tokens", 0)
+    output_tokens = usage.get("output_tokens", 0)
+
     return {
-        "text": resp.content[0].text if resp.content else "",
-        "input_tokens":  resp.usage.input_tokens,
-        "output_tokens": resp.usage.output_tokens,
-        "stop_reason":   resp.stop_reason,
-        "id":            resp.id,
+        "text": data.get("result", ""),
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "cost_usd": data.get("total_cost_usd", 0),
+        "session_id": data.get("session_id", ""),
     }
 
 
-# ────────────────────────────────────────────────────────────
-# HIGH-LEVEL APIs
-# ────────────────────────────────────────────────────────────
 def is_configured() -> bool:
-    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return True
+    env_path = REPO_ROOT / ".env"
+    if env_path.exists():
+        return "ANTHROPIC_API_KEY=" in env_path.read_text()
+    return False
 
 
 def _call(
@@ -133,11 +142,10 @@ def _call(
     temperature:   float = 0.0,
     estimated_cost_eur: Optional[float] = None,
 ) -> LLMResult:
-    """Generischer Anthropic-Call mit Pre-Check + Logging."""
+    """Generischer Claude-CLI-Call mit Pre-Check + Logging."""
     if not is_configured():
         return LLMResult(ok=False, model=model, error="ANTHROPIC_API_KEY nicht gesetzt")
 
-    # Pre-Cost-Check
     rough = estimated_cost_eur if estimated_cost_eur is not None else 0.05
     allowed, reason = can_call(estimated_cost_eur=rough)
     if not allowed:
@@ -150,12 +158,12 @@ def _call(
         log.error(f"llm call failed: {e}")
         return LLMResult(ok=False, model=model, error=str(e))
 
-    text       = strip_codefence(raw["text"])
-    in_tokens  = int(raw["input_tokens"])
+    text = strip_codefence(raw["text"])
+    in_tokens = int(raw["input_tokens"])
     out_tokens = int(raw["output_tokens"])
-    cost       = _cost_eur(model, in_tokens, out_tokens)
+    cost_usd = float(raw.get("cost_usd", 0))
+    cost = cost_usd * eur_per_usd() if cost_usd else 0.0
 
-    # Prediction-Row (output ist das ge-strippte text)
     parsed = safe_parse(text, default=None)
     pred_id = log_prediction(
         job_source=job_source,
@@ -166,19 +174,18 @@ def _call(
         input_payload={"prompt_preview": prompt[:300]},
         input_summary=input_summary,
         output=parsed if parsed else text,
-        confidence=None,    # Caller setzt confidence ggf. manuell
+        confidence=None,
         input_tokens=in_tokens,
         output_tokens=out_tokens,
         cost_estimate_eur=cost,
     )
 
-    # Cost-Ledger
     log_cost(
-        api="anthropic",
+        api="claude-cli",
         cost_eur=cost,
         job_source=job_source,
         prediction_id=pred_id,
-        notes=f"{model} {in_tokens}+{out_tokens}t",
+        notes=f"{model} {in_tokens}+{out_tokens}t via CLI",
     )
 
     return LLMResult(
@@ -195,19 +202,19 @@ def _call(
 
 
 def call_sonnet(**kwargs) -> LLMResult:
-    """Wrapper fuer Sonnet — fuer haeufigere, billigere Calls (z.B. daily_score-Augmentation)."""
+    """Wrapper fuer Sonnet — fuer haeufigere, billigere Calls."""
     kwargs.setdefault("model", "claude-sonnet-4-6")
     return _call(**kwargs)
 
 
 def call_opus(**kwargs) -> LLMResult:
-    """Wrapper fuer Opus — fuer monatliche Tiefenanalysen (meta_review, quarterly_outlook)."""
+    """Wrapper fuer Opus — fuer monatliche Tiefenanalysen."""
     kwargs.setdefault("model", "claude-opus-4-6")
     kwargs.setdefault("max_tokens", 4096)
     return _call(**kwargs)
 
 
 def call_haiku(**kwargs) -> LLMResult:
-    """Wrapper fuer Haiku — sehr billig, fuer simple Klassifikations-Aufgaben."""
+    """Wrapper fuer Haiku — billig, fuer simple Klassifikation."""
     kwargs.setdefault("model", "claude-haiku-4-5")
     return _call(**kwargs)
