@@ -136,6 +136,14 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         '      "new_value": <neuer_wert>,\n'
         '      "reason": "<warum>"\n'
         "    }\n"
+        "  ],\n"
+        '  "code_changes": [\n'
+        "    {\n"
+        '      "file": "<relativer_pfad>",\n'
+        '      "description": "<was und warum>",\n'
+        '      "old": "<exakter_code_block>",\n'
+        '      "new": "<neuer_code_block>"\n'
+        "    }\n"
         "  ]\n"
         "}\n\n"
         "2. Sei spezifisch. Statt 'Schwellen anpassen': 'composite-Schwelle von 45 auf 35 senken weil "
@@ -148,7 +156,17 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         "   trading.trailing_stop_pct (0.03-0.20), trading.score_buy_max (20-60),\n"
         "   trading.max_open_positions (3-15), trading.cash_floor_pct (0.05-0.50),\n"
         "   risk_scorer.threshold_caution (30-60), risk_scorer.threshold_red (60-90).\n"
-        "   Nur Patches vorschlagen wenn die Daten das klar rechtfertigen."
+        "   Nur Patches vorschlagen wenn die Daten das klar rechtfertigen.\n\n"
+        "6. code_changes: Optional kannst du konkrete Code-Aenderungen vorschlagen.\n"
+        "   Format: [{\"file\": \"<relative_path>\", \"description\": \"<was+warum>\", "
+        "\"old\": \"<exakter_code_block>\", \"new\": \"<neuer_code_block>\"}]\n"
+        "   Erlaubte Dateien: src/alerts/risk_scorer.py, src/alerts/sentiment.py, "
+        "src/alerts/earnings.py, src/trading/decision.py, src/trading/sizing.py, "
+        "src/risk/limits.py, src/common/outcomes.py, src/learning/reflection.py, "
+        "src/learning/weight_optimizer.py, src/learning/regime.py, "
+        "scripts/score_portfolio.py, scripts/run_strategy.py.\n"
+        "   Regeln: Max 3 Aenderungen. old muss exakt 1x in der Datei vorkommen.\n"
+        "   Nur vorschlagen wenn Performance-Daten eine klare Verbesserung rechtfertigen."
     )
     prompt = (
         f"## Job-Source: {ctx['job_source']}\n"
@@ -257,6 +275,27 @@ def run(job_source: str, dry_run: bool = False) -> dict:
         except Exception as e:
             log.warning(f"config patch processing failed: {e}")
 
+    # Code-Evolution verarbeiten
+    code_changes = parsed.get("code_changes", [])
+    evolve_summary = ""
+    if code_changes:
+        try:
+            from src.learning.code_evolver import evolve
+            evo_result = evolve(code_changes)
+            applied = evo_result["changes_applied"]
+            failed = evo_result["changes_failed"]
+            if applied > 0:
+                if evo_result["tests_passed"]:
+                    evolve_summary = f"\nCode-Evolution: {applied} Aenderung(en) committed"
+                else:
+                    evolve_summary = f"\nCode-Evolution: {applied} angewandt aber Tests FAILED → rollback"
+            if failed > 0:
+                evolve_summary += f" ({failed} abgelehnt)"
+            log.info(f"code-evolution: {evo_result}")
+        except Exception as e:
+            log.warning(f"code evolution failed: {e}")
+            evolve_summary = f"\nCode-Evolution: Fehler ({e})"
+
     # Telegram-Push
     if notifier.is_configured():
         notifier.send_info(
@@ -265,7 +304,8 @@ def run(job_source: str, dry_run: bool = False) -> dict:
             f"({ctx['hit_rate']['overall']['measured']} measured)\n"
             f"Cost: {result.cost_eur:.3f} EUR\n"
             f"Datei: reviews/{md_path.name}"
-            f"{patch_summary}",
+            f"{patch_summary}"
+            f"{evolve_summary}",
             label="meta_review",
         )
 
