@@ -279,7 +279,7 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             "status": result.status, "order_id": result.order_id,
         })
 
-        if result.status == "filled":
+        if result.status in ("filled", "pending_new", "accepted"):
             held.add(entry.ticker)
             open_n += 1
             if open_n >= t_cfg.max_open_positions:
