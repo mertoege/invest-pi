@@ -322,6 +322,15 @@ def main() -> None:
     src = "paper" if broker.is_paper else "live"
     print(f"\n=== run_strategy · broker={broker} · mode={t_cfg.mode} · source={src} ===")
 
+    # Sync pending orders from previous runs
+    try:
+        from scripts.sync_orders import sync_order_statuses
+        sync = sync_order_statuses()
+        if sync["synced"] > 0:
+            print(f"  order-sync: {sync['synced']} Orders aktualisiert")
+    except Exception as e:
+        print(f"  order-sync skipped: {e}")
+
     # Initial snapshot
     _take_equity_snapshot(broker, src, notes="run_strategy:start")
 
