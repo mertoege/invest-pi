@@ -13,13 +13,13 @@
   },
   "git": {
     "branch": "main",
-    "commit": "dd7bde2",
+    "commit": "ccb95eb",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 57.3,
+    "cpu_temp_c": 58.4,
     "disk_pct": 9,
-    "load_1min": 0.02,
+    "load_1min": 0.13,
     "mem_pct": 30
   },
   "last_runs": {
@@ -31,7 +31,7 @@
   "predictions": {
     "correct": 0,
     "incorrect": 0,
-    "last_24h": 945,
+    "last_24h": 944,
     "last_7d": 5730,
     "pending": 5616,
     "total": 5730
@@ -44,5 +44,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-05-04T10:11:25"
+  "timestamp_utc": "2026-05-04T10:13:31"
 }
