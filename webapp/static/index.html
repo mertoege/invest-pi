@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invest-Pi Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #22252f;
+            --border: #2a2d3a;
+            --text: #e4e4e7;
+            --text-muted: #8b8d97;
+            --accent: #8b5cf6;
+            --accent-dim: rgba(139,92,246,0.15);
+            --green: #22c55e;
+            --green-dim: rgba(34,197,94,0.12);
+            --red: #ef4444;
+            --red-dim: rgba(239,68,68,0.12);
+            --yellow: #eab308;
+            --blue: #3b82f6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            padding: 1rem;
+            min-height: 100vh;
+        }
+
+        .container { max-width: 1280px; margin: 0 auto; }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0 1.25rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        header h1 { font-size: 1.4rem; color: var(--accent); font-weight: 700; }
+        .header-right { text-align: right; }
+        .live-equity { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; }
+        .live-pl { font-size: 0.85rem; margin-top: 2px; }
+        .refresh-info { font-size: 0.65rem; color: var(--text-muted); margin-top: 4px; }
+
+        /* Summary Cards */
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+        .card-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+        .card-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-top: 0.2rem;
+        }
+        .card-sub {
+            font-size: 0.7rem;
+            margin-top: 2px;
+        }
+
+        /* Sections */
+        .section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin-bottom: 1.25rem;
+        }
+        .section h2 {
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        /* Two-column layout */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+        }
+
+        /* Tables */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        th, td { padding: 0.5rem 0.6rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-muted); font-weight: 600; font-size: 0.65rem; text-transform: uppercase; }
+        tr:hover td { background: var(--surface2); }
+
+        .positive { color: var(--green); }
+        .negative { color: var(--red); }
+
+        /* Chart */
+        .chart-container { position: relative; height: 220px; width: 100%; }
+
+        /* Allocation donut */
+        .alloc-container { position: relative; height: 220px; width: 100%; }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.1rem 0.45rem;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 600;
+        }
+        .badge-buy { background: var(--green-dim); color: var(--green); }
+        .badge-sell { background: var(--red-dim); color: var(--red); }
+        .badge-filled { background: var(--green-dim); color: var(--green); }
+        .badge-pending { background: rgba(234,179,8,0.15); color: var(--yellow); }
+
+        /* DCA */
+        .dca-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 0.75rem;
+        }
+        .dca-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        .dca-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .dca-ticker { font-weight: 700; font-size: 1.1rem; }
+        .dca-perf { font-size: 1rem; font-weight: 700; }
+        .dca-meta { font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; }
+
+        /* Timers */
+        .timer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.4rem;
+        }
+        .timer-item { font-size: 0.78rem; padding: 0.25rem 0; display: flex; align-items: center; gap: 6px; }
+        .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .dot-on { background: var(--green); }
+        .dot-off { background: var(--red); }
+
+        /* Performance stats */
+        .perf-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.75rem;
+        }
+        .perf-item { text-align: center; }
+        .perf-value { font-size: 1.2rem; font-weight: 700; }
+        .perf-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; margin-top: 2px; }
+
+        .meta-bar { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+
+        .loading { color: var(--text-muted); font-style: italic; font-size: 0.8rem; }
+        .error-msg { color: var(--red); font-size: 0.75rem; }
+
+        /* Position total row */
+        .total-row td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; }
+
+        @media (max-width: 768px) {
+            body { padding: 0.5rem; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .live-equity { font-size: 1.5rem; }
+            .card-value { font-size: 1.1rem; }
+            .cards { grid-template-columns: repeat(2, 1fr); }
+            table { font-size: 0.72rem; }
+            th, td { padding: 0.35rem 0.35rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Invest-Pi</h1>
+            <div class="header-right">
+                <div class="live-equity" id="live-equity">--</div>
+                <div class="live-pl" id="live-pl"></div>
+                <div class="refresh-info">Auto-refresh 60s | <span id="last-update">--</span></div>
+            </div>
+        </header>
+
+        <!-- Summary Cards -->
+        <div class="cards">
+            <div class="card">
+                <div class="card-label">Equity</div>
+                <div class="card-value" id="card-equity">--</div>
+                <div class="card-sub" id="card-equity-eur"></div>
+            </div>
+            <div class="card">
+                <div class="card-label">Cash</div>
+                <div class="card-value" id="card-cash">--</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Investiert</div>
+                <div class="card-value" id="card-invested">--</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Unrealized P&L</div>
+                <div class="card-value" id="card-unreal-pl">--</div>
+                <div class="card-sub" id="card-unreal-pct"></div>
+            </div>
+            <div class="card">
+                <div class="card-label">Day P&L</div>
+                <div class="card-value" id="card-day-pl">--</div>
+                <div class="card-sub" id="card-day-pct"></div>
+            </div>
+            <div class="card">
+                <div class="card-label">Total P&L</div>
+                <div class="card-value" id="card-total-pl">--</div>
+                <div class="card-sub" id="card-total-pct"></div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid-2">
+            <div class="section">
+                <h2>Equity-Verlauf</h2>
+                <div class="chart-container">
+                    <canvas id="equity-chart"></canvas>
+                </div>
+            </div>
+            <div class="section">
+                <h2>Allocation</h2>
+                <div class="alloc-container">
+                    <canvas id="alloc-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Stats -->
+        <div class="section">
+            <h2>Performance</h2>
+            <div class="perf-grid" id="perf-grid">
+                <span class="loading">Loading...</span>
+            </div>
+        </div>
+
+        <!-- Positions -->
+        <div class="section">
+            <h2>Positionen (<span id="pos-count">0</span>)</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ticker</th>
+                            <th>Qty</th>
+                            <th>Avg $</th>
+                            <th>Kurs $</th>
+                            <th>Wert EUR</th>
+                            <th>P&L EUR</th>
+                            <th>P&L %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="positions-body">
+                        <tr><td colspan="7" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Trades -->
+        <div class="section">
+            <h2>Letzte Trades</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Datum</th>
+                            <th>Ticker</th>
+                            <th>Side</th>
+                            <th>Qty</th>
+                            <th>Preis</th>
+                            <th>Status</th>
+                            <th>Strategie</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trades-body">
+                        <tr><td colspan="7" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- DCA Holdings -->
+        <div class="section">
+            <h2>Monthly DCA Holdings</h2>
+            <div class="dca-grid" id="dca-container">
+                <span class="loading">Loading...</span>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="section">
+            <h2>System</h2>
+            <div class="meta-bar">
+                <span id="commit-info">--</span>
+                <span id="uptime-info">--</span>
+            </div>
+            <div class="timer-grid" id="timer-grid">
+                <span class="loading">Loading...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BASE = '/investpi/api';
+
+        function fmt(n, dec = 2) {
+            if (n === null || n === undefined) return '--';
+            return Number(n).toLocaleString('de-DE', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        }
+        function fmtUsd(n) { return n != null ? '$' + fmt(n) : '--'; }
+        function fmtEur(n) { return n != null ? fmt(n) + ' €' : '--'; }
+        function plSign(n) { return n >= 0 ? '+' : ''; }
+        function plClass(v) { return v > 0 ? 'positive' : v < 0 ? 'negative' : ''; }
+
+        // ─── Dashboard ───
+        async function loadDashboard() {
+            try {
+                const r = await fetch(`${BASE}/dashboard`);
+                const d = await r.json();
+                if (d.error) throw new Error(d.error);
+
+                document.getElementById('live-equity').textContent = fmtUsd(d.equity_usd);
+                document.getElementById('live-equity').className = 'live-equity';
+
+                const plHtml = `<span class="${plClass(d.day_pl_usd)}">Tag: ${plSign(d.day_pl_usd)}${fmtUsd(d.day_pl_usd)} (${plSign(d.day_pl_pct)}${fmt(d.day_pl_pct)}%)</span>`;
+                document.getElementById('live-pl').innerHTML = plHtml;
+
+                document.getElementById('card-equity').textContent = fmtUsd(d.equity_usd);
+                document.getElementById('card-equity-eur').innerHTML = `<span style="color:var(--text-muted)">${fmtEur(d.equity_eur)}</span>`;
+                document.getElementById('card-cash').textContent = fmtUsd(d.cash_usd);
+                document.getElementById('card-invested').textContent = fmtUsd(d.invested_usd);
+
+                const uplEl = document.getElementById('card-unreal-pl');
+                uplEl.textContent = `${plSign(d.unrealized_pl_usd)}${fmtUsd(d.unrealized_pl_usd)}`;
+                uplEl.className = `card-value ${plClass(d.unrealized_pl_usd)}`;
+                document.getElementById('card-unreal-pct').innerHTML = `<span class="${plClass(d.unrealized_pl_pct)}">${plSign(d.unrealized_pl_pct)}${fmt(d.unrealized_pl_pct)}%</span>`;
+
+                const dplEl = document.getElementById('card-day-pl');
+                dplEl.textContent = `${plSign(d.day_pl_usd)}${fmtUsd(d.day_pl_usd)}`;
+                dplEl.className = `card-value ${plClass(d.day_pl_usd)}`;
+                document.getElementById('card-day-pct').innerHTML = `<span class="${plClass(d.day_pl_pct)}">${plSign(d.day_pl_pct)}${fmt(d.day_pl_pct)}%</span>`;
+
+                const tplEl = document.getElementById('card-total-pl');
+                tplEl.textContent = `${plSign(d.total_pl_usd)}${fmtUsd(d.total_pl_usd)}`;
+                tplEl.className = `card-value ${plClass(d.total_pl_usd)}`;
+                document.getElementById('card-total-pct').innerHTML = `<span class="${plClass(d.total_pl_pct)}">${plSign(d.total_pl_pct)}${fmt(d.total_pl_pct, 3)}%</span>`;
+            } catch(e) { console.error('Dashboard:', e); }
+        }
+
+        // ─── Positions ───
+        async function loadPositions() {
+            try {
+                const r = await fetch(`${BASE}/positions`);
+                const d = await r.json();
+                if (d.error) throw new Error(d.error);
+
+                const tbody = document.getElementById('positions-body');
+                const positions = d.positions || [];
+                document.getElementById('pos-count').textContent = positions.length;
+
+                if (!positions.length) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="loading">Keine Positionen</td></tr>';
+                    return;
+                }
+
+                let totalValue = 0, totalPl = 0;
+                const rows = positions.map(p => {
+                    totalValue += p.market_value_eur;
+                    totalPl += p.unrealized_pl_eur;
+                    return `<tr>
+                        <td><strong>${p.ticker}</strong></td>
+                        <td>${fmt(p.qty, 4)}</td>
+                        <td>${fmtUsd(p.avg_price)}</td>
+                        <td>${fmtUsd(p.market_price)}</td>
+                        <td>${fmtEur(p.market_value_eur)}</td>
+                        <td class="${plClass(p.unrealized_pl_eur)}">${plSign(p.unrealized_pl_eur)}${fmtEur(p.unrealized_pl_eur)}</td>
+                        <td class="${plClass(p.pct_change)}">${plSign(p.pct_change)}${fmt(p.pct_change)}%</td>
+                    </tr>`;
+                });
+                // Total row
+                rows.push(`<tr class="total-row">
+                    <td>TOTAL</td><td></td><td></td><td></td>
+                    <td>${fmtEur(totalValue)}</td>
+                    <td class="${plClass(totalPl)}">${plSign(totalPl)}${fmtEur(totalPl)}</td>
+                    <td class="${plClass(totalPl)}">${totalValue > 0 ? (plSign(totalPl/totalValue*100) + fmt(totalPl/totalValue*100) + '%') : ''}</td>
+                </tr>`);
+                tbody.innerHTML = rows.join('');
+            } catch(e) {
+                document.getElementById('positions-body').innerHTML = `<tr><td colspan="7" class="error-msg">${e.message}</td></tr>`;
+            }
+        }
+
+        // ─── Equity Chart ───
+        let eqChart = null;
+        async function loadEquityChart() {
+            try {
+                const r = await fetch(`${BASE}/equity-history`);
+                const d = await r.json();
+                const snaps = d.snapshots || [];
+                if (!snaps.length) return;
+
+                // Deduplicate by day (take last per day)
+                const byDay = {};
+                snaps.forEach(s => {
+                    const day = s.timestamp.slice(0, 10);
+                    byDay[day] = s;
+                });
+                const daily = Object.values(byDay);
+
+                const labels = daily.map(s => {
+                    const dt = new Date(s.timestamp);
+                    return dt.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
+                });
+                const values = daily.map(s => s.total_usd);
+
+                const ctx = document.getElementById('equity-chart').getContext('2d');
+                if (eqChart) eqChart.destroy();
+                eqChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            data: values,
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139,92,246,0.08)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: values.length < 20 ? 3 : 0,
+                            borderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { color: '#2a2d3a' }, ticks: { color: '#8b8d97', maxTicksLimit: 8, font: { size: 10 } } },
+                            y: { grid: { color: '#2a2d3a' }, ticks: { color: '#8b8d97', callback: v => '$' + v.toLocaleString(), font: { size: 10 } } }
+                        }
+                    }
+                });
+            } catch(e) { console.error('Chart:', e); }
+        }
+
+        // ─── Allocation Chart ───
+        let allocChart = null;
+        async function loadAllocation() {
+            try {
+                const r = await fetch(`${BASE}/allocation`);
+                const d = await r.json();
+                const alloc = d.allocation || [];
+                if (!alloc.length) return;
+
+                const colors = ['#8b5cf6','#3b82f6','#22c55e','#eab308','#ef4444','#f59e0b','#06b6d4','#ec4899','#14b8a6','#f97316','#6366f1','#a855f7'];
+                const ctx = document.getElementById('alloc-chart').getContext('2d');
+                if (allocChart) allocChart.destroy();
+                allocChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: alloc.map(a => `${a.name} (${a.pct}%)`),
+                        datasets: [{
+                            data: alloc.map(a => a.value_eur),
+                            backgroundColor: colors.slice(0, alloc.length),
+                            borderColor: '#1a1d27',
+                            borderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { color: '#e4e4e7', font: { size: 10 }, boxWidth: 12, padding: 8 } }
+                        }
+                    }
+                });
+            } catch(e) { console.error('Allocation:', e); }
+        }
+
+        // ─── Performance ───
+        async function loadPerformance() {
+            try {
+                const r = await fetch(`${BASE}/performance`);
+                const d = await r.json();
+                if (d.error) throw new Error(d.error);
+
+                const grid = document.getElementById('perf-grid');
+                grid.innerHTML = `
+                    <div class="perf-item">
+                        <div class="perf-value ${plClass(d.total_return_pct)}">${plSign(d.total_return_pct)}${fmt(d.total_return_pct, 3)}%</div>
+                        <div class="perf-label">Total Return</div>
+                    </div>
+                    <div class="perf-item">
+                        <div class="perf-value ${plClass(d.total_return_usd)}">${plSign(d.total_return_usd)}${fmtUsd(d.total_return_usd)}</div>
+                        <div class="perf-label">Absolut P&L</div>
+                    </div>
+                    <div class="perf-item">
+                        <div class="perf-value">${fmtUsd(d.start_equity)}</div>
+                        <div class="perf-label">Start-Equity</div>
+                    </div>
+                    <div class="perf-item">
+                        <div class="perf-value">${d.total_trades}</div>
+                        <div class="perf-label">Trades gesamt</div>
+                    </div>
+                    <div class="perf-item">
+                        <div class="perf-value positive">${d.total_buys}</div>
+                        <div class="perf-label">Buys</div>
+                    </div>
+                    <div class="perf-item">
+                        <div class="perf-value">${d.total_sells || 0}</div>
+                        <div class="perf-label">Sells</div>
+                    </div>
+                    <div class="perf-item">
+                        <div class="perf-value">${fmtEur(d.total_volume_eur)}</div>
+                        <div class="perf-label">Volumen</div>
+                    </div>
+                    <div class="perf-item">
+                        <div class="perf-value">${d.data_since || '--'}</div>
+                        <div class="perf-label">Seit</div>
+                    </div>
+                `;
+            } catch(e) { console.error('Performance:', e); }
+        }
+
+        // ─── Trades ───
+        async function loadTrades() {
+            try {
+                const r = await fetch(`${BASE}/trades`);
+                const d = await r.json();
+                const trades = d.trades || [];
+                const tbody = document.getElementById('trades-body');
+                if (!trades.length) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="loading">Keine Trades</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = trades.map(t => {
+                    const dateStr = t.timestamp ? t.timestamp.slice(0, 16).replace('T', ' ') : '--';
+                    const sideBadge = t.side === 'buy'
+                        ? '<span class="badge badge-buy">BUY</span>'
+                        : '<span class="badge badge-sell">SELL</span>';
+                    const statusBadge = t.status === 'filled'
+                        ? '<span class="badge badge-filled">filled</span>'
+                        : `<span class="badge badge-pending">${t.status}</span>`;
+                    return `<tr>
+                        <td>${dateStr}</td>
+                        <td><strong>${t.ticker}</strong></td>
+                        <td>${sideBadge}</td>
+                        <td>${fmt(t.qty, 4)}</td>
+                        <td>${t.price ? fmtUsd(t.price) : '--'}</td>
+                        <td>${statusBadge}</td>
+                        <td style="font-size:0.68rem;color:var(--text-muted)">${t.strategy || ''}</td>
+                    </tr>`;
+                }).join('');
+            } catch(e) {
+                document.getElementById('trades-body').innerHTML = `<tr><td colspan="7" class="error-msg">${e.message}</td></tr>`;
+            }
+        }
+
+        // ─── DCA ───
+        async function loadDCA() {
+            try {
+                const r = await fetch(`${BASE}/dca`);
+                const d = await r.json();
+                const dca = d.dca || [];
+                const container = document.getElementById('dca-container');
+                if (!dca.length) {
+                    container.innerHTML = '<span class="loading">Keine DCA-Holdings. Klicke bei der naechsten DCA-Empfehlung auf "gekauft".</span>';
+                    return;
+                }
+                container.innerHTML = dca.map(item => {
+                    const perf = item.performance_pct;
+                    const perfStr = perf != null ? `${plSign(perf)}${fmt(perf)}%` : '--';
+                    const perfClass = plClass(perf || 0);
+                    return `<div class="dca-card">
+                        <div class="dca-header">
+                            <span class="dca-ticker">${item.ticker}</span>
+                            <span class="dca-perf ${perfClass}">${perfStr}</span>
+                        </div>
+                        <div class="dca-meta">
+                            ${item.current_price ? `Kurs: $${fmt(item.current_price)}` : ''}
+                            ${item.buy_price ? ` | Kauf: $${fmt(item.buy_price)}` : ''}<br>
+                            Empfohlen: ${item.recommended_at ? item.recommended_at.slice(0,10) : '--'}
+                            ${item.bought_at ? ` | Gekauft: ${item.bought_at.slice(0,10)}` : ''}<br>
+                            <span style="color:var(--text-muted)">${item.reason || ''}</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch(e) {
+                document.getElementById('dca-container').innerHTML = `<span class="error-msg">${e.message}</span>`;
+            }
+        }
+
+        // ─── System ───
+        async function loadSystem() {
+            try {
+                const r = await fetch(`${BASE}/system`);
+                const d = await r.json();
+                if (d.last_commit) {
+                    document.getElementById('commit-info').textContent =
+                        `Commit: ${d.last_commit.hash} — ${d.last_commit.message} (${d.last_commit.date})`;
+                }
+                if (d.uptime) document.getElementById('uptime-info').textContent = d.uptime;
+
+                const grid = document.getElementById('timer-grid');
+                if (d.timers && d.timers.length) {
+                    grid.innerHTML = d.timers.map(t => `
+                        <div class="timer-item">
+                            <span class="dot ${t.active ? 'dot-on' : 'dot-off'}"></span>
+                            ${t.name.replace('invest-pi-', '')}
+                        </div>
+                    `).join('');
+                }
+            } catch(e) { console.error('System:', e); }
+        }
+
+        // ─── Init ───
+        function updateTs() {
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString('de-DE');
+        }
+        async function loadAll() {
+            await Promise.allSettled([
+                loadDashboard(),
+                loadPositions(),
+                loadEquityChart(),
+                loadAllocation(),
+                loadPerformance(),
+                loadTrades(),
+                loadDCA(),
+                loadSystem(),
+            ]);
+            updateTs();
+        }
+        loadAll();
+        setInterval(loadAll, 60000);
+    </script>
+</body>
+</html>
