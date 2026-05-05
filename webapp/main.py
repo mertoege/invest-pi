@@ -337,37 +337,35 @@ def dca_holdings():
 @app.get("/api/system")
 def system_status():
     try:
-        # Systemd timer statuses
-        timers = [
-            "invest-pi-auto-pull",
-            "invest-pi-status",
-            "invest-pi-heartbeat",
-            "invest-pi-trading",
-            "invest-pi-risk",
-            "invest-pi-learning",
-            "invest-pi-calibration",
-            "invest-pi-reflection",
-            "invest-pi-rebalance",
-            "invest-pi-dca",
-            "invest-pi-earnings",
-            "invest-pi-weekly",
-            "invest-pi-breadth",
-            "invest-pi-optimizer",
-            "invest-pi-backtest",
-            "invest-pi-snapshot",
-        ]
-
+        # Systemd timer statuses (system-level timers)
         timer_statuses = []
-        for t in timers:
-            try:
-                result = subprocess.run(
-                    ["systemctl", "--user", "is-active", f"{t}.timer"],
-                    capture_output=True, text=True, timeout=3
-                )
-                active = result.stdout.strip() == "active"
-            except Exception:
-                active = False
-            timer_statuses.append({"name": t, "active": active})
+        try:
+            result = subprocess.run(
+                ["systemctl", "list-timers", "invest-pi*", "--no-pager", "--plain", "--no-legend"],
+                capture_output=True, text=True, timeout=5
+            )
+            active_timers = set()
+            for line in result.stdout.strip().splitlines():
+                parts = line.split()
+                for p in parts:
+                    if p.startswith("invest-pi-") and p.endswith(".timer"):
+                        active_timers.add(p.replace(".timer", ""))
+
+            all_timers = [
+                "invest-pi-auto-pull", "invest-pi-status-push",
+                "invest-pi-telegram-callbacks", "invest-pi-score",
+                "invest-pi-hardware", "invest-pi-sync",
+                "invest-pi-strategy", "invest-pi-rebalance",
+                "invest-pi-daily-report", "invest-pi-outcomes",
+                "invest-pi-backup", "invest-pi-train-regime",
+                "invest-pi-weekly-recap", "invest-pi-patterns",
+                "invest-pi-monthly-dca", "invest-pi-meta-review",
+                "invest-pi-dca-watchdog",
+            ]
+            for t in all_timers:
+                timer_statuses.append({"name": t, "active": t in active_timers})
+        except Exception:
+            pass
 
         # Last commit
         try:
