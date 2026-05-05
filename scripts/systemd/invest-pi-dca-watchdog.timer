@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · DCA Watchdog taeglich 18:00 CEST (nach Market Close)
+
+[Timer]
+OnCalendar=*-*-* 18:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
