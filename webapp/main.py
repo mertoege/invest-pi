@@ -277,7 +277,8 @@ def dca_holdings():
                           json_extract(p.output_json, '$.reason') AS buy_reason,
                           json_extract(p.output_json, '$.confidence') AS confidence,
                           p.created_at AS recommended_at,
-                          fr.created_at AS bought_at
+                          fr.created_at AS bought_at,
+                          fr.reason_text AS extra
                    FROM feedback_reasons fr
                    JOIN predictions p ON p.id = fr.prediction_id
                    WHERE fr.feedback_type = 'dca_bought'
@@ -289,6 +290,15 @@ def dca_holdings():
             ticker = r["ticker"] or r["ticker_from_output"]
             if not ticker:
                 continue
+            # Parse actual buy price from reason_text if stored
+            actual_buy_price = None
+            extra = r["extra"] or ""
+            if "buy_price=" in extra:
+                try:
+                    actual_buy_price = float(extra.split("buy_price=")[1].split()[0])
+                except (ValueError, IndexError):
+                    pass
+
             entry = {
                 "ticker": ticker,
                 "recommended_at": r["recommended_at"],
@@ -296,6 +306,7 @@ def dca_holdings():
                 "reason": (r["buy_reason"] or "")[:200],
                 "confidence": r["confidence"] or "?",
                 "current_price": None,
+                "buy_price": actual_buy_price,
                 "performance_pct": None,
             }
             # Live price via yfinance
@@ -304,16 +315,17 @@ def dca_holdings():
                 stock = yf.Ticker(ticker)
                 hist = stock.history(period="1d")
                 if not hist.empty:
-                    entry["current_price"] = round(float(hist["Close"].iloc[-1]), 2)
-                # Performance since recommendation
-                rec_date = r["recommended_at"][:10] if r["recommended_at"] else None
-                if rec_date:
-                    hist_full = stock.history(start=rec_date)
-                    if len(hist_full) >= 2:
-                        buy_price = float(hist_full["Close"].iloc[0])
-                        cur_price = float(hist_full["Close"].iloc[-1])
-                        entry["buy_price"] = round(buy_price, 2)
-                        entry["performance_pct"] = round((cur_price / buy_price - 1) * 100, 2)
+                    cur_price = round(float(hist["Close"].iloc[-1]), 2)
+                    entry["current_price"] = cur_price
+                    if actual_buy_price:
+                        entry["performance_pct"] = round((cur_price / actual_buy_price - 1) * 100, 2)
+                    else:
+                        rec_date = r["recommended_at"][:10] if r["recommended_at"] else None
+                        if rec_date:
+                            hist_full = stock.history(start=rec_date)
+                            if len(hist_full) >= 2:
+                                entry["buy_price"] = round(float(hist_full["Close"].iloc[0]), 2)
+                                entry["performance_pct"] = round((cur_price / float(hist_full["Close"].iloc[0]) - 1) * 100, 2)
             except Exception:
                 pass
             result.append(entry)
