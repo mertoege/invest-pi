@@ -349,6 +349,18 @@ def main() -> None:
         if decisions['errors']:
             print(f"  errors: {len(decisions['errors'])}")
 
+        # Top-Up untergewichtete Positionen wenn keine neuen Buys
+        if not decisions['buys']:
+            try:
+                from scripts.weekly_rotation import topup_pass
+                from src.trading import get_active_profile
+                profile = get_active_profile(t_cfg)
+                topups = topup_pass(broker, t_cfg, profile, src, args.dry_run)
+                if topups:
+                    print(f"  top-ups: {len(topups)}")
+            except Exception as e:
+                print(f"  top-up skipped: {e}")
+
     _take_equity_snapshot(broker, src, notes="run_strategy:end")
     final = broker.get_account()
     print(f"\n  Final equity: {final.equity_eur:.2f} EUR  (cash {final.cash_eur:.2f})")

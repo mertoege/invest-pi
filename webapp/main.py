@@ -91,7 +91,8 @@ def dashboard():
         total_unrealized_eur = sum(p.unrealized_pl_eur for p in positions)
         total_unrealized_usd = sum((p.market_price - p.avg_price) * p.qty for p in positions if p.avg_price)
         total_market_value_eur = sum(p.market_value_eur for p in positions)
-        invested_usd = account.equity_usd - account.cash_usd
+        market_value_usd = account.equity_usd - account.cash_usd
+        cost_basis_usd = sum(p.avg_price * p.qty for p in positions if p.avg_price)
 
         # Day P&L from equity snapshots
         day_pl_usd = 0.0
@@ -127,14 +128,17 @@ def dashboard():
             "fx_rate": account.fx_rate,
             "positions_count": len(positions),
             "trades_today": trades_today,
-            "invested_usd": invested_usd,
+            "invested_usd": round(cost_basis_usd, 2),
+            "market_value_usd": round(market_value_usd, 2),
             "total_market_value_eur": round(total_market_value_eur, 2),
             "unrealized_pl_eur": round(total_unrealized_eur, 2),
             "unrealized_pl_usd": round(total_unrealized_usd, 2),
-            "unrealized_pl_pct": round((total_unrealized_usd / invested_usd * 100) if invested_usd > 0 else 0, 2),
+            "unrealized_pl_pct": round((total_unrealized_usd / cost_basis_usd * 100) if cost_basis_usd > 0 else 0, 2),
             "day_pl_usd": round(day_pl_usd, 2),
+            "day_pl_eur": round(day_pl_usd * account.fx_rate, 2),
             "day_pl_pct": round((day_pl_usd / (account.equity_usd - day_pl_usd) * 100) if account.equity_usd > day_pl_usd else 0, 2),
             "total_pl_usd": round(total_pl_usd, 2),
+            "total_pl_eur": round(total_pl_usd * account.fx_rate, 2),
             "total_pl_pct": round((total_pl_usd / (account.equity_usd - total_pl_usd) * 100) if account.equity_usd > total_pl_usd else 0, 3),
         }
     except Exception as e:
@@ -360,7 +364,7 @@ def system_status():
                 "invest-pi-backup", "invest-pi-train-regime",
                 "invest-pi-weekly-recap", "invest-pi-patterns",
                 "invest-pi-monthly-dca", "invest-pi-meta-review",
-                "invest-pi-dca-watchdog",
+                "invest-pi-dca-watchdog", "invest-pi-rotation",
             ]
             for t in all_timers:
                 timer_statuses.append({"name": t, "active": t in active_timers})
@@ -403,31 +407,29 @@ def system_status():
 
 @app.get("/api/performance")
 def performance():
-    """Detaillierte Performance-Metriken."""
+    """Detaillierte Performance-Metriken — nutzt live Broker-Daten."""
     try:
         if not TRADING_DB.exists():
             return {"error": "no data"}
+
+        broker = _get_broker()
+        account = broker.get_account()
+        current_equity = account.equity_usd
+
         with db_connect(TRADING_DB) as conn:
-            # All equity snapshots for return calculation
-            rows = conn.execute(
-                """SELECT timestamp, total_usd, total_eur, cash_usd, positions_value_usd
-                   FROM equity_snapshots WHERE source='paper'
-                   ORDER BY timestamp ASC"""
-            ).fetchall()
+            first = conn.execute(
+                """SELECT timestamp, total_usd FROM equity_snapshots
+                   WHERE source='paper' AND total_usd IS NOT NULL
+                   ORDER BY timestamp ASC LIMIT 1"""
+            ).fetchone()
 
-            if not rows:
+            if not first or not first["total_usd"]:
                 return {"snapshots_count": 0}
 
-            # Skip rows with NULL total_usd
-            valid_rows = [r for r in rows if r["total_usd"] is not None]
-            if not valid_rows:
-                return {"snapshots_count": 0}
+            start_equity = first["total_usd"]
+            total_return_usd = current_equity - start_equity
+            total_return_pct = (total_return_usd / start_equity) * 100
 
-            first_equity = valid_rows[0]["total_usd"]
-            latest_equity = valid_rows[-1]["total_usd"]
-            total_return_pct = ((latest_equity / first_equity) - 1) * 100 if first_equity else 0
-
-            # Trade stats
             trade_stats = conn.execute(
                 """SELECT
                        COUNT(*) as total_trades,
@@ -437,26 +439,16 @@ def performance():
                    FROM trades WHERE status='filled'"""
             ).fetchone()
 
-            # Win/loss from closed positions (sells)
-            sell_trades = conn.execute(
-                """SELECT ticker, qty, price, fill_price, eur_value
-                   FROM trades WHERE side='sell' AND status='filled'"""
-            ).fetchall()
-
-            # Realized P&L from sells vs buy avg
-            realized_pl = 0.0
-            # (simplified: would need buy-price lookup, skip for now)
-
         return {
             "total_return_pct": round(total_return_pct, 3),
-            "total_return_usd": round(latest_equity - first_equity, 2),
-            "start_equity": round(first_equity, 2),
-            "current_equity": round(latest_equity, 2),
+            "total_return_usd": round(total_return_usd, 2),
+            "start_equity": round(start_equity, 2),
+            "current_equity": round(current_equity, 2),
             "total_trades": (trade_stats["total_trades"] or 0) if trade_stats else 0,
             "total_buys": (trade_stats["buys"] or 0) if trade_stats else 0,
             "total_sells": (trade_stats["sells"] or 0) if trade_stats else 0,
             "total_volume_eur": round(float(trade_stats["total_volume_eur"] or 0), 2) if trade_stats else 0,
-            "data_since": valid_rows[0]["timestamp"][:10] if valid_rows else None,
+            "data_since": first["timestamp"][:10] if first else None,
         }
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -497,6 +489,97 @@ def allocation():
             for k, v in sorted(sectors.items(), key=lambda x: -x[1])
         ]
         return {"allocation": result, "total_eur": round(total, 2)}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ─── Benchmark ───────────────────────────────────────────────
+_bench_cache: dict = {"data": None, "expires": 0}
+
+
+@app.get("/api/benchmark")
+def benchmark():
+    """SPY Benchmark-Vergleich seit Portfolio-Start."""
+    global _bench_cache
+    now = time.time()
+    if _bench_cache["expires"] > now and _bench_cache["data"]:
+        return _bench_cache["data"]
+
+    try:
+        import yfinance as yf
+
+        # Portfolio start date from first equity snapshot
+        start_date = "2026-04-29"
+        if TRADING_DB.exists():
+            with db_connect(TRADING_DB) as conn:
+                first = conn.execute(
+                    """SELECT timestamp FROM equity_snapshots
+                       WHERE source='paper' AND total_usd IS NOT NULL
+                       ORDER BY timestamp ASC LIMIT 1"""
+                ).fetchone()
+                if first:
+                    start_date = first["timestamp"][:10]
+
+        # SPY benchmark
+        spy = yf.Ticker("SPY")
+        spy_hist = spy.history(start=start_date)
+        if spy_hist.empty:
+            return {"error": "no SPY data"}
+
+        spy_start = float(spy_hist["Close"].iloc[0])
+        spy_now = float(spy_hist["Close"].iloc[-1])
+        spy_return_pct = (spy_now / spy_start - 1) * 100
+
+        # SPY daily returns for chart overlay
+        spy_daily = []
+        for idx, row in spy_hist.iterrows():
+            spy_daily.append({
+                "date": idx.strftime("%Y-%m-%d"),
+                "price": round(float(row["Close"]), 2),
+                "return_pct": round((float(row["Close"]) / spy_start - 1) * 100, 3),
+            })
+
+        # Portfolio returns
+        broker = _get_broker()
+        account = broker.get_account()
+        positions = broker.get_positions()
+
+        # Total account return (includes cash drag)
+        total_return_pct = 0.0
+        if TRADING_DB.exists():
+            with db_connect(TRADING_DB) as conn:
+                first_eq = conn.execute(
+                    """SELECT total_usd FROM equity_snapshots
+                       WHERE source='paper' AND total_usd IS NOT NULL
+                       ORDER BY timestamp ASC LIMIT 1"""
+                ).fetchone()
+                if first_eq and first_eq["total_usd"]:
+                    total_return_pct = (account.equity_usd / first_eq["total_usd"] - 1) * 100
+
+        # Invested capital return (excludes cash drag)
+        cost_basis = sum(p.avg_price * p.qty for p in positions if p.avg_price)
+        market_value = sum(p.market_price * p.qty for p in positions)
+        positions_return_pct = ((market_value / cost_basis - 1) * 100) if cost_basis > 0 else 0
+
+        # Alpha = portfolio positions return - benchmark
+        alpha_pct = positions_return_pct - spy_return_pct
+        invested_pct = (cost_basis / account.equity_usd * 100) if account.equity_usd else 0
+
+        result = {
+            "benchmark": "SPY",
+            "start_date": start_date,
+            "spy_return_pct": round(spy_return_pct, 3),
+            "spy_start": round(spy_start, 2),
+            "spy_now": round(spy_now, 2),
+            "portfolio_total_return_pct": round(total_return_pct, 3),
+            "portfolio_positions_return_pct": round(positions_return_pct, 3),
+            "alpha_pct": round(alpha_pct, 3),
+            "invested_pct": round(invested_pct, 1),
+            "spy_daily": spy_daily,
+        }
+
+        _bench_cache = {"data": result, "expires": now + 900}  # 15 min cache
+        return result
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 

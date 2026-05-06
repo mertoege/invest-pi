@@ -228,17 +228,17 @@
                 <div class="card-value" id="card-invested">--</div>
             </div>
             <div class="card">
-                <div class="card-label">Unrealized P&L</div>
+                <div class="card-label">Positionen P&L</div>
                 <div class="card-value" id="card-unreal-pl">--</div>
                 <div class="card-sub" id="card-unreal-pct"></div>
             </div>
             <div class="card">
-                <div class="card-label">Day P&L</div>
+                <div class="card-label">Tages-P&L</div>
                 <div class="card-value" id="card-day-pl">--</div>
                 <div class="card-sub" id="card-day-pct"></div>
             </div>
             <div class="card">
-                <div class="card-label">Total P&L</div>
+                <div class="card-label">Gesamt-P&L</div>
                 <div class="card-value" id="card-total-pl">--</div>
                 <div class="card-sub" id="card-total-pct"></div>
             </div>
@@ -247,7 +247,7 @@
         <!-- Charts Row -->
         <div class="grid-2">
             <div class="section">
-                <h2>Equity-Verlauf</h2>
+                <h2>Portfolio vs. SPY</h2>
                 <div class="chart-container">
                     <canvas id="equity-chart"></canvas>
                 </div>
@@ -257,6 +257,14 @@
                 <div class="alloc-container">
                     <canvas id="alloc-chart"></canvas>
                 </div>
+            </div>
+        </div>
+
+        <!-- Benchmark vs SPY -->
+        <div class="section">
+            <h2>Benchmark vs. SPY</h2>
+            <div class="perf-grid" id="bench-grid">
+                <span class="loading">Loading...</span>
             </div>
         </div>
 
@@ -353,6 +361,7 @@
                 const r = await fetch(`${BASE}/dashboard`);
                 const d = await r.json();
                 if (d.error) throw new Error(d.error);
+                dashboardData = d;
 
                 document.getElementById('live-equity').textContent = fmtUsd(d.equity_usd);
                 document.getElementById('live-equity').className = 'live-equity';
@@ -366,19 +375,19 @@
                 document.getElementById('card-invested').textContent = fmtUsd(d.invested_usd);
 
                 const uplEl = document.getElementById('card-unreal-pl');
-                uplEl.textContent = `${plSign(d.unrealized_pl_usd)}${fmtUsd(d.unrealized_pl_usd)}`;
-                uplEl.className = `card-value ${plClass(d.unrealized_pl_usd)}`;
-                document.getElementById('card-unreal-pct').innerHTML = `<span class="${plClass(d.unrealized_pl_pct)}">${plSign(d.unrealized_pl_pct)}${fmt(d.unrealized_pl_pct)}%</span>`;
+                uplEl.textContent = `${plSign(d.unrealized_pl_eur)}${fmtEur(d.unrealized_pl_eur)}`;
+                uplEl.className = `card-value ${plClass(d.unrealized_pl_eur)}`;
+                document.getElementById('card-unreal-pct').innerHTML = `<span class="${plClass(d.unrealized_pl_pct)}">${plSign(d.unrealized_pl_pct)}${fmt(d.unrealized_pl_pct)}% · ${plSign(d.unrealized_pl_usd)}${fmtUsd(d.unrealized_pl_usd)}</span>`;
 
                 const dplEl = document.getElementById('card-day-pl');
-                dplEl.textContent = `${plSign(d.day_pl_usd)}${fmtUsd(d.day_pl_usd)}`;
-                dplEl.className = `card-value ${plClass(d.day_pl_usd)}`;
-                document.getElementById('card-day-pct').innerHTML = `<span class="${plClass(d.day_pl_pct)}">${plSign(d.day_pl_pct)}${fmt(d.day_pl_pct)}%</span>`;
+                dplEl.textContent = `${plSign(d.day_pl_eur)}${fmtEur(d.day_pl_eur)}`;
+                dplEl.className = `card-value ${plClass(d.day_pl_eur)}`;
+                document.getElementById('card-day-pct').innerHTML = `<span class="${plClass(d.day_pl_pct)}">${plSign(d.day_pl_pct)}${fmt(d.day_pl_pct)}% · ${plSign(d.day_pl_usd)}${fmtUsd(d.day_pl_usd)}</span>`;
 
                 const tplEl = document.getElementById('card-total-pl');
-                tplEl.textContent = `${plSign(d.total_pl_usd)}${fmtUsd(d.total_pl_usd)}`;
-                tplEl.className = `card-value ${plClass(d.total_pl_usd)}`;
-                document.getElementById('card-total-pct').innerHTML = `<span class="${plClass(d.total_pl_pct)}">${plSign(d.total_pl_pct)}${fmt(d.total_pl_pct, 3)}%</span>`;
+                tplEl.textContent = `${plSign(d.total_pl_eur)}${fmtEur(d.total_pl_eur)}`;
+                tplEl.className = `card-value ${plClass(d.total_pl_eur)}`;
+                document.getElementById('card-total-pct').innerHTML = `<span class="${plClass(d.total_pl_pct)}">${plSign(d.total_pl_pct)}${fmt(d.total_pl_pct, 3)}% · ${plSign(d.total_pl_usd)}${fmtUsd(d.total_pl_usd)}</span>`;
             } catch(e) { console.error('Dashboard:', e); }
         }
 
@@ -398,10 +407,11 @@
                     return;
                 }
 
-                let totalValue = 0, totalPl = 0;
+                let totalValue = 0, totalPl = 0, totalCost = 0;
                 const rows = positions.map(p => {
                     totalValue += p.market_value_eur;
                     totalPl += p.unrealized_pl_eur;
+                    totalCost += p.market_value_eur - p.unrealized_pl_eur;
                     return `<tr>
                         <td><strong>${p.ticker}</strong></td>
                         <td>${fmt(p.qty, 4)}</td>
@@ -412,12 +422,13 @@
                         <td class="${plClass(p.pct_change)}">${plSign(p.pct_change)}${fmt(p.pct_change)}%</td>
                     </tr>`;
                 });
-                // Total row
+                // Total row — P&L% berechnet auf Cost-Basis (wie Dashboard)
+                const totalPct = totalCost > 0 ? totalPl / totalCost * 100 : 0;
                 rows.push(`<tr class="total-row">
                     <td>TOTAL</td><td></td><td></td><td></td>
                     <td>${fmtEur(totalValue)}</td>
                     <td class="${plClass(totalPl)}">${plSign(totalPl)}${fmtEur(totalPl)}</td>
-                    <td class="${plClass(totalPl)}">${totalValue > 0 ? (plSign(totalPl/totalValue*100) + fmt(totalPl/totalValue*100) + '%') : ''}</td>
+                    <td class="${plClass(totalPct)}">${plSign(totalPct)}${fmt(totalPct)}%</td>
                 </tr>`);
                 tbody.innerHTML = rows.join('');
             } catch(e) {
@@ -448,29 +459,54 @@
                 });
                 const values = daily.map(s => s.total_usd);
 
+                // Normalize portfolio to % return
+                const firstVal = values[0];
+                const portfolioReturns = values.map(v => ((v / firstVal) - 1) * 100);
+
+                // Build SPY overlay if benchmark data available
+                const datasets = [{
+                    label: 'Portfolio',
+                    data: portfolioReturns,
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139,92,246,0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: values.length < 20 ? 3 : 0,
+                    borderWidth: 2,
+                }];
+
+                if (benchmarkData && benchmarkData.spy_daily) {
+                    // Map SPY returns to same days as portfolio
+                    const spyByDate = {};
+                    benchmarkData.spy_daily.forEach(s => { spyByDate[s.date] = s.return_pct; });
+                    const days = Object.keys(byDay);
+                    const spyReturns = days.map(day => spyByDate[day] != null ? spyByDate[day] : null);
+                    datasets.push({
+                        label: 'SPY',
+                        data: spyReturns,
+                        borderColor: '#f59e0b',
+                        borderWidth: 2,
+                        borderDash: [5, 3],
+                        tension: 0.3,
+                        pointRadius: 0,
+                        fill: false,
+                    });
+                }
+
                 const ctx = document.getElementById('equity-chart').getContext('2d');
                 if (eqChart) eqChart.destroy();
                 eqChart = new Chart(ctx, {
                     type: 'line',
-                    data: {
-                        labels,
-                        datasets: [{
-                            data: values,
-                            borderColor: '#8b5cf6',
-                            backgroundColor: 'rgba(139,92,246,0.08)',
-                            fill: true,
-                            tension: 0.3,
-                            pointRadius: values.length < 20 ? 3 : 0,
-                            borderWidth: 2,
-                        }]
-                    },
+                    data: { labels, datasets },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
+                        plugins: {
+                            legend: { display: true, labels: { color: '#e4e4e7', font: { size: 10 }, boxWidth: 12, padding: 10 } }
+                        },
                         scales: {
                             x: { grid: { color: '#2a2d3a' }, ticks: { color: '#8b8d97', maxTicksLimit: 8, font: { size: 10 } } },
-                            y: { grid: { color: '#2a2d3a' }, ticks: { color: '#8b8d97', callback: v => '$' + v.toLocaleString(), font: { size: 10 } } }
+                            y: { grid: { color: '#2a2d3a' }, ticks: { color: '#8b8d97', callback: v => v.toFixed(2) + '%', font: { size: 10 } } }
                         }
                     }
                 });
@@ -512,20 +548,26 @@
         }
 
         // ─── Performance ───
+        // Uses dashboardData for P&L to avoid inconsistency from separate API calls
+        let dashboardData = null;
         async function loadPerformance() {
             try {
                 const r = await fetch(`${BASE}/performance`);
                 const d = await r.json();
                 if (d.error) throw new Error(d.error);
 
+                // Use dashboard's total_pl for consistency (same Alpaca call)
+                const totalReturnUsd = dashboardData ? dashboardData.total_pl_usd : d.total_return_usd;
+                const totalReturnPct = dashboardData ? dashboardData.total_pl_pct : d.total_return_pct;
+
                 const grid = document.getElementById('perf-grid');
                 grid.innerHTML = `
                     <div class="perf-item">
-                        <div class="perf-value ${plClass(d.total_return_pct)}">${plSign(d.total_return_pct)}${fmt(d.total_return_pct, 3)}%</div>
+                        <div class="perf-value ${plClass(totalReturnPct)}">${plSign(totalReturnPct)}${fmt(totalReturnPct, 3)}%</div>
                         <div class="perf-label">Total Return</div>
                     </div>
                     <div class="perf-item">
-                        <div class="perf-value ${plClass(d.total_return_usd)}">${plSign(d.total_return_usd)}${fmtUsd(d.total_return_usd)}</div>
+                        <div class="perf-value ${plClass(totalReturnUsd)}">${plSign(totalReturnUsd)}${fmtUsd(totalReturnUsd)}</div>
                         <div class="perf-label">Absolut P&L</div>
                     </div>
                     <div class="perf-item">
@@ -554,6 +596,47 @@
                     </div>
                 `;
             } catch(e) { console.error('Performance:', e); }
+        }
+
+        // ─── Benchmark ───
+        let benchmarkData = null;
+        async function loadBenchmark() {
+            try {
+                const r = await fetch(`${BASE}/benchmark`);
+                const d = await r.json();
+                if (d.error) throw new Error(d.error);
+                benchmarkData = d;
+
+                const grid = document.getElementById('bench-grid');
+                const alphaClass = plClass(d.alpha_pct);
+                const beating = d.alpha_pct > 0;
+                grid.innerHTML = `
+                    <div class="perf-item">
+                        <div class="perf-value ${plClass(d.spy_return_pct)}">${plSign(d.spy_return_pct)}${fmt(d.spy_return_pct, 3)}%</div>
+                        <div class="perf-label">SPY Return</div>
+                    </div>
+                    <div class="perf-item">
+                        <div class="perf-value ${plClass(d.portfolio_positions_return_pct)}">${plSign(d.portfolio_positions_return_pct)}${fmt(d.portfolio_positions_return_pct, 3)}%</div>
+                        <div class="perf-label">Positionen Return</div>
+                    </div>
+                    <div class="perf-item">
+                        <div class="perf-value ${alphaClass}" style="font-size:1.4rem">${plSign(d.alpha_pct)}${fmt(d.alpha_pct, 3)}%</div>
+                        <div class="perf-label">${beating ? '🟢' : '🔴'} Alpha vs SPY</div>
+                    </div>
+                    <div class="perf-item">
+                        <div class="perf-value ${plClass(d.portfolio_total_return_pct)}">${plSign(d.portfolio_total_return_pct)}${fmt(d.portfolio_total_return_pct, 3)}%</div>
+                        <div class="perf-label">Gesamt (inkl. Cash)</div>
+                    </div>
+                    <div class="perf-item">
+                        <div class="perf-value">${fmt(d.invested_pct, 1)}%</div>
+                        <div class="perf-label">Investiert</div>
+                    </div>
+                    <div class="perf-item">
+                        <div class="perf-value" style="font-size:0.9rem">seit ${d.start_date}</div>
+                        <div class="perf-label">Zeitraum</div>
+                    </div>
+                `;
+            } catch(e) { console.error('Benchmark:', e); }
         }
 
         // ─── Trades ───
@@ -652,8 +735,9 @@
             document.getElementById('last-update').textContent = new Date().toLocaleTimeString('de-DE');
         }
         async function loadAll() {
+            // Dashboard + Benchmark first so chart can use both
+            await Promise.allSettled([loadDashboard(), loadBenchmark()]);
             await Promise.allSettled([
-                loadDashboard(),
                 loadPositions(),
                 loadEquityChart(),
                 loadAllocation(),
