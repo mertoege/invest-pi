@@ -159,16 +159,6 @@ def rotation_pass(broker, cfg, t_cfg, profile, source, dry_run) -> dict:
             notes=f"weekly rotation: risk={cand['risk']:.1f}",
         )
         buys.append({"ticker": entry.ticker, "risk": cand["risk"], "status": result.status})
-        if result.status in ("filled", "pending_new"):
-            try:
-                notifier.send_trade(
-                    ticker=entry.ticker, side="buy", qty=qty,
-                    eur=eur_amount, price_usd=quote.last,
-                    reason=f"Rotation-Buy: Risk {cand['risk']:.0f}",
-                    paper=broker.is_paper,
-                )
-            except Exception:
-                pass
 
     return {"sells": sells, "buys": buys}
 

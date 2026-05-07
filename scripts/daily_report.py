@@ -40,7 +40,7 @@ if env_path.exists():
 
 from src.alerts import notifier
 from src.common.outcomes import detect_drift
-from src.common.performance import compute_metrics, format_metrics
+from src.common.performance import compute_metrics
 from src.learning.attribution import attribution_block
 from src.learning.regime import current_regime
 from src.common.predictions import hit_rate, hit_rate_stratified
@@ -123,58 +123,55 @@ def _gather_today() -> dict:
 
 def _build_daily_msg(data: dict) -> str:
     """HTML-Telegram-Message fuer den Tagesreport."""
-    parts = ["🌙 <b>Daily Report</b>"]
-
-    # Trades
-    if data["trades_today"] > 0:
-        parts.append(f"📊 Trades: <b>{data['trades_today']}</b> ({data['volume_today']:.0f} EUR Volumen)")
-    else:
-        parts.append("📊 Trades: <b>0</b> heute")
-
-    # Equity
     now = data.get("equity_now")
     yest = data.get("equity_yest")
+    positions = data.get("positions", [])
+    n_pos = len(positions)
+
+    parts = ["🌙 <b>InvestPi — Tagesbericht</b>", ""]
+
+    # Portfolio-Wert + Tagesveränderung
     if now:
-        parts.append(f"💰 Equity: <b>{now['total_eur']:.0f} EUR</b> · {now['total_usd'] or 0:.0f} USD · FX {now['fx_rate'] or 0:.4f}")
+        parts.append(f"💰 <b>{now['total_eur']:.0f} EUR</b>  ({now['total_usd'] or 0:.0f} USD)")
         if yest and yest.get("total_usd"):
             delta_usd = now["total_usd"] - yest["total_usd"]
-            delta_pct = (delta_usd / yest["total_usd"]) * 100 if yest["total_usd"] else 0
-            sign = "+" if delta_usd >= 0 else ""
-            parts.append(f"   24h: {sign}{delta_usd:.0f} USD ({sign}{delta_pct:.2f}%) — FX-bereinigt")
+            delta_eur = now["total_eur"] - yest["total_eur"]
+            sign = "+" if delta_eur >= 0 else ""
+            emoji = "📈" if delta_eur >= 0 else "📉"
+            parts.append(f"{emoji} Heute: <b>{sign}{delta_eur:.0f} EUR</b> ({sign}{delta_usd:.0f} USD)")
 
-    # Positions
-    n_pos = len(data.get("positions", []))
+    # Positionen kompakt
     if n_pos > 0:
-        parts.append(f"📈 Open: <b>{n_pos}</b> Positionen")
-        for p in data["positions"][:5]:
-            peak_str = f" peak {p['peak_price']:.2f}" if p.get("peak_price") else ""
-            parts.append(f"   • {escape(p['ticker'])}: {p['qty']} @ {p['avg_price_eur'] or 0:.2f} EUR{peak_str}")
+        invested = now["positions_value_eur"] if now else 0
+        cash = now["cash_eur"] if now else 0
+        parts.append(f"\n📊 {n_pos} Positionen · {invested:.0f} EUR investiert · {cash:.0f} EUR Cash")
     else:
-        parts.append("📈 Open: keine Positionen")
+        parts.append("\n📊 Keine Positionen")
 
-    # Market-Regime
+    # Trades heute
+    if data["trades_today"] > 0:
+        parts.append(f"🔄 {data['trades_today']} Trades heute ({data['volume_today']:.0f} EUR)")
+
+    # Markt-Regime
     try:
         regime = current_regime()
         regime_emoji = {"low_vol_bull": "🟢", "high_vol_mixed": "🟡", "bear": "🔴"}.get(regime.label, "⚪")
-        parts.append(f"{regime_emoji} Regime: <b>{escape(regime.label)}</b> ({regime.probability:.0%}, {regime.method})")
+        label_de = {"low_vol_bull": "Bullish", "high_vol_mixed": "Volatil", "bear": "Bärisch"}.get(regime.label, regime.label)
+        parts.append(f"\n{regime_emoji} Markt: <b>{escape(label_de)}</b>")
     except Exception:
         pass
 
-    # Cost
-    parts.append(
-        f"💸 Cost: <b>{data['cost_today']:.3f} EUR</b> heute · "
-        f"{data['cost_this_month']:.2f} EUR diesen Monat"
-    )
-
-    # Pending outcomes
-    if data["pending_t1d"] > 0:
-        parts.append(f"⏳ Pending T+1d: {data['pending_t1d']} predictions")
-
-    # Performance-Metriken (nur wenn genug Daten)
+    # Performance 30d kompakt
     metrics = compute_metrics(source="paper", days=30)
-    if metrics.n_observations >= 2:
-        parts.append("")
-        parts.append(format_metrics(metrics))
+    if metrics.n_observations >= 2 and metrics.total_return_pct is not None:
+        ret = metrics.total_return_pct * 100
+        sign = "+" if ret >= 0 else ""
+        line = f"\n📈 30-Tage: <b>{sign}{ret:.2f}%</b>"
+        if metrics.sharpe is not None:
+            line += f" · Sharpe {metrics.sharpe:.1f}"
+        if metrics.max_drawdown is not None:
+            line += f" · Max-DD {metrics.max_drawdown*100:.1f}%"
+        parts.append(line)
 
     return "\n".join(parts)
 
