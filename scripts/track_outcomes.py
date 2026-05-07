@@ -40,7 +40,7 @@ def main() -> None:
                         help="job_source (default: daily_score)")
     parser.add_argument("--age", type=int, default=1,
                         help="min Alter in Tagen (default: 1)")
-    parser.add_argument("--limit", type=int, default=200,
+    parser.add_argument("--limit", type=int, default=2000,
                         help="max predictions pro Lauf")
     parser.add_argument("--no-drift", action="store_true",
                         help="Drift-Check skippen")

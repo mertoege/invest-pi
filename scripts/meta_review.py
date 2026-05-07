@@ -216,7 +216,7 @@ def run(job_source: str, dry_run: bool = False) -> dict:
         input_summary=f"meta-review {job_source} {ctx['period_days']}d",
         max_tokens=4096,
         temperature=0.3,
-        estimated_cost_eur=4.0,
+        estimated_cost_eur=0.50,
     )
 
     if not result.ok:

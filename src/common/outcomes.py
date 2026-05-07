@@ -216,6 +216,11 @@ def run_tracker(
             continue
         if "error" in result:
             stats["errors"] += 1
+            record_outcome(
+                prediction_id=pred.id,
+                outcome=result,
+                correct=None,
+            )
             continue
 
         record_outcome(
