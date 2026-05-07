@@ -90,6 +90,41 @@ def _take_equity_snapshot(broker: BrokerAdapter, source: str, notes: str = "") -
         )
 
 
+def _update_peak_prices(broker: BrokerAdapter, source: str) -> int:
+    """Update peak_price fuer alle Positionen. Muss jeden Run laufen."""
+    updated = 0
+    with connect(TRADING_DB) as conn:
+        for pos in broker.get_positions():
+            row = conn.execute(
+                "SELECT peak_price FROM positions WHERE ticker = ? AND source = ?",
+                (pos.ticker, source),
+            ).fetchone()
+            if row is None:
+                continue
+            old_peak = row["peak_price"] or 0
+            new_peak = max(old_peak, pos.market_price)
+            if new_peak > old_peak:
+                conn.execute(
+                    "UPDATE positions SET peak_price = ?, peak_seen_at = datetime('now'), last_updated = datetime('now') WHERE ticker = ? AND source = ?",
+                    (new_peak, pos.ticker, source),
+                )
+                updated += 1
+    return updated
+
+
+def _update_position_after_buy(ticker: str, strategy_label: str, source: str, price: float) -> None:
+    """Setzt strategy_label und initialisiert peak_price nach einem Buy."""
+    with connect(TRADING_DB) as conn:
+        conn.execute(
+            """UPDATE positions
+               SET strategy_label = ?,
+                   peak_price = CASE WHEN peak_price IS NULL OR peak_price < ? THEN ? ELSE peak_price END,
+                   last_updated = datetime('now')
+             WHERE ticker = ? AND source = ?""",
+            (strategy_label, price, price, ticker, source),
+        )
+
+
 def take_profit_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
     """Verkauft Positionen >= +take_profit_pct."""
     triggered = positions_to_take_profit(broker, t_cfg)
@@ -306,15 +341,11 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             notes=decision.reason,
         )
         if result.status == "filled":
-            try:
-                notifier.send_trade(
-                    ticker=entry.ticker, side="buy", qty=sz.qty,
-                    eur=sz.eur_amount, price_usd=quote.last,
-                    reason=decision.reason,
-                    paper=broker.is_paper,
-                )
-            except Exception as e:
-                print(f"  notifier failed: {e}")
+            _update_position_after_buy(
+                entry.ticker,
+                f"{t_cfg.mode}-{decision.strategy_label}-v1",
+                source, quote.last,
+            )
         print(f"  BUY {entry.ticker}: {sz.qty} @ {quote.last:.2f} = {sz.eur_amount:.2f} EUR  [{result.status}]")
         decisions["buys"].append({
             "ticker": entry.ticker, "qty": sz.qty,
@@ -478,8 +509,11 @@ def main() -> None:
     except Exception as e:
         print(f"  order-sync skipped: {e}")
 
-    # Initial snapshot
+    # Initial snapshot + Peak-Price-Update
     _take_equity_snapshot(broker, src, notes="run_strategy:start")
+    n_peaks = _update_peak_prices(broker, src)
+    if n_peaks:
+        print(f"  peak-prices updated: {n_peaks}")
 
     if not args.skip_stop_loss:
         n_tp = take_profit_pass(broker, t_cfg, src, args.dry_run)
