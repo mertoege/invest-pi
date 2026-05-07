@@ -108,4 +108,7 @@ def get_active_profile(config: TradingConfig) -> dict:
         "take_profit_pct":      config.take_profit_pct,
         "trailing_activation":  config.trailing_activation_pct,
         "trailing_stop_pct":    config.trailing_stop_pct,
+        "target_invest_pct":    0.50,
+        "sector_preference":    [],
+        "sector_avoid":         [],
     }

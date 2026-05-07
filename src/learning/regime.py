@@ -243,3 +243,39 @@ def regime_buy_multiplier() -> float:
     """Multiplier fuer score_buy_max basierend auf aktuellem Regime."""
     r = current_regime()
     return REGIME_BUY_MULTIPLIER.get(r.label, 0.7)
+
+_REGIME_FILE = DATA_DIR / "last_regime.json"
+
+
+def detect_regime_transition() -> dict | None:
+    """
+    Vergleicht aktuelles Regime mit dem zuletzt gespeicherten.
+    Returns dict mit 'from'/'to' bei Wechsel, sonst None.
+    """
+    import json
+    r = current_regime()
+    prev_label = None
+
+    if _REGIME_FILE.exists():
+        try:
+            prev = json.loads(_REGIME_FILE.read_text())
+            prev_label = prev.get("label")
+        except Exception:
+            pass
+
+    _REGIME_FILE.write_text(json.dumps({
+        "label": r.label,
+        "probability": r.probability,
+        "method": r.method,
+        "as_of": r.as_of,
+    }))
+
+    if prev_label and prev_label != r.label:
+        log.info(f"REGIME TRANSITION: {prev_label} -> {r.label} (prob={r.probability:.0%})")
+        return {
+            "from": prev_label,
+            "to": r.label,
+            "probability": r.probability,
+            "method": r.method,
+        }
+    return None

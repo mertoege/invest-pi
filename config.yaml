@@ -293,33 +293,18 @@ settings:
     #   - kombiniert gewinnt adaptive
     regime_profiles:
       low_vol_bull:
-        score_buy_max:        70       # noch mehr buy-Kandidaten (war 60)
+        score_buy_max:        70
         max_open_positions:   25
-        max_position_eur:     5000     # mehr Capital pro Position (war 4000)
+        max_position_eur:     5000
         max_trades_per_day:   10
         stop_loss_pct:        0.12
-        take_profit_pct:      0.65     # spaeter raus (war 0.50)
+        take_profit_pct:      0.65
         trailing_activation:  0.20
         trailing_stop_pct:    0.12
+        target_invest_pct:    0.80
+        sector_preference:    [technology, software, consumer_disc, communication]
+        sector_avoid:         []
       high_vol_mixed:
-        score_buy_max:        45       # aktuelles moderate-setup
-        max_open_positions:   20
-        max_position_eur:     2500
-        max_trades_per_day:   5
-        stop_loss_pct:        0.10
-        take_profit_pct:      0.40
-        trailing_activation:  0.10
-        trailing_stop_pct:    0.10
-      bear:
-        score_buy_max:        20       # selektiv (gleich)
-        max_open_positions:   8        # mehr Diversifikation (war 5)
-        max_position_eur:     800      # bisschen mehr Capital (war 400)
-        max_trades_per_day:   3
-        stop_loss_pct:        0.08     # tight stop
-        take_profit_pct:      0.20
-        trailing_activation:  0.05
-        trailing_stop_pct:    0.06
-      unknown:                # fallback wenn HMM noch nicht trained ist
         score_buy_max:        45
         max_open_positions:   20
         max_position_eur:     2500
@@ -328,6 +313,33 @@ settings:
         take_profit_pct:      0.40
         trailing_activation:  0.10
         trailing_stop_pct:    0.10
+        target_invest_pct:    0.50
+        sector_preference:    [healthcare, consumer_staples, financials]
+        sector_avoid:         [software]
+      bear:
+        score_buy_max:        20
+        max_open_positions:   8
+        max_position_eur:     800
+        max_trades_per_day:   3
+        stop_loss_pct:        0.08
+        take_profit_pct:      0.20
+        trailing_activation:  0.05
+        trailing_stop_pct:    0.06
+        target_invest_pct:    0.25
+        sector_preference:    [healthcare, consumer_staples, utilities]
+        sector_avoid:         [technology, software, consumer_disc]
+      unknown:
+        score_buy_max:        45
+        max_open_positions:   20
+        max_position_eur:     2500
+        max_trades_per_day:   5
+        stop_loss_pct:        0.10
+        take_profit_pct:      0.40
+        trailing_activation:  0.10
+        trailing_stop_pct:    0.10
+        target_invest_pct:    0.50
+        sector_preference:    []
+        sector_avoid:         []
 
     # Multi-Horizon Strategies (long-term hold + mid-term momentum)
     # Pro Strategy eigene take_profit/stop_loss/trailing-Schwellen.

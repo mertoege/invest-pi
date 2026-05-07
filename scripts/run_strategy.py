@@ -200,12 +200,46 @@ def stop_loss_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
 
 def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_run: bool) -> dict:
     """Pruefe alle tradeable Tickers, treffe Decision, fuehre Buys aus."""
+    from src.trading import get_active_profile
     held = {p.ticker for p in broker.get_positions()}
     open_n = len(held)
     candidates = [e for e in cfg.universe if e.ring in t_cfg.tradeable_rings]
 
+    # Regime-aware: Sektoren filtern + priorisieren
+    profile = get_active_profile(t_cfg)
+    sector_pref = profile.get("sector_preference", [])
+    sector_avoid = profile.get("sector_avoid", [])
+    target_invest_pct = profile.get("target_invest_pct", 0.50)
+
+    if sector_avoid:
+        before = len(candidates)
+        candidates = [e for e in candidates
+                      if _get_sector_for_ticker(t_cfg, e.ticker) not in sector_avoid]
+        skipped = before - len(candidates)
+        if skipped:
+            print(f"  regime-filter: {skipped} Ticker in vermiedenen Sektoren uebersprungen")
+
+    if sector_pref:
+        preferred = [e for e in candidates if _get_sector_for_ticker(t_cfg, e.ticker) in sector_pref]
+        others = [e for e in candidates if _get_sector_for_ticker(t_cfg, e.ticker) not in sector_pref]
+        candidates = preferred + others
+
+    # Cash-Ziel: nicht mehr investieren als target_invest_pct vom Equity
+    account = broker.get_account()
+    current_invested = sum(p.market_value_eur for p in broker.get_positions())
+    max_invest = account.equity_eur * target_invest_pct
+    budget_left = max(0, max_invest - current_invested)
+
     decisions = {"buys": [], "skips": [], "errors": []}
     fx = eur_per_usd()
+
+    if budget_left < t_cfg.min_position_eur:
+        print(f"  regime-budget: {current_invested:.0f}/{max_invest:.0f} EUR "
+              f"({target_invest_pct:.0%} Ziel) -- kein Budget")
+        return decisions
+
+    print(f"  regime-budget: {budget_left:.0f} EUR verfuegbar "
+          f"({current_invested:.0f}/{max_invest:.0f} EUR, Ziel {target_invest_pct:.0%})")
 
     for entry in candidates:
         # Stoppe wenn wir das Tages-Limit fuer Trades erreichen
@@ -289,6 +323,88 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
     return decisions
 
 
+def _get_sector_for_ticker(t_cfg, ticker: str) -> str | None:
+    sector_map = getattr(t_cfg, "sector_map", {}) or {}
+    for sector, tickers in sector_map.items():
+        if ticker in tickers:
+            return sector
+    return None
+
+
+def regime_rebalance_pass(
+    broker: BrokerAdapter, t_cfg, regime, transition: dict, source: str, dry_run: bool,
+) -> int:
+    """Bei Regime-Wechsel: Positionen in sector_avoid verkaufen + Investitionsquote anpassen."""
+    from src.trading import get_active_profile
+    profile = get_active_profile(t_cfg)
+    sector_avoid = profile.get("sector_avoid", [])
+    target_invest_pct = profile.get("target_invest_pct", 0.50)
+
+    positions = broker.get_positions()
+    account = broker.get_account()
+    current_invested = sum(p.market_value_eur for p in positions)
+    target_invested = account.equity_eur * target_invest_pct
+    sells = 0
+
+    if sector_avoid:
+        for p in positions:
+            sector = _get_sector_for_ticker(t_cfg, p.ticker)
+            if sector and sector in sector_avoid:
+                print(f"  REGIME-SELL {p.ticker}: Sektor \'{sector}\' vermieden in {regime.label}")
+                if dry_run:
+                    sells += 1
+                    continue
+                result = broker.place_order(ticker=p.ticker, side="sell", qty=p.qty)
+                _record_trade(
+                    decision_pred_id=None,
+                    ticker=p.ticker, side="sell", qty=p.qty,
+                    eur_value=p.market_value_eur, price=p.market_price,
+                    status=result.status, order_id=result.order_id,
+                    strategy_label="regime_rebalance-v1", source=source,
+                    notes=f"regime {transition[\'from\']}->{transition[\'to\']}: avoid {sector}",
+                )
+                if result.status == "filled":
+                    try:
+                        notifier.send_trade(
+                            ticker=p.ticker, side="sell", qty=p.qty,
+                            eur=p.market_value_eur, price_usd=p.market_price,
+                            reason=f"Regime->{regime.label}: {sector} reduziert",
+                            paper=broker.is_paper,
+                        )
+                    except Exception:
+                        pass
+                sells += 1
+
+    if current_invested > target_invested * 1.2:
+        excess = current_invested - target_invested
+        sorted_pos = sorted(positions, key=lambda p: p.market_value_eur)
+        for p in sorted_pos:
+            sector = _get_sector_for_ticker(t_cfg, p.ticker)
+            if sector and sector in sector_avoid:
+                continue
+            if excess <= 0:
+                break
+            print(f"  REGIME-REDUCE {p.ticker}: {p.market_value_eur:.0f} EUR "
+                  f"(invest {current_invested:.0f}/{target_invested:.0f} EUR Ziel)")
+            if dry_run:
+                excess -= p.market_value_eur
+                sells += 1
+                continue
+            result = broker.place_order(ticker=p.ticker, side="sell", qty=p.qty)
+            _record_trade(
+                decision_pred_id=None,
+                ticker=p.ticker, side="sell", qty=p.qty,
+                eur_value=p.market_value_eur, price=p.market_price,
+                status=result.status, order_id=result.order_id,
+                strategy_label="regime_rebalance-v1", source=source,
+                notes=f"regime rebalance: reduce to {target_invest_pct:.0%} target",
+            )
+            excess -= p.market_value_eur
+            sells += 1
+
+    return sells
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true",
@@ -320,7 +436,30 @@ def main() -> None:
 
     broker = get_broker("mock" if args.mock else t_cfg.broker)
     src = "paper" if broker.is_paper else "live"
-    print(f"\n=== run_strategy · broker={broker} · mode={t_cfg.mode} · source={src} ===")
+
+    # Regime-Check + Transition
+    regime = None
+    transition = None
+    try:
+        from src.learning.regime import current_regime, detect_regime_transition
+        regime = current_regime()
+        transition = detect_regime_transition()
+        regime_de = {"low_vol_bull": "Bullish", "high_vol_mixed": "Volatil", "bear": "Baerisch"}.get(regime.label, regime.label)
+        print(f"\n=== run_strategy · broker={broker} · mode={t_cfg.mode} · source={src} ===")
+        print(f"  regime: {regime_de} ({regime.probability:.0%}, {regime.method})")
+        if transition:
+            print(f"  REGIME-WECHSEL: {transition['from']} -> {transition['to']}")
+            try:
+                notifier.send_info(
+                    f"<b>Regime-Wechsel</b>\n"
+                    f"{transition['from']} -> <b>{transition['to']}</b> ({regime.probability:.0%})",
+                    label="regime_transition",
+                )
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"\n=== run_strategy · broker={broker} · mode={t_cfg.mode} · source={src} ===")
+        print(f"  regime check failed: {e}")
 
     # Sync pending orders from previous runs
     try:
@@ -341,6 +480,12 @@ def main() -> None:
         print(f"  trailing-stop pass: {n_tr} sells")
         n = stop_loss_pass(broker, t_cfg, src, args.dry_run)
         print(f"  stop-loss pass: {n} sells")
+
+    # Regime-Rebalancing bei Wechsel
+    if transition:
+        n_rb = regime_rebalance_pass(broker, t_cfg, regime, transition, src, args.dry_run)
+        if n_rb:
+            print(f"  regime-rebalance: {n_rb} sells")
 
     if not args.skip_buys:
         decisions = buy_pass(broker, cfg, t_cfg, src, args.dry_run)
