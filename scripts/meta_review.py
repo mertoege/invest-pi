@@ -104,6 +104,22 @@ def _gather_context(job_source: str, days: int = 30) -> dict:
     drift = detect_drift(job_source, window_days=7) or {}
     fb = feedback_summary(days=days)
 
+    regime_ctx = {}
+    try:
+        from src.learning.regime import current_regime
+        from src.trading import load_trading_config
+        r = current_regime()
+        t_cfg = load_trading_config()
+        regime_ctx = {
+            "current_regime": r.label,
+            "probability": r.probability,
+            "method": r.method,
+            "active_profile": t_cfg.regime_profiles.get(r.label, {}),
+            "all_profiles": t_cfg.regime_profiles,
+        }
+    except Exception:
+        pass
+
     return {
         "job_source":      job_source,
         "period_days":     days,
@@ -112,6 +128,7 @@ def _gather_context(job_source: str, days: int = 30) -> dict:
         "per_ticker":      per_ticker,
         "drift":           drift,
         "feedback":        fb,
+        "regime":          regime_ctx,
     }
 
 
@@ -152,11 +169,26 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         "4. action_plan-Items werden in spaetere LLM-Prompts injected — formuliere sie als kurze "
         "Direktiven die ein anderer LLM beim naechsten Score- oder DCA-Call beachten kann.\n\n"
         "5. config_patches sind maschinenlesbare Config-Aenderungen. Erlaubte Pfade:\n"
-        "   trading.stop_loss_pct (0.03-0.25), trading.take_profit_pct (0.05-0.50),\n"
-        "   trading.trailing_stop_pct (0.03-0.20), trading.score_buy_max (20-60),\n"
-        "   trading.max_open_positions (3-15), trading.cash_floor_pct (0.05-0.50),\n"
-        "   risk_scorer.threshold_caution (30-60), risk_scorer.threshold_red (60-90).\n"
-        "   Nur Patches vorschlagen wenn die Daten das klar rechtfertigen.\n\n"
+        "   A) Trading-Global:\n"
+        "     trading.stop_loss_pct (0.03-0.25), trading.take_profit_pct (0.05-0.50),\n"
+        "     trading.trailing_stop_pct (0.03-0.20), trading.score_buy_max (20-80),\n"
+        "     trading.max_open_positions (3-30), trading.max_position_eur (50-8000),\n"
+        "     trading.cash_floor_pct (0.05-0.50),\n"
+        "     risk_scorer.threshold_caution (30-60), risk_scorer.threshold_red (60-90).\n"
+        "   B) Regime-Profile (pro Regime anpassbar):\n"
+        "     regime.<label>.<param> wobei label = low_vol_bull|high_vol_mixed|bear|unknown\n"
+        "     Numerische Params: score_buy_max (10-80), max_open_positions (3-30),\n"
+        "       max_position_eur (200-8000), max_trades_per_day (1-15),\n"
+        "       stop_loss_pct (0.03-0.25), take_profit_pct (0.10-0.80),\n"
+        "       trailing_activation (0.03-0.30), trailing_stop_pct (0.03-0.20),\n"
+        "       target_invest_pct (0.10-0.95)\n"
+        "     Listen-Params: sector_preference, sector_avoid\n"
+        "       Erlaubte Sektoren: technology, software, consumer_disc, consumer_staples,\n"
+        "       healthcare, financials, communication, utilities, energy, industrials,\n"
+        "       materials, real_estate, etfs\n"
+        "   WICHTIG: Nur Patches vorschlagen wenn die Daten das KLAR rechtfertigen.\n"
+        "   Bei Regime-Aenderungen: nur wenn Performance-Daten zeigen dass aktuelle\n"
+        "   Einstellungen suboptimal sind (z.B. zu viele Stops im Bull, zu wenig Buys im Bear).\n\n"
         "6. code_changes: Optional kannst du konkrete Code-Aenderungen vorschlagen.\n"
         "   Format: [{\"file\": \"<relative_path>\", \"description\": \"<was+warum>\", "
         "\"old\": \"<exakter_code_block>\", \"new\": \"<neuer_code_block>\"}]\n"
@@ -168,6 +200,13 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         "   Regeln: Max 3 Aenderungen. old muss exakt 1x in der Datei vorkommen.\n"
         "   Nur vorschlagen wenn Performance-Daten eine klare Verbesserung rechtfertigen."
     )
+    regime_block = ""
+    if ctx.get("regime"):
+        regime_block = (
+            f"## Aktuelles Regime + Profile\n"
+            f"{json.dumps(ctx['regime'], indent=2)}\n\n"
+        )
+
     prompt = (
         f"## Job-Source: {ctx['job_source']}\n"
         f"## Zeitraum: letzte {ctx['period_days']}d\n\n"
@@ -177,6 +216,7 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         f"{json.dumps(ctx['per_strategy'], indent=2)}\n\n"
         f"## Per Ticker (Top 15)\n"
         f"{json.dumps(ctx['per_ticker'], indent=2)}\n\n"
+        f"{regime_block}"
         f"## Drift-Detection (recent 7d vs prior 7d)\n"
         f"{json.dumps(ctx['drift'], indent=2)}\n\n"
         f"## User-Feedback-Patterns\n"

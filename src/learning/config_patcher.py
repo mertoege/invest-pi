@@ -1,8 +1,7 @@
 """
 Config-Patcher — wendet Meta-Review-generierte Config-Patches an.
 
-Meta-Review (Opus) kann jetzt neben prio_1/prio_2/prio_3 Aktionen auch
-maschinenlesbare Config-Patches liefern:
+Meta-Review (Opus) kann maschinenlesbare Config-Patches liefern:
 
     "config_patches": [
         {
@@ -12,22 +11,21 @@ maschinenlesbare Config-Patches liefern:
             "reason": "Stop-Loss zu eng, 3 von 5 Sells waren unnoetig"
         },
         {
-            "path": "risk_scorer.ALERT_THRESHOLDS.2",
-            "old_value": [50, 75],
-            "new_value": [45, 75],
-            "reason": "Caution-Schwelle senken, zu viele Missed-Risks"
+            "path": "regime.bear.target_invest_pct",
+            "old_value": 0.25,
+            "new_value": 0.30,
+            "reason": "Bear-Investitionsquote zu niedrig, verpassen Recovery-Bounce"
         }
     ]
 
-Patches werden:
-  1. Validiert (Pfad existiert, old_value stimmt, new_value in Range)
-  2. In config_patch_log-Tabelle geloggt (Audit-Trail)
-  3. Angewandt (YAML fuer trading-config, Python-dict fuer Runtime)
+Zwei Patch-Typen:
+  1. trading.* / risk_scorer.* — Runtime-Patches auf TradingConfig
+  2. regime.<label>.<param> — Persistent in config.yaml (Regime-Profile)
 
 Sicherheits-Guardrails:
-  - Nur erlaubte Pfade (ALLOWED_PATCH_PATHS)
-  - Wert-Range-Checks (z.B. stop_loss_pct 0.03..0.20)
-  - Max 5 Patches pro Review
+  - Nur erlaubte Pfade (ALLOWED_PATCHES + REGIME_PARAM_RANGES)
+  - Wert-Range-Checks
+  - Max 8 Patches pro Review
   - Patches werden NICHT automatisch angewandt — sie werden geloggt und
     beim naechsten run via apply_pending_patches() geladen
 """
@@ -37,12 +35,16 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Optional
+
+import yaml
 
 from ..common.storage import LEARNING_DB, connect
 
 log = logging.getLogger("invest_pi.config_patcher")
 
+CONFIG_PATH = Path(__file__).resolve().parents[2] / "config.yaml"
 
 # ────────────────────────────────────────────────────────────
 # ALLOWED PATCH PATHS + VALUE RANGES
@@ -52,15 +54,37 @@ ALLOWED_PATCHES = {
     "trading.take_profit_pct":         {"min": 0.05, "max": 0.50, "type": float},
     "trading.trailing_stop_pct":       {"min": 0.03, "max": 0.20, "type": float},
     "trading.trailing_activation_pct": {"min": 0.05, "max": 0.30, "type": float},
-    "trading.score_buy_max":           {"min": 20,   "max": 60,   "type": int},
-    "trading.max_open_positions":      {"min": 3,    "max": 15,   "type": int},
-    "trading.max_position_eur":        {"min": 50,   "max": 500,  "type": int},
+    "trading.score_buy_max":           {"min": 20,   "max": 80,   "type": int},
+    "trading.max_open_positions":      {"min": 3,    "max": 30,   "type": int},
+    "trading.max_position_eur":        {"min": 50,   "max": 8000, "type": int},
     "trading.cash_floor_pct":          {"min": 0.05, "max": 0.50, "type": float},
     "risk_scorer.threshold_caution":   {"min": 30,   "max": 60,   "type": int},
     "risk_scorer.threshold_red":       {"min": 60,   "max": 90,   "type": int},
 }
 
-MAX_PATCHES_PER_REVIEW = 5
+VALID_REGIMES = {"low_vol_bull", "high_vol_mixed", "bear", "unknown"}
+
+REGIME_PARAM_RANGES = {
+    "score_buy_max":       {"min": 10,   "max": 80,   "type": int},
+    "max_open_positions":  {"min": 3,    "max": 30,   "type": int},
+    "max_position_eur":    {"min": 200,  "max": 8000, "type": int},
+    "max_trades_per_day":  {"min": 1,    "max": 15,   "type": int},
+    "stop_loss_pct":       {"min": 0.03, "max": 0.25, "type": float},
+    "take_profit_pct":     {"min": 0.10, "max": 0.80, "type": float},
+    "trailing_activation": {"min": 0.03, "max": 0.30, "type": float},
+    "trailing_stop_pct":   {"min": 0.03, "max": 0.20, "type": float},
+    "target_invest_pct":   {"min": 0.10, "max": 0.95, "type": float},
+    "sector_preference":   {"type": list},
+    "sector_avoid":        {"type": list},
+}
+
+VALID_SECTORS = {
+    "technology", "software", "consumer_disc", "consumer_staples",
+    "healthcare", "financials", "communication", "utilities", "energy",
+    "industrials", "materials", "real_estate", "etfs",
+}
+
+MAX_PATCHES_PER_REVIEW = 8
 
 
 @dataclass
@@ -72,6 +96,39 @@ class PatchResult:
     new_value: Any = None
 
 
+def _validate_regime_patch(path: str, new_val: Any, reason: str) -> PatchResult:
+    """Validiert regime.<label>.<param> Patches."""
+    parts = path.split(".")
+    if len(parts) != 3:
+        return PatchResult(path, False, f"regime path must be regime.<label>.<param>, got '{path}'")
+
+    _, regime, param = parts
+    if regime not in VALID_REGIMES:
+        return PatchResult(path, False, f"regime '{regime}' not in {VALID_REGIMES}")
+    if param not in REGIME_PARAM_RANGES:
+        return PatchResult(path, False, f"param '{param}' not in REGIME_PARAM_RANGES")
+
+    spec = REGIME_PARAM_RANGES[param]
+
+    if spec["type"] == list:
+        if not isinstance(new_val, list):
+            return PatchResult(path, False, f"new_value must be list, got {type(new_val).__name__}")
+        invalid = [s for s in new_val if s not in VALID_SECTORS]
+        if invalid:
+            return PatchResult(path, False, f"invalid sectors: {invalid}")
+        return PatchResult(path, True, reason, None, new_val)
+
+    try:
+        new_val = spec["type"](new_val)
+    except (TypeError, ValueError):
+        return PatchResult(path, False, f"new_value {new_val} not convertible to {spec['type'].__name__}")
+
+    if new_val < spec["min"] or new_val > spec["max"]:
+        return PatchResult(path, False, f"new_value {new_val} out of range [{spec['min']}, {spec['max']}]")
+
+    return PatchResult(path, True, reason, None, new_val)
+
+
 def validate_patch(patch: dict) -> PatchResult:
     """
     Validiert einen einzelnen Config-Patch.
@@ -81,6 +138,9 @@ def validate_patch(patch: dict) -> PatchResult:
     path = patch.get("path", "")
     new_val = patch.get("new_value")
     reason = patch.get("reason", "")
+
+    if path.startswith("regime."):
+        return _validate_regime_patch(path, new_val, reason)
 
     if path not in ALLOWED_PATCHES:
         return PatchResult(path, False, f"path '{path}' not in ALLOWED_PATCHES")
@@ -185,20 +245,32 @@ def mark_applied(patch_id: int) -> None:
 
 def apply_trading_patches(config) -> list[str]:
     """
-    Wendet pending Trading-Config-Patches auf ein TradingConfig-Objekt an.
+    Wendet pending Patches an:
+    - trading.* -> Runtime auf TradingConfig
+    - regime.* -> Persistent in config.yaml + Runtime auf config.regime_profiles
 
     Wird am Anfang von run_strategy.py aufgerufen.
-
-    Returns: Liste von angewandten Patch-Beschreibungen.
     """
     patches = pending_patches()
     applied = []
+    regime_changes = {}
 
     for p in patches:
         path = p["path"]
         new_val = p["new_value"]
 
-        if path.startswith("trading."):
+        if path.startswith("regime."):
+            _, regime, param = path.split(".")
+            regime_changes.setdefault(regime, {})[param] = new_val
+            if hasattr(config, "regime_profiles") and config.regime_profiles:
+                profile = config.regime_profiles.get(regime, {})
+                profile[param] = new_val
+                config.regime_profiles[regime] = profile
+            mark_applied(p["id"])
+            applied.append(f"regime.{regime}.{param}: -> {new_val} ({p['reason']})")
+            log.info(f"applied regime patch: {path} -> {new_val}")
+
+        elif path.startswith("trading."):
             attr = path.split(".", 1)[1]
             if hasattr(config, attr):
                 old = getattr(config, attr)
@@ -210,4 +282,27 @@ def apply_trading_patches(config) -> list[str]:
                 except Exception as e:
                     log.warning(f"failed to apply patch {path}: {e}")
 
+    if regime_changes:
+        _persist_regime_to_yaml(regime_changes)
+
     return applied
+
+
+def _persist_regime_to_yaml(changes: dict[str, dict]) -> None:
+    """Schreibt Regime-Aenderungen persistent in config.yaml."""
+    try:
+        raw = yaml.safe_load(CONFIG_PATH.read_text())
+        profiles = raw.get("settings", {}).get("trading", {}).get("regime_profiles", {})
+
+        for regime, params in changes.items():
+            if regime not in profiles:
+                profiles[regime] = {}
+            profiles[regime].update(params)
+
+        raw["settings"]["trading"]["regime_profiles"] = profiles
+
+        with open(CONFIG_PATH, "w") as f:
+            yaml.dump(raw, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        log.info(f"config.yaml regime_profiles updated: {list(changes.keys())}")
+    except Exception as e:
+        log.error(f"failed to persist regime changes to config.yaml: {e}")
