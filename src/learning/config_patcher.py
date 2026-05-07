@@ -178,6 +178,25 @@ def log_patches(
 
     for patch in patches:
         result = validate_patch(patch)
+
+        # Backtest-Gate fuer numerische Trading-Patches
+        if result.accepted:
+            try:
+                from .backtest_gate import can_backtest, validate_patch_via_backtest
+                if can_backtest(result.path):
+                    bt = validate_patch_via_backtest(
+                        result.path, result.old_value, result.new_value
+                    )
+                    if not bt["passed"]:
+                        result = PatchResult(
+                            result.path, False,
+                            f"backtest gate failed: {bt['reason']}",
+                            result.old_value, result.new_value,
+                        )
+                        log.info(f"patch {result.path} blocked by backtest: {bt['reason']}")
+            except Exception as e:
+                log.warning(f"backtest gate error (allowing patch): {e}")
+
         results.append(result)
 
         # In DB loggen (auch abgelehnte, fuer Audit)

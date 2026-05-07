@@ -241,6 +241,14 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
     print(f"  regime-budget: {budget_left:.0f} EUR verfuegbar "
           f"({current_invested:.0f}/{max_invest:.0f} EUR, Ziel {target_invest_pct:.0%})")
 
+    # Korrelations-Check vorbereiten
+    corr_check_available = False
+    try:
+        from src.learning.correlation import correlation_check_for_buy
+        corr_check_available = True
+    except Exception:
+        pass
+
     for entry in candidates:
         # Stoppe wenn wir das Tages-Limit fuer Trades erreichen
         check = pre_trade_check(broker, t_cfg)

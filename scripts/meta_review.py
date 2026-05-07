@@ -120,6 +120,26 @@ def _gather_context(job_source: str, days: int = 30) -> dict:
     except Exception:
         pass
 
+    # Prior reviews + recent patches (Self-Referencing)
+    prior_reviews = []
+    recent_patches = []
+    try:
+        sql_pr = """
+            SELECT created_at, job_source, summary_md, action_plan_js
+              FROM meta_reviews ORDER BY created_at DESC LIMIT 3
+        """
+        sql_rp = """
+            SELECT path, old_value, new_value, reason, applied_at, source
+              FROM config_patch_log WHERE accepted = 1
+              AND created_at >= datetime('now', '-30 day')
+              ORDER BY created_at DESC LIMIT 10
+        """
+        with connect(LEARNING_DB) as conn:
+            prior_reviews = [dict(r) for r in conn.execute(sql_pr).fetchall()]
+            recent_patches = [dict(r) for r in conn.execute(sql_rp).fetchall()]
+    except Exception:
+        pass
+
     return {
         "job_source":      job_source,
         "period_days":     days,
@@ -129,6 +149,8 @@ def _gather_context(job_source: str, days: int = 30) -> dict:
         "drift":           drift,
         "feedback":        fb,
         "regime":          regime_ctx,
+        "prior_reviews":   prior_reviews,
+        "recent_patches":  recent_patches,
     }
 
 
@@ -221,8 +243,22 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         f"{json.dumps(ctx['drift'], indent=2)}\n\n"
         f"## User-Feedback-Patterns\n"
         f"{json.dumps(ctx['feedback'], indent=2)}\n\n"
-        "Schreibe deinen Review als JSON wie im System-Prompt beschrieben."
     )
+
+    if ctx.get("prior_reviews"):
+        prompt += "## Deine Prior-Reviews (lerne aus deinen eigenen Empfehlungen)\n"
+        for pr in ctx["prior_reviews"]:
+            prompt += f"### {pr.get('created_at', '?')} ({pr.get('job_source', '?')})\n"
+            prompt += f"{pr.get('summary_md', '')}\n\n"
+
+    if ctx.get("recent_patches"):
+        prompt += "## Kuerzlich angewandte Config-Patches\n"
+        for p in ctx["recent_patches"]:
+            applied = "angewandt" if p.get("applied_at") else "pending"
+            prompt += f"- {p.get('path')}: {p.get('old_value')} -> {p.get('new_value')} [{applied}] ({p.get('reason')})\n"
+        prompt += "\n"
+
+    prompt += "Schreibe deinen Review als JSON wie im System-Prompt beschrieben."
     return system, prompt
 
 

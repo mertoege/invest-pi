@@ -174,11 +174,22 @@ def measure_outcome_for(pred: PredictionRecord) -> Optional[dict]:
     correctness = _correctness_for_alert(
         alert_level, measurements["7d"]["max_drawdown"]
     )
+
+    # Multi-Horizon: auch 1d und 30d separat bewerten
+    correctness_1d = _correctness_for_alert(
+        alert_level, measurements["1d"]["max_drawdown"]
+    ) if measurements["1d"]["max_drawdown"] is not None else None
+    correctness_30d = _correctness_for_alert(
+        alert_level, measurements["30d"]["max_drawdown"]
+    ) if measurements["30d"]["max_drawdown"] is not None else None
+
     return {
         "alert_level":     alert_level,
         "windows":         measurements,
-        "correctness_basis": "max_drawdown_7d <= -5%" if alert_level != 1 else "watch_not_evaluated",
+        "correctness_basis": "max_drawdown <= -5% per horizon",
         "_correct":        correctness,
+        "_correct_1d":     correctness_1d,
+        "_correct_30d":    correctness_30d,
     }
 
 
