@@ -389,7 +389,7 @@ def regime_rebalance_pass(
         for p in positions:
             sector = _get_sector_for_ticker(t_cfg, p.ticker)
             if sector and sector in sector_avoid:
-                print(f"  REGIME-SELL {p.ticker}: Sektor \'{sector}\' vermieden in {regime.label}")
+                print(f"  REGIME-SELL {p.ticker}: Sektor '{sector}' vermieden in {regime.label}")
                 if dry_run:
                     sells += 1
                     continue
@@ -400,7 +400,7 @@ def regime_rebalance_pass(
                     eur_value=p.market_value_eur, price=p.market_price,
                     status=result.status, order_id=result.order_id,
                     strategy_label="regime_rebalance-v1", source=source,
-                    notes=f"regime {transition[\'from\']}->{transition[\'to\']}: avoid {sector}",
+                    notes=f"regime {transition['from']}->{transition['to']}: avoid {sector}",
                 )
                 if result.status == "filled":
                     try:
