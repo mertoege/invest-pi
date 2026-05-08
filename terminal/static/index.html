@@ -26,6 +26,7 @@
     --shadow-card: 0 1px 0 rgba(255,255,255,.02) inset, 0 8px 24px rgba(0,0,0,.35);
 }
 
+#pi-home { display: none !important; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
     background: var(--bg); color: var(--text);
@@ -265,8 +266,12 @@ html, body {
             <div class="name">Invest-Pi<small>Terminal</small></div>
         </div>
 
-        <div class="nav-section-title">Workspace</div>
+        <div class="nav-section-title">Navigation</div>
         <nav class="nav">
+            <a class="item" href="/" title="Hub">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-8 9 8"/><path d="M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
+                <span class="label">Hub</span>
+            </a>
             <a class="item" href="/investpi/" title="Dashboard">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
                 <span class="label">Dashboard</span>
