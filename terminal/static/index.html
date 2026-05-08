@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Invest-Pi · Terminal</title>
+<meta name="viewport" content="width=1440">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+<style>
+:root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface-2: #1f2330;
+    --border: #2a2d3a;
+    --border-soft: rgba(255,255,255,.04);
+    --primary: #3b82f6;
+    --primary-glow: rgba(59,130,246,.18);
+    --pos: #34d399;
+    --neg: #ef4655;
+    --warn: #f5b54a;
+    --text: #e6e8ee;
+    --muted: #9ca3af;
+    --muted-2: #6b7280;
+    --term-bg: #0a0c11;
+    --ui-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+    --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace;
+    --shadow-card: 0 1px 0 rgba(255,255,255,.02) inset, 0 8px 24px rgba(0,0,0,.35);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+    background: var(--bg); color: var(--text);
+    font-family: var(--ui-font); font-size: 13px;
+    min-height: 100vh; line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--primary-glow); color: var(--text); }
+
+.app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+/* ─── Sidebar ─── */
+.sidebar {
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; height: 100vh;
+    position: sticky; top: 0; overflow-y: auto;
+}
+.brand {
+    padding: 16px 16px 14px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border-soft);
+}
+.brand .logo {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: radial-gradient(120% 120% at 30% 25%, rgba(59,130,246,.35), transparent 55%), linear-gradient(180deg, #232838, #181b25);
+    border: 1px solid var(--border); display: grid; place-items: center; color: var(--primary);
+}
+.brand .name { font-weight: 600; }
+.brand .name small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; margin-top: 1px; }
+
+.nav-section-title {
+    padding: 16px 16px 6px; font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: .8px; color: var(--muted-2); font-weight: 600;
+}
+.nav { padding: 0 8px; display: flex; flex-direction: column; gap: 1px; }
+.nav .item {
+    display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+    border-radius: 8px; color: var(--text); cursor: pointer; border: 1px solid transparent;
+}
+.nav .item:hover { background: var(--surface-2); }
+.nav .item.active { background: var(--surface-2); border-color: var(--border); }
+.nav .item svg { color: var(--muted); width: 16px; height: 16px; flex: 0 0 auto; }
+.nav .item.active svg { color: var(--primary); }
+.nav .item .label { flex: 1; }
+.nav .item .right { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
+
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: var(--muted-2); }
+.dot.green { background: var(--pos); box-shadow: 0 0 0 3px rgba(52,211,153,.12); }
+
+.badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 6px; border-radius: 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted); font-size: 10.5px; font-weight: 500;
+}
+.badge.primary { background: var(--primary-glow); border-color: rgba(59,130,246,.3); color: #93b9ff; }
+
+.sessions { padding: 0 8px 8px; display: flex; flex-direction: column; gap: 1px; }
+.session {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 10px;
+    border-radius: 8px; cursor: pointer; border: 1px solid transparent;
+}
+.session:hover { background: var(--surface-2); }
+.session.active { background: var(--surface-2); border-color: var(--border); }
+.session .sname { flex: 1; font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session .sub { color: var(--muted-2); font-size: 10.5px; }
+.session .close { width: 16px; height: 16px; display: grid; place-items: center; border-radius: 4px; color: var(--muted-2); cursor: pointer; }
+.session .close:hover { background: rgba(255,255,255,.06); color: var(--text); }
+
+.sidebar-spacer { flex: 1; }
+.sidebar-footer { border-top: 1px solid var(--border-soft); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.host-row { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; }
+.host-row .ip { color: var(--muted); font-size: 11px; margin-left: auto; }
+.uptime { color: var(--muted); font-size: 11px; font-family: var(--mono); }
+.uptime b { color: var(--text); font-weight: 500; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.stat {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 7px; display: flex; flex-direction: column; gap: 2px;
+}
+.stat .k { font-size: 9.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted-2); font-weight: 600; }
+.stat .v { font-family: var(--mono); font-size: 11.5px; color: var(--text); }
+.stat.warn .v { color: var(--warn); }
+
+/* ─── Main ─── */
+.main { display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+
+.topbar {
+    height: 48px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 16px; gap: 12px;
+    position: sticky; top: 0; background: rgba(15,17,23,.85);
+    backdrop-filter: blur(8px); z-index: 5;
+}
+.crumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.crumb b { color: var(--text); font-weight: 500; }
+.crumb .sep { color: var(--muted-2); }
+.topbar .spacer { flex: 1; }
+
+.pill-group {
+    display: flex; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 3px; gap: 2px;
+}
+.pill {
+    display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;
+    border-radius: 7px; color: var(--muted); font-size: 12px; cursor: pointer;
+    background: transparent; border: 0; font-family: inherit;
+}
+.pill:hover { color: var(--text); background: var(--surface-2); }
+.pill.active { background: var(--surface-2); color: var(--text); }
+
+.conn {
+    display: flex; align-items: center; gap: 8px; padding: 0 10px; height: 30px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    font-family: var(--mono); font-size: 12px; color: var(--text);
+}
+
+.kbd {
+    display: inline-flex; align-items: center; height: 18px; padding: 0 5px;
+    border-radius: 4px; background: var(--surface-2); border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 10.5px; color: var(--muted);
+}
+
+/* ─── Workspace ─── */
+.workspace { flex: 1; padding: 14px; display: flex; min-height: 0; }
+.term-shell {
+    flex: 1; border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    background: var(--term-bg); box-shadow: var(--shadow-card);
+    display: flex; flex-direction: column; min-width: 0;
+}
+
+.tabbar {
+    display: flex; align-items: stretch; background: var(--surface);
+    border-bottom: 1px solid var(--border); height: 36px; padding: 0 6px; gap: 2px;
+}
+.tab-item {
+    display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 100%;
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+    cursor: pointer; background: transparent; border: 0; position: relative;
+}
+.tab-item:hover { color: var(--text); }
+.tab-item.active { color: var(--text); }
+.tab-item.active::after {
+    content: ""; position: absolute; left: 12px; right: 12px; bottom: 0;
+    height: 2px; background: var(--primary); border-radius: 2px 2px 0 0;
+    box-shadow: 0 0 8px var(--primary-glow);
+}
+.tab-item .tab-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted-2); }
+.tab-item.active .tab-dot { background: var(--pos); }
+.tab-item .x { width: 16px; height: 16px; display: grid; place-items: center; border-radius: 4px; color: var(--muted-2); }
+.tab-item .x:hover { background: rgba(255,255,255,.06); color: var(--text); }
+.tabbar .tab-add {
+    margin-left: auto; align-self: center; width: 24px; height: 24px;
+    display: grid; place-items: center; border-radius: 6px; color: var(--muted); cursor: pointer;
+}
+.tabbar .tab-add:hover { background: var(--surface-2); color: var(--text); }
+
+.term-container { flex: 1; padding: 4px; min-height: 0; }
+.term-container .xterm { height: 100%; }
+
+/* ─── Command Palette ─── */
+.scrim {
+    position: fixed; inset: 0; background: rgba(8,9,13,.55);
+    backdrop-filter: blur(4px); display: none; place-items: start center;
+    padding-top: 18vh; z-index: 50;
+}
+.scrim.open { display: grid; }
+.palette {
+    width: 520px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: var(--shadow-card), 0 24px 80px rgba(0,0,0,.6);
+    overflow: hidden;
+}
+.palette .search-wrap { padding: 10px; border-bottom: 1px solid var(--border-soft); }
+.palette .search {
+    display: flex; align-items: center; gap: 10px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 10px; padding: 0 12px; height: 40px;
+}
+.palette .search svg { color: var(--muted); width: 16px; height: 16px; }
+.palette .search input {
+    flex: 1; background: transparent; border: 0; outline: 0; color: var(--text);
+    font-size: 13.5px; font-family: inherit; height: 100%;
+}
+.palette .search input::placeholder { color: var(--muted-2); }
+.pal-section { padding: 6px 10px 4px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted-2); font-weight: 600; }
+.pal-list { padding: 4px 6px 8px; display: flex; flex-direction: column; gap: 1px; }
+.pal-item {
+    display: flex; align-items: center; gap: 12px; padding: 9px 10px;
+    border-radius: 8px; cursor: pointer; border: 1px solid transparent;
+}
+.pal-item:hover, .pal-item.active { background: var(--surface-2); border-color: var(--border); }
+.pal-item .pi-icon {
+    width: 26px; height: 26px; border-radius: 7px; background: var(--surface-2);
+    border: 1px solid var(--border); display: grid; place-items: center; color: var(--muted);
+}
+.pal-item.active .pi-icon { color: var(--primary); border-color: rgba(59,130,246,.4); background: var(--primary-glow); }
+.pal-item .pi-cmd { font-family: var(--mono); font-size: 12.5px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-item .pi-cmd .flag { color: var(--muted); }
+.pal-item .pi-desc { color: var(--muted); font-size: 12px; flex: 0 0 auto; }
+.pal-foot {
+    border-top: 1px solid var(--border-soft); padding: 8px 12px;
+    display: flex; align-items: center; gap: 14px; color: var(--muted-2); font-size: 11px;
+}
+.pal-foot .grp { display: flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="logo">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <rect x="3" y="3" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/>
+                    <path d="M6 1v2M10 1v2M6 13v2M10 13v2M1 6h2M1 10h2M13 6h2M13 10h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                    <path d="M6.4 8.6l1.2 1.2 2-2.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="name">Invest-Pi<small>Terminal</small></div>
+        </div>
+
+        <div class="nav-section-title">Workspace</div>
+        <nav class="nav">
+            <a class="item" href="/investpi/" title="Dashboard">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+                <span class="label">Dashboard</span>
+            </a>
+            <div class="item" id="nav-status">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                <span class="label">System Status</span>
+                <span class="right"><span class="dot green" id="status-dot"></span></span>
+            </div>
+            <div class="item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+                <span class="label">Services</span>
+                <span class="right"><span class="badge primary" id="timer-count">--</span></span>
+            </div>
+            <div class="item active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>
+                <span class="label">Terminal</span>
+                <span class="right"><span class="badge primary" id="session-count">1</span></span>
+            </div>
+        </nav>
+
+        <div class="nav-section-title">Sessions</div>
+        <div class="sessions" id="session-list">
+            <div class="session active" data-id="0">
+                <span class="dot green"></span>
+                <span class="sname">bash <span class="sub">~/invest-pi</span></span>
+                <span class="close" onclick="closeSession(0)">×</span>
+            </div>
+        </div>
+
+        <div class="sidebar-spacer"></div>
+
+        <div class="sidebar-footer">
+            <div class="host-row">
+                <span class="dot green"></span>
+                <span id="hostname">--</span>
+                <span class="ip" id="host-ip">--</span>
+            </div>
+            <div class="uptime">uptime <b id="uptime-val">--</b> · load <b id="load-val">--</b></div>
+            <div class="stat-grid">
+                <div class="stat"><span class="k">CPU</span><span class="v" id="cpu-val">--%</span></div>
+                <div class="stat"><span class="k">RAM</span><span class="v" id="ram-val">--</span></div>
+                <div class="stat warn"><span class="k">Temp</span><span class="v" id="temp-val">--</span></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+        <div class="topbar">
+            <div class="crumb">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="color:var(--muted)"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3"/></svg>
+                Terminal <span class="sep">›</span> <b id="active-tab-name">bash</b>
+            </div>
+            <div class="spacer"></div>
+            <div class="pill-group">
+                <button class="pill" onclick="openPalette()" title="⌘K">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                    ⌘K
+                </button>
+                <button class="pill" onclick="addSession()" title="New Tab">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    New Tab
+                </button>
+            </div>
+            <div class="conn">
+                <span class="dot green" id="conn-dot"></span>
+                <span id="conn-user">investpi@--</span>
+            </div>
+        </div>
+
+        <div class="workspace">
+            <div class="term-shell">
+                <div class="tabbar" id="tab-bar">
+                    <button class="tab-item active" data-id="0">
+                        <span class="tab-dot"></span>
+                        bash
+                        <span class="x" onclick="closeSession(0)">×</span>
+                    </button>
+                    <span class="tab-add" onclick="addSession()" title="New tab">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    </span>
+                </div>
+                <div class="term-container" id="term-container"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Command Palette -->
+<div class="scrim" id="palette" onclick="if(event.target===this)closePalette()">
+    <div class="palette">
+        <div class="search-wrap">
+            <div class="search">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                <input type="text" id="pal-input" placeholder="Befehl eingeben oder suchen…" autocomplete="off">
+                <span class="kbd">⌘K</span>
+            </div>
+        </div>
+        <div class="pal-section">Quick Commands</div>
+        <div class="pal-list" id="pal-list">
+            <div class="pal-item active" data-cmd="systemctl restart invest-pi-strategy.service">
+                <span class="pi-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3.5-7.1"/><path d="M21 4v5h-5"/></svg></span>
+                <span class="pi-cmd">systemctl restart invest-pi-strategy</span>
+                <span class="pi-desc">Strategy neustarten</span>
+            </div>
+            <div class="pal-item" data-cmd="sudo journalctl -u invest-pi-strategy -n 50 --no-pager">
+                <span class="pi-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>
+                <span class="pi-cmd">journalctl -u invest-pi-strategy <span class="flag">-n 50</span></span>
+                <span class="pi-desc">Strategy Logs</span>
+            </div>
+            <div class="pal-item" data-cmd="python3 scripts/run_strategy.py --dry-run">
+                <span class="pi-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 3v18l5-3 4 3 5-3V3z"/></svg></span>
+                <span class="pi-cmd">python3 scripts/run_strategy.py <span class="flag">--dry-run</span></span>
+                <span class="pi-desc">Strategy Dry-Run</span>
+            </div>
+            <div class="pal-item" data-cmd="cat config.yaml | head -60">
+                <span class="pi-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 3h9l5 5v13H6z"/><path d="M14 3v6h6"/></svg></span>
+                <span class="pi-cmd">cat config.yaml</span>
+                <span class="pi-desc">Config anzeigen</span>
+            </div>
+            <div class="pal-item" data-cmd="htop">
+                <span class="pi-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="4" width="6" height="16" rx="1"/><rect x="11" y="9" width="4" height="11" rx="1"/><rect x="17" y="6" width="4" height="14" rx="1"/></svg></span>
+                <span class="pi-cmd">htop</span>
+                <span class="pi-desc">Prozesse</span>
+            </div>
+            <div class="pal-item" data-cmd="sudo systemctl list-timers | grep invest-pi">
+                <span class="pi-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+                <span class="pi-cmd">systemctl list-timers <span class="flag">| grep invest-pi</span></span>
+                <span class="pi-desc">Timer Status</span>
+            </div>
+        </div>
+        <div class="pal-foot">
+            <span class="grp"><span class="kbd">↑</span><span class="kbd">↓</span> navigieren</span>
+            <span class="grp"><span class="kbd">↵</span> ausführen</span>
+            <span class="grp"><span class="kbd">esc</span> schließen</span>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
+<script>
+const sessions = [];
+let activeSession = -1;
+
+class TermSession {
+    constructor(id) {
+        this.id = id;
+        this.name = 'bash';
+        this.term = new Terminal({
+            cursorBlink: true,
+            cursorStyle: 'block',
+            fontSize: 13,
+            fontFamily: '"SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace',
+            theme: {
+                background: '#0a0c11',
+                foreground: '#e6e8ee',
+                cursor: '#3b82f6',
+                cursorAccent: '#0a0c11',
+                selectionBackground: 'rgba(59,130,246,0.3)',
+                black: '#1a1d27',
+                red: '#ef4655',
+                green: '#34d399',
+                yellow: '#f5b54a',
+                blue: '#3b82f6',
+                magenta: '#c084fc',
+                cyan: '#67e8f9',
+                white: '#e6e8ee',
+                brightBlack: '#6b7280',
+                brightRed: '#ff6b7a',
+                brightGreen: '#5eead4',
+                brightYellow: '#fcd34d',
+                brightBlue: '#60a5fa',
+                brightMagenta: '#d8b4fe',
+                brightCyan: '#a5f3fc',
+                brightWhite: '#f9fafb',
+            },
+            allowTransparency: true,
+            scrollback: 5000,
+        });
+        this.fitAddon = new FitAddon.FitAddon();
+        this.term.loadAddon(this.fitAddon);
+        this.term.loadAddon(new WebLinksAddon.WebLinksAddon());
+        this.ws = null;
+        this.connected = false;
+        this.el = document.createElement('div');
+        this.el.style.cssText = 'width:100%;height:100%;display:none';
+        document.getElementById('term-container').appendChild(this.el);
+    }
+
+    open() {
+        this.term.open(this.el);
+        setTimeout(() => this.fitAddon.fit(), 50);
+    }
+
+    connect() {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const token = document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('terminal_token='))?.split('=')[1] || '';
+        this.ws = new WebSocket(`${proto}//${location.host}/ws/terminal?token=${encodeURIComponent(token)}`);
+        this.ws.binaryType = 'arraybuffer';
+
+        this.ws.onopen = () => {
+            this.connected = true;
+            updateConnStatus();
+            const { cols, rows } = this.term;
+            this.ws.send(JSON.stringify({ cols, rows }));
+        };
+
+        this.ws.onmessage = (e) => {
+            if (e.data instanceof ArrayBuffer) {
+                this.term.write(new Uint8Array(e.data));
+            } else {
+                this.term.write(e.data);
+            }
+        };
+
+        this.ws.onclose = () => {
+            this.connected = false;
+            this.term.write('\r\n\x1b[31m[Verbindung geschlossen]\x1b[0m\r\n');
+            updateConnStatus();
+        };
+
+        this.term.onData((data) => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send(new TextEncoder().encode(data));
+            }
+        });
+
+        this.term.onResize(({ cols, rows }) => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send(JSON.stringify({ type: 'resize', cols, rows }));
+            }
+        });
+    }
+
+    show() {
+        this.el.style.display = 'block';
+        setTimeout(() => { this.fitAddon.fit(); this.term.focus(); }, 20);
+    }
+
+    hide() { this.el.style.display = 'none'; }
+
+    destroy() {
+        if (this.ws) this.ws.close();
+        this.term.dispose();
+        this.el.remove();
+    }
+}
+
+function addSession() {
+    const id = sessions.length;
+    const s = new TermSession(id);
+    sessions.push(s);
+    s.open();
+    s.connect();
+    switchSession(id);
+    renderTabs();
+    renderSessions();
+    document.getElementById('session-count').textContent = sessions.filter(s => s).length;
+}
+
+function closeSession(id) {
+    if (!sessions[id]) return;
+    sessions[id].destroy();
+    sessions[id] = null;
+    const remaining = sessions.map((s, i) => s ? i : -1).filter(i => i >= 0);
+    if (remaining.length === 0) {
+        addSession();
+    } else if (activeSession === id) {
+        switchSession(remaining[remaining.length - 1]);
+    }
+    renderTabs();
+    renderSessions();
+    document.getElementById('session-count').textContent = remaining.length;
+}
+
+function switchSession(id) {
+    if (!sessions[id]) return;
+    sessions.forEach((s, i) => { if (s) { i === id ? s.show() : s.hide(); } });
+    activeSession = id;
+    document.getElementById('active-tab-name').textContent = sessions[id].name;
+    renderTabs();
+    renderSessions();
+}
+
+function renderTabs() {
+    const bar = document.getElementById('tab-bar');
+    bar.innerHTML = '';
+    sessions.forEach((s, i) => {
+        if (!s) return;
+        const btn = document.createElement('button');
+        btn.className = `tab-item${i === activeSession ? ' active' : ''}`;
+        btn.dataset.id = i;
+        btn.innerHTML = `<span class="tab-dot"></span>${s.name}<span class="x">×</span>`;
+        btn.onclick = (e) => {
+            if (e.target.closest('.x')) { closeSession(i); return; }
+            switchSession(i);
+        };
+        bar.appendChild(btn);
+    });
+    const addBtn = document.createElement('span');
+    addBtn.className = 'tab-add';
+    addBtn.title = 'New tab';
+    addBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+    addBtn.onclick = addSession;
+    bar.appendChild(addBtn);
+}
+
+function renderSessions() {
+    const list = document.getElementById('session-list');
+    list.innerHTML = '';
+    sessions.forEach((s, i) => {
+        if (!s) return;
+        const div = document.createElement('div');
+        div.className = `session${i === activeSession ? ' active' : ''}`;
+        div.innerHTML = `<span class="dot ${s.connected ? 'green' : ''}"></span><span class="sname">${s.name} <span class="sub">~/invest-pi</span></span><span class="close">×</span>`;
+        div.onclick = (e) => {
+            if (e.target.closest('.close')) { closeSession(i); return; }
+            switchSession(i);
+        };
+        list.appendChild(div);
+    });
+}
+
+function updateConnStatus() {
+    const s = sessions[activeSession];
+    const dot = document.getElementById('conn-dot');
+    if (s && s.connected) {
+        dot.className = 'dot green';
+    } else {
+        dot.className = 'dot';
+    }
+}
+
+// Command Palette
+function openPalette() {
+    document.getElementById('palette').classList.add('open');
+    document.getElementById('pal-input').value = '';
+    document.getElementById('pal-input').focus();
+    filterPalette('');
+}
+function closePalette() {
+    document.getElementById('palette').classList.remove('open');
+    if (sessions[activeSession]) sessions[activeSession].term.focus();
+}
+
+function filterPalette(query) {
+    const items = document.querySelectorAll('#pal-list .pal-item');
+    const q = query.toLowerCase();
+    let first = true;
+    items.forEach(it => {
+        const text = it.textContent.toLowerCase();
+        const match = !q || text.includes(q);
+        it.style.display = match ? '' : 'none';
+        it.classList.toggle('active', match && first);
+        if (match) first = false;
+    });
+}
+
+function execPaletteCmd() {
+    const active = document.querySelector('#pal-list .pal-item.active');
+    const input = document.getElementById('pal-input').value.trim();
+    const cmd = active ? active.dataset.cmd : input;
+    if (!cmd) return;
+    closePalette();
+    const s = sessions[activeSession];
+    if (s && s.ws && s.ws.readyState === WebSocket.OPEN) {
+        s.ws.send(new TextEncoder().encode(cmd + '\n'));
+    }
+}
+
+document.getElementById('pal-input').addEventListener('input', (e) => filterPalette(e.target.value));
+
+document.addEventListener('keydown', (e) => {
+    const pal = document.getElementById('palette');
+    const isOpen = pal.classList.contains('open');
+
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        isOpen ? closePalette() : openPalette();
+    } else if (e.key === 'Escape' && isOpen) {
+        closePalette();
+    } else if (isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        const items = [...document.querySelectorAll('#pal-list .pal-item')].filter(i => i.style.display !== 'none');
+        const idx = items.findIndex(x => x.classList.contains('active'));
+        items.forEach(x => x.classList.remove('active'));
+        const next = e.key === 'ArrowDown' ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length;
+        items[next].classList.add('active');
+    } else if (isOpen && e.key === 'Enter') {
+        e.preventDefault();
+        execPaletteCmd();
+    }
+});
+
+document.querySelectorAll('#pal-list .pal-item').forEach(it => {
+    it.addEventListener('mouseenter', () => {
+        document.querySelectorAll('#pal-list .pal-item').forEach(x => x.classList.remove('active'));
+        it.classList.add('active');
+    });
+    it.addEventListener('click', execPaletteCmd);
+});
+
+// System Info
+async function loadSystemInfo() {
+    try {
+        const token = document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('terminal_token='))?.split('=')[1] || '';
+        const r = await fetch('/api/system-info', {headers: {'Authorization': 'Bearer ' + token}});
+        const d = await r.json();
+        document.getElementById('hostname').textContent = d.hostname || '--';
+        document.getElementById('host-ip').textContent = d.ip || '--';
+        document.getElementById('conn-user').textContent = `investpi@${d.hostname || '--'}`;
+        document.getElementById('uptime-val').textContent = d.uptime || '--';
+        document.getElementById('load-val').textContent = d.load != null ? d.load.toFixed(2) : '--';
+        document.getElementById('cpu-val').textContent = d.cpu_pct != null ? Math.round(d.cpu_pct) + '%' : '--';
+        document.getElementById('ram-val').textContent = d.ram_used || '--';
+        document.getElementById('temp-val').textContent = d.cpu_temp != null ? Math.round(d.cpu_temp) + '°C' : '--';
+        document.getElementById('timer-count').textContent = d.active_timers || '--';
+    } catch (e) { console.error('system-info:', e); }
+}
+
+// Resize handling
+window.addEventListener('resize', () => {
+    sessions.forEach(s => { if (s) s.fitAddon.fit(); });
+});
+
+// Init
+addSession();
+loadSystemInfo();
+setInterval(loadSystemInfo, 30000);
+</script>
+</body>
+</html>
