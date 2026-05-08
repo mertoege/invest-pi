@@ -111,12 +111,12 @@ class PtyProcess:
         env = os.environ.copy()
         env["TERM"] = "xterm-256color"
         env["COLORTERM"] = "truecolor"
-        env["HOME"] = os.path.expanduser("~investpi")
-        env["USER"] = "investpi"
+        env["HOME"] = os.path.expanduser("~")
+        env["USER"] = os.environ.get("USER", "pi")
 
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
-            os.chdir(env["HOME"] + "/invest-pi")
+            os.chdir(os.environ.get("WORKDIR", env["HOME"]))
             os.execvpe("/bin/bash", ["/bin/bash", "--login"], env)
         else:
             self._set_size(cols, rows)
