@@ -223,6 +223,25 @@ html, body {
 .pal-item .pi-cmd { font-family: var(--mono); font-size: 12.5px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pal-item .pi-cmd .flag { color: var(--muted); }
 .pal-item .pi-desc { color: var(--muted); font-size: 12px; flex: 0 0 auto; }
+.pal-item .pi-del {
+    opacity: 0; color: var(--muted-2); cursor: pointer; padding: 2px 4px; border-radius: 4px; font-size: 14px; line-height: 1;
+}
+.pal-item:hover .pi-del, .pal-item.active .pi-del { opacity: .6; }
+.pal-item .pi-del:hover { opacity: 1; color: var(--red); background: rgba(239,70,85,.1); }
+.pal-add {
+    display: flex; gap: 6px; padding: 6px 6px 8px; border-top: 1px solid var(--border-soft);
+}
+.pal-add input {
+    flex: 1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 10px; color: var(--text); font-family: var(--mono); font-size: 12px; outline: 0;
+}
+.pal-add input:focus { border-color: var(--primary); }
+.pal-add input::placeholder { color: var(--muted-2); }
+.pal-add button {
+    background: var(--primary); color: #fff; border: 0; border-radius: 8px; padding: 6px 12px;
+    font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.pal-add button:hover { background: var(--primary-hover); }
 .pal-foot {
     border-top: 1px solid var(--border-soft); padding: 8px 12px;
     display: flex; align-items: center; gap: 14px; color: var(--muted-2); font-size: 11px;
@@ -379,6 +398,13 @@ html, body {
                 <span class="pi-cmd">systemctl list-timers <span class="flag">| grep invest-pi</span></span>
                 <span class="pi-desc">Timer Status</span>
             </div>
+        </div>
+        <div class="pal-section" id="custom-section" style="display:none">Gespeicherte Befehle</div>
+        <div class="pal-list" id="custom-list"></div>
+        <div class="pal-add">
+            <input type="text" id="add-cmd" placeholder="Neuen Befehl speichern…">
+            <input type="text" id="add-label" placeholder="Label" style="max-width:120px">
+            <button onclick="addCustomCmd()">+ Speichern</button>
         </div>
         <div class="pal-foot">
             <span class="grp"><span class="kbd">↑</span><span class="kbd">↓</span> navigieren</span>
@@ -598,7 +624,7 @@ function closePalette() {
 }
 
 function filterPalette(query) {
-    const items = document.querySelectorAll('#pal-list .pal-item');
+    const items = document.querySelectorAll('.pal-item');
     const q = query.toLowerCase();
     let first = true;
     items.forEach(it => {
@@ -611,7 +637,7 @@ function filterPalette(query) {
 }
 
 function execPaletteCmd() {
-    const active = document.querySelector('#pal-list .pal-item.active');
+    const active = document.querySelector('.pal-item.active');
     const input = document.getElementById('pal-input').value.trim();
     const cmd = active ? active.dataset.cmd : input;
     if (!cmd) return;
@@ -621,6 +647,58 @@ function execPaletteCmd() {
         s.ws.send(new TextEncoder().encode(cmd + '\n'));
     }
 }
+
+// Custom Commands (localStorage)
+const CUSTOM_KEY = 'terminal_custom_cmds';
+function getCustomCmds() {
+    try { return JSON.parse(localStorage.getItem(CUSTOM_KEY) || '[]'); } catch { return []; }
+}
+function saveCustomCmds(cmds) { localStorage.setItem(CUSTOM_KEY, JSON.stringify(cmds)); }
+
+function renderCustomCmds() {
+    const list = document.getElementById('custom-list');
+    const section = document.getElementById('custom-section');
+    const cmds = getCustomCmds();
+    list.innerHTML = '';
+    section.style.display = cmds.length ? '' : 'none';
+    cmds.forEach((c, i) => {
+        const div = document.createElement('div');
+        div.className = 'pal-item';
+        div.dataset.cmd = c.cmd;
+        div.innerHTML = `<span class="pi-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z"/></svg></span><span class="pi-cmd">${esc(c.cmd)}</span><span class="pi-desc">${esc(c.label || '')}</span><span class="pi-del" onclick="event.stopPropagation();delCustomCmd(${i})" title="Löschen">×</span>`;
+        div.addEventListener('mouseenter', () => {
+            document.querySelectorAll('.pal-item').forEach(x => x.classList.remove('active'));
+            div.classList.add('active');
+        });
+        div.addEventListener('click', execPaletteCmd);
+        list.appendChild(div);
+    });
+}
+function esc(s) { const d = document.createElement('span'); d.textContent = s; return d.innerHTML; }
+
+function addCustomCmd() {
+    const cmd = document.getElementById('add-cmd').value.trim();
+    const label = document.getElementById('add-label').value.trim();
+    if (!cmd) return;
+    const cmds = getCustomCmds();
+    cmds.push({ cmd, label });
+    saveCustomCmds(cmds);
+    document.getElementById('add-cmd').value = '';
+    document.getElementById('add-label').value = '';
+    renderCustomCmds();
+}
+function delCustomCmd(idx) {
+    const cmds = getCustomCmds();
+    cmds.splice(idx, 1);
+    saveCustomCmds(cmds);
+    renderCustomCmds();
+}
+
+document.getElementById('add-cmd').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addCustomCmd(); }
+});
+
+renderCustomCmds();
 
 document.getElementById('pal-input').addEventListener('input', (e) => filterPalette(e.target.value));
 
@@ -635,7 +713,7 @@ document.addEventListener('keydown', (e) => {
         closePalette();
     } else if (isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
         e.preventDefault();
-        const items = [...document.querySelectorAll('#pal-list .pal-item')].filter(i => i.style.display !== 'none');
+        const items = [...document.querySelectorAll('.pal-item')].filter(i => i.style.display !== 'none');
         const idx = items.findIndex(x => x.classList.contains('active'));
         items.forEach(x => x.classList.remove('active'));
         const next = e.key === 'ArrowDown' ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length;
@@ -648,7 +726,7 @@ document.addEventListener('keydown', (e) => {
 
 document.querySelectorAll('#pal-list .pal-item').forEach(it => {
     it.addEventListener('mouseenter', () => {
-        document.querySelectorAll('#pal-list .pal-item').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.pal-item').forEach(x => x.classList.remove('active'));
         it.classList.add('active');
     });
     it.addEventListener('click', execPaletteCmd);
