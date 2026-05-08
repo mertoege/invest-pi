@@ -51,18 +51,36 @@ def sync(broker_kind: str | None = None) -> dict:
              account.fx_rate, src),
         )
 
-        # 3. Positions ueberschreiben (broker = source of truth)
-        conn.execute("DELETE FROM positions WHERE source = ?", (src,))
+        # 3. Positions upsert (broker = source of truth fuer qty/avg, DB-Felder bleiben erhalten)
         now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+        broker_tickers = {p.ticker for p in positions}
+
+        existing = {r["ticker"] for r in conn.execute(
+            "SELECT ticker FROM positions WHERE source = ?", (src,)
+        ).fetchall()}
+        for tk in (existing - broker_tickers):
+            conn.execute("DELETE FROM positions WHERE ticker = ? AND source = ?", (tk, src))
+
         for p in positions:
-            conn.execute(
-                """
-                INSERT INTO positions
-                    (ticker, qty, avg_price_eur, opened_at, last_updated, source)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (p.ticker, p.qty, p.avg_price * eur_per_usd(), now, now, src),
-            )
+            avg_eur = p.avg_price * eur_per_usd()
+            row = conn.execute(
+                "SELECT ticker FROM positions WHERE ticker = ? AND source = ?",
+                (p.ticker, src),
+            ).fetchone()
+            if row:
+                conn.execute(
+                    """UPDATE positions
+                       SET qty = ?, avg_price_eur = ?, last_updated = ?
+                     WHERE ticker = ? AND source = ?""",
+                    (p.qty, avg_eur, now, p.ticker, src),
+                )
+            else:
+                conn.execute(
+                    """INSERT INTO positions
+                        (ticker, qty, avg_price_eur, opened_at, last_updated, source)
+                    VALUES (?, ?, ?, ?, ?, ?)""",
+                    (p.ticker, p.qty, avg_eur, now, now, src),
+                )
 
     return {
         "broker":     str(broker),
