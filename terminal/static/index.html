@@ -293,14 +293,28 @@ html, body {
             </div>
         </nav>
 
-        <div class="nav-section-title">Sessions</div>
-        <div class="sessions" id="session-list">
-            <div class="session active" data-id="0">
-                <span class="dot green"></span>
-                <span class="sname">bash <span class="sub">~/invest-pi</span></span>
-                <span class="close" onclick="closeSession(0)">×</span>
+        <div class="nav-section-title">tmux Sessions</div>
+        <div class="sessions" id="tmux-list">
+            <div class="session tmux-link" data-tmux="investpi">
+                <span class="dot" style="background:var(--primary)"></span>
+                <span class="sname">investpi <span class="sub">Trading System</span></span>
+            </div>
+            <div class="session tmux-link" data-tmux="pokepi">
+                <span class="dot" style="background:var(--warn)"></span>
+                <span class="sname">pokepi <span class="sub">PokéPi App</span></span>
+            </div>
+            <div class="session tmux-link" data-tmux="autopi">
+                <span class="dot" style="background:var(--pos)"></span>
+                <span class="sname">autopi <span class="sub">AutoPi</span></span>
+            </div>
+            <div class="session tmux-link" data-tmux="instapi">
+                <span class="dot" style="background:var(--neg)"></span>
+                <span class="sname">instapi <span class="sub">InstaPi</span></span>
             </div>
         </div>
+
+        <div class="nav-section-title">Terminal Sessions</div>
+        <div class="sessions" id="session-list"></div>
 
         <div class="sidebar-spacer"></div>
 
@@ -541,17 +555,33 @@ class TermSession {
     }
 }
 
-function addSession() {
+function addSession(initCmd) {
     const id = sessions.length;
     const s = new TermSession(id);
     sessions.push(s);
     s.open();
     s.connect();
+    if (initCmd) {
+        const origOnOpen = s.ws.onopen;
+        s.ws.onopen = function(e) {
+            origOnOpen.call(this, e);
+            setTimeout(() => {
+                s.ws.send(new TextEncoder().encode(initCmd + '\n'));
+            }, 300);
+        };
+    }
     switchSession(id);
     renderTabs();
     renderSessions();
     document.getElementById('session-count').textContent = sessions.filter(s => s).length;
 }
+
+document.querySelectorAll('.tmux-link').forEach(el => {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', () => {
+        addSession('tmux attach -t ' + el.dataset.tmux);
+    });
+});
 
 function closeSession(id) {
     if (!sessions[id]) return;
