@@ -468,6 +468,16 @@ class TermSession {
 
     open() {
         this.term.open(this.el);
+        this.term.onTitleChange((title) => {
+            if (title) {
+                this.name = title.length > 20 ? title.substring(0, 20) + '…' : title;
+                renderTabs();
+                renderSessions();
+                if (this.id === activeSession) {
+                    document.getElementById('active-tab-name').textContent = this.name;
+                }
+            }
+        });
         setTimeout(() => this.fitAddon.fit(), 50);
     }
 
