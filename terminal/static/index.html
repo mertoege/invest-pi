@@ -558,6 +558,11 @@ class TermSession {
 function addSession(initCmd) {
     const id = sessions.length;
     const s = new TermSession(id);
+    const tmuxMatch = initCmd && initCmd.match(/tmux attach -t (\S+)/);
+    if (tmuxMatch) {
+        s.tmuxName = tmuxMatch[1];
+        s.name = tmuxMatch[1];
+    }
     sessions.push(s);
     s.open();
     s.connect();
@@ -579,7 +584,13 @@ function addSession(initCmd) {
 document.querySelectorAll('.tmux-link').forEach(el => {
     el.style.cursor = 'pointer';
     el.addEventListener('click', () => {
-        addSession('tmux attach -t ' + el.dataset.tmux);
+        const name = el.dataset.tmux;
+        const idx = sessions.findIndex(s => s && s.tmuxName === name);
+        if (idx >= 0) {
+            switchSession(idx);
+        } else {
+            addSession('tmux attach -t ' + name);
+        }
     });
 });
 
@@ -634,7 +645,7 @@ function renderSessions() {
     const list = document.getElementById('session-list');
     list.innerHTML = '';
     sessions.forEach((s, i) => {
-        if (!s) return;
+        if (!s || s.tmuxName) return;
         const div = document.createElement('div');
         div.className = `session${i === activeSession ? ' active' : ''}`;
         div.innerHTML = `<span class="dot ${s.connected ? 'green' : ''}"></span><span class="sname">${s.name} <span class="sub">~/invest-pi</span></span><span class="close">×</span>`;
@@ -643,6 +654,11 @@ function renderSessions() {
             switchSession(i);
         };
         list.appendChild(div);
+    });
+    document.querySelectorAll('.tmux-link').forEach(el => {
+        const name = el.dataset.tmux;
+        const idx = sessions.findIndex(s => s && s.tmuxName === name);
+        el.classList.toggle('active', idx >= 0 && idx === activeSession);
     });
 }
 
@@ -801,8 +817,12 @@ window.addEventListener('resize', () => {
     sessions.forEach(s => { if (s) s.fitAddon.fit(); });
 });
 
-// Init
-addSession();
+// Init — tmux Sessions als Default-Tabs
+const defaultSessions = ['investpi', 'pokepi', 'autopi', 'instapi'];
+defaultSessions.forEach((name, i) => {
+    addSession('tmux attach -t ' + name);
+});
+switchSession(0);
 loadSystemInfo();
 setInterval(loadSystemInfo, 30000);
 </script>
