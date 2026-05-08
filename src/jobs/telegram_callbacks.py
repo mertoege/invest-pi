@@ -253,9 +253,42 @@ def _process_dca(callback_query: dict) -> None:
 
     feedback_map = {"bought": "dca_bought", "etf": "dca_etf", "skip": "dca_skip"}
     fb_type = feedback_map.get(action, "dca_unknown")
-    log_feedback(pred_id, feedback_type=fb_type)
+
+    reason_text = None
+    if action == "bought":
+        reason_text = _get_buy_price_for_prediction(pred_id)
+
+    log_feedback(pred_id, feedback_type=fb_type, reason_text=reason_text)
     _edit_message_markup(chat_id, msg_id, None)
     _answer_callback(cq_id, f"✓ DCA-{action} notiert")
+
+
+def _get_buy_price_for_prediction(pred_id: int) -> str | None:
+    """Holt den aktuellen Kurs des Tickers und gibt 'buy_price=X' zurueck."""
+    try:
+        from src.common.storage import LEARNING_DB, connect
+        with connect(LEARNING_DB) as conn:
+            row = conn.execute(
+                """SELECT subject_id, json_extract(output_json, '$.ticker') AS ticker_out
+                   FROM predictions WHERE id = ?""",
+                (pred_id,),
+            ).fetchone()
+        if not row:
+            return None
+        ticker = row["subject_id"] or row["ticker_out"]
+        if not ticker:
+            return None
+
+        import yfinance as yf
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period="1d")
+        if hist.empty:
+            return None
+        price = round(float(hist["Close"].iloc[-1]), 2)
+        return f"buy_price={price}"
+    except Exception as e:
+        log.warning(f"konnte buy_price nicht ermitteln: {e}")
+        return None
 
 
 if __name__ == "__main__":
