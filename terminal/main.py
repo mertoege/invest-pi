@@ -22,7 +22,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPExcept
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-app = FastAPI(title="Invest-Pi Terminal")
+ROOT = os.environ.get("ROOT_PATH", "")
+app = FastAPI(title="Invest-Pi Terminal", root_path=ROOT)
 
 STATIC = Path(__file__).parent / "static"
 TOKEN = os.environ.get("TERMINAL_TOKEN", "")
@@ -74,8 +75,8 @@ function tryLogin(){
     const t=document.getElementById('tok').value.trim();
     if(!t)return false;
     document.cookie='terminal_token='+t+';path=/;max-age=86400;SameSite=Strict';
-    fetch('/api/system-info',{headers:{'Authorization':'Bearer '+t}})
-        .then(r=>{if(r.ok)location.href='/';else throw 0})
+    fetch('""" + ROOT + """/api/system-info',{headers:{'Authorization':'Bearer '+t}})
+        .then(r=>{if(r.ok)location.href='""" + ROOT + """/';else throw 0})
         .catch(()=>{document.getElementById('err').style.display='block'});
     return false;
 }
@@ -94,7 +95,7 @@ async def index(request: Request):
             break
 
     if not valid:
-        return RedirectResponse("/login")
+        return RedirectResponse(f"{ROOT}/login")
 
     response = FileResponse(STATIC / "index.html")
     if query_token and hmac.compare_digest(query_token, TOKEN):

@@ -448,7 +448,8 @@ class TermSession {
     connect() {
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
         const token = document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('terminal_token='))?.split('=')[1] || '';
-        this.ws = new WebSocket(`${proto}//${location.host}/ws/terminal?token=${encodeURIComponent(token)}`);
+        const base = location.pathname.replace(/\/$/, '');
+        this.ws = new WebSocket(`${proto}//${location.host}${base}/ws/terminal?token=${encodeURIComponent(token)}`);
         this.ws.binaryType = 'arraybuffer';
 
         this.ws.onopen = () => {
@@ -657,7 +658,8 @@ document.querySelectorAll('#pal-list .pal-item').forEach(it => {
 async function loadSystemInfo() {
     try {
         const token = document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('terminal_token='))?.split('=')[1] || '';
-        const r = await fetch('/api/system-info', {headers: {'Authorization': 'Bearer ' + token}});
+        const base = location.pathname.replace(/\/$/, '');
+        const r = await fetch(`${base}/api/system-info`, {headers: {'Authorization': 'Bearer ' + token}});
         const d = await r.json();
         document.getElementById('hostname').textContent = d.hostname || '--';
         document.getElementById('host-ip').textContent = d.ip || '--';
