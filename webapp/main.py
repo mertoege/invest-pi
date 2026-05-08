@@ -270,10 +270,20 @@ def risk_scores():
 
 @app.get("/api/dca")
 def dca_holdings():
-    import json as json_mod
+    import yaml
     try:
+        empty_summary = {"total_invested_eur": 0, "total_current_eur": 0, "total_pl_eur": 0, "total_pl_pct": 0, "count": 0}
         if not LEARNING_DB.exists():
-            return {"dca": []}
+            return {"dca": [], "summary": empty_summary}
+
+        budget_per_holding = 50.0
+        try:
+            with open(PROJECT_DIR / "config.yaml") as f:
+                cfg = yaml.safe_load(f)
+            budget_per_holding = float(cfg.get("monatliches_budget_eur", 50.0))
+        except Exception:
+            pass
+
         with db_connect(LEARNING_DB) as conn:
             rows = conn.execute(
                 """SELECT p.id, p.subject_id as ticker,
@@ -289,12 +299,19 @@ def dca_holdings():
                    ORDER BY fr.created_at DESC"""
             ).fetchall()
 
+        import yfinance as yf
+        broker = _get_broker()
+        fx_rate = broker.get_account().fx_rate
+
         result = []
+        total_invested = 0.0
+        total_current = 0.0
+
         for r in rows:
             ticker = r["ticker"] or r["ticker_from_output"]
             if not ticker:
                 continue
-            # Parse actual buy price from reason_text if stored
+
             actual_buy_price = None
             extra = r["extra"] or ""
             if "buy_price=" in extra:
@@ -312,28 +329,52 @@ def dca_holdings():
                 "current_price": None,
                 "buy_price": actual_buy_price,
                 "performance_pct": None,
+                "invested_eur": budget_per_holding,
+                "current_value_eur": budget_per_holding,
             }
-            # Live price via yfinance
             try:
-                import yfinance as yf
                 stock = yf.Ticker(ticker)
                 hist = stock.history(period="1d")
                 if not hist.empty:
                     cur_price = round(float(hist["Close"].iloc[-1]), 2)
                     entry["current_price"] = cur_price
-                    if actual_buy_price:
+                    if actual_buy_price and actual_buy_price > 0:
+                        invested_usd = budget_per_holding / fx_rate
+                        shares = invested_usd / actual_buy_price
+                        current_value_usd = shares * cur_price
+                        current_value_eur = current_value_usd * fx_rate
+                        entry["current_value_eur"] = round(current_value_eur, 2)
                         entry["performance_pct"] = round((cur_price / actual_buy_price - 1) * 100, 2)
                     else:
                         rec_date = r["recommended_at"][:10] if r["recommended_at"] else None
                         if rec_date:
                             hist_full = stock.history(start=rec_date)
                             if len(hist_full) >= 2:
-                                entry["buy_price"] = round(float(hist_full["Close"].iloc[0]), 2)
-                                entry["performance_pct"] = round((cur_price / float(hist_full["Close"].iloc[0]) - 1) * 100, 2)
+                                buy_p = float(hist_full["Close"].iloc[0])
+                                entry["buy_price"] = round(buy_p, 2)
+                                invested_usd = budget_per_holding / fx_rate
+                                shares = invested_usd / buy_p
+                                current_value_eur = shares * cur_price * fx_rate
+                                entry["current_value_eur"] = round(current_value_eur, 2)
+                                entry["performance_pct"] = round((cur_price / buy_p - 1) * 100, 2)
             except Exception:
                 pass
+            total_invested += budget_per_holding
+            total_current += entry["current_value_eur"]
             result.append(entry)
-        return {"dca": result}
+
+        total_pl = total_current - total_invested
+        total_pl_pct = (total_pl / total_invested * 100) if total_invested > 0 else 0
+
+        summary = {
+            "total_invested_eur": round(total_invested, 2),
+            "total_current_eur": round(total_current, 2),
+            "total_pl_eur": round(total_pl, 2),
+            "total_pl_pct": round(total_pl_pct, 2),
+            "count": len(result),
+            "fx_rate": round(fx_rate, 4),
+        }
+        return {"dca": result, "summary": summary}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 

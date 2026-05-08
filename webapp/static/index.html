@@ -514,9 +514,6 @@
                 tplEl.className = `card-value ${plClass(d.total_pl_eur)}`;
                 document.getElementById('card-total-pct').innerHTML = `<span class="${plClass(d.total_pl_pct)}">${plSign(d.total_pl_pct)}${fmt(d.total_pl_pct, 3)}% · ${plSign(d.total_pl_usd)}${fmtUsd(d.total_pl_usd)}</span>`;
 
-                // DCA summary uses dashboard data
-                document.getElementById('dca-total-value').textContent = fmtEur(d.equity_eur);
-                document.getElementById('dca-total-sub').innerHTML = `${fmtUsd(d.equity_usd)} <span class="${plClass(d.total_pl_pct)}">(${plSign(d.total_pl_pct)}${fmt(d.total_pl_pct, 2)}%)</span>`;
             } catch(e) { console.error('Dashboard:', e); }
         }
 
@@ -737,26 +734,29 @@
                 const r = await fetch(`${BASE}/dca`);
                 const d = await r.json();
                 const dca = d.dca || [];
+                const summary = d.summary || {};
                 const container = document.getElementById('dca-container');
-                document.getElementById('dca-count').textContent = dca.length;
+
+                // Summary
+                document.getElementById('dca-count').textContent = summary.count || dca.length;
+                document.getElementById('dca-total-value').textContent = fmtEur(summary.total_current_eur);
+                const pl = summary.total_pl_eur || 0;
+                const plPct = summary.total_pl_pct || 0;
+                document.getElementById('dca-total-sub').innerHTML =
+                    `Investiert: ${fmtEur(summary.total_invested_eur)} <span class="${plClass(pl)}">(${plSign(plPct)}${fmt(plPct)}%)</span>`;
+                document.getElementById('dca-perf-avg').innerHTML =
+                    `<span class="${plClass(pl)}">${plSign(pl)}${fmtEur(pl)}</span>`;
 
                 if (!dca.length) {
                     container.innerHTML = '<span class="loading">Keine DCA-Holdings. Klicke bei der naechsten DCA-Empfehlung auf "gekauft".</span>';
-                    document.getElementById('dca-perf-avg').textContent = '';
                     return;
-                }
-
-                // Average performance
-                const perfs = dca.filter(i => i.performance_pct != null).map(i => i.performance_pct);
-                if (perfs.length) {
-                    const avg = perfs.reduce((a, b) => a + b, 0) / perfs.length;
-                    document.getElementById('dca-perf-avg').innerHTML = `<span class="${plClass(avg)}">Avg: ${plSign(avg)}${fmt(avg)}%</span>`;
                 }
 
                 container.innerHTML = dca.map(item => {
                     const perf = item.performance_pct;
                     const perfStr = perf != null ? `${plSign(perf)}${fmt(perf)}%` : '--';
                     const perfClass = plClass(perf || 0);
+                    const valStr = item.current_value_eur ? fmtEur(item.current_value_eur) : '';
                     return `<div class="dca-card">
                         <div class="dca-header">
                             <span class="dca-ticker">${item.ticker}</span>
@@ -764,8 +764,9 @@
                         </div>
                         <div class="dca-meta">
                             ${item.current_price ? `Kurs: $${fmt(item.current_price)}` : ''}
-                            ${item.buy_price ? ` | Kauf: $${fmt(item.buy_price)}` : ''}<br>
-                            Empfohlen: ${item.recommended_at ? item.recommended_at.slice(0,10) : '--'}
+                            ${item.buy_price ? ` | Kauf: $${fmt(item.buy_price)}` : ''}
+                            ${valStr ? ` | Wert: ${valStr}` : ''}<br>
+                            Investiert: ${fmtEur(item.invested_eur)}
                             ${item.bought_at ? ` | Gekauft: ${item.bought_at.slice(0,10)}` : ''}<br>
                             <span style="color:var(--text-muted)">${item.reason || ''}</span>
                         </div>
