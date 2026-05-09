@@ -1359,26 +1359,32 @@ function showCopyToast(charCount) {
 }
 
 
-// Clipboard Paste (images) — attach to xterm textarea directly
+// Clipboard Paste (images) — use Clipboard API directly on Ctrl+V
 function attachPasteHandler(term) {
-    const textarea = term.element?.querySelector('textarea') || term.textarea;
-    if (!textarea) return;
-    textarea.addEventListener('paste', (e) => {
-        const items = e.clipboardData?.items;
-        if (!items) return;
-        const imageFiles = [];
-        for (const item of items) {
-            if (item.type.startsWith('image/')) {
-                const file = item.getAsFile();
-                if (file) imageFiles.push(file);
-            }
+    term.attachCustomKeyEventHandler((ev) => {
+        if ((ev.ctrlKey || ev.metaKey) && ev.key === 'v' && ev.type === 'keydown') {
+            navigator.clipboard.read().then(async (clipItems) => {
+                for (const item of clipItems) {
+                    const imgType = item.types.find(t => t.startsWith('image/'));
+                    if (imgType) {
+                        const blob = await item.getType(imgType);
+                        const ext = imgType.split('/')[1] || 'png';
+                        const file = new File([blob], `paste_${Date.now()}.${ext}`, { type: imgType });
+                        uploadFiles([file]);
+                        return;
+                    }
+                }
+                // No image — let xterm handle text paste normally
+                const text = await navigator.clipboard.readText();
+                if (text) term.paste(text);
+            }).catch(() => {
+                // Clipboard API denied — fall back to xterm default
+                navigator.clipboard.readText().then(t => { if (t) term.paste(t); }).catch(() => {});
+            });
+            return false; // prevent xterm default handling
         }
-        if (imageFiles.length > 0) {
-            e.preventDefault();
-            e.stopPropagation();
-            uploadFiles(imageFiles);
-        }
-    }, true);
+        return true;
+    });
 }
 
 // File Upload
