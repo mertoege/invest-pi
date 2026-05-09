@@ -513,11 +513,12 @@ class TermSession {
 
     open() {
         this.term.open(this.el);
-        this._notifyDebounce = null;
         this._idleTimer = null;
         this._renderThrottle = null;
+        this._ready = false;
+        setTimeout(() => { this._ready = true; }, 5000);
         this.term.onWriteParsed(() => {
-            if (this.id === activeSession) return;
+            if (this.id === activeSession || !this._ready) return;
             if (this.notifyState !== 'working') {
                 this.notifyState = 'working';
                 updateNotifyDots();
