@@ -548,7 +548,7 @@ class TermSession {
 
     connect() {
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const token = document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('terminal_token='))?.split('=')[1] || '';
+        const token = document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('terminal_session='))?.split('=')[1] || '';
         const base = location.pathname.replace(/\/$/, '');
         this.ws = new WebSocket(`${proto}//${location.host}${base}/ws/terminal?token=${encodeURIComponent(token)}`);
         this.ws.binaryType = 'arraybuffer';
@@ -887,7 +887,7 @@ document.querySelectorAll('#pal-list .pal-item').forEach(it => {
 // System Info
 async function loadSystemInfo() {
     try {
-        const token = document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('terminal_token='))?.split('=')[1] || '';
+        const token = document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('terminal_session='))?.split('=')[1] || '';
         const base = location.pathname.replace(/\/$/, '');
         const r = await fetch(`${base}/api/system-info`, {headers: {'Authorization': 'Bearer ' + token}});
         const d = await r.json();
