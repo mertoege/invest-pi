@@ -97,11 +97,20 @@ html, body {
 .dot.notify {
     background: var(--warn) !important;
     box-shadow: 0 0 8px rgba(245,181,74,.7), 0 0 2px rgba(245,181,74,.9);
-    animation: pulse-notify 1.5s ease-in-out infinite;
+    animation: pulse-notify 1.2s ease-in-out infinite;
+}
+.dot.notify-done {
+    background: var(--pos) !important;
+    box-shadow: 0 0 10px rgba(52,211,153,.7), 0 0 3px rgba(52,211,153,.9);
+    animation: pulse-done 2s ease-in-out infinite;
 }
 @keyframes pulse-notify {
-    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(245,181,74,.7); }
-    50% { opacity: .5; box-shadow: 0 0 14px rgba(245,181,74,.9); }
+    0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(245,181,74,.6); }
+    50% { opacity: .4; box-shadow: 0 0 12px rgba(245,181,74,.9); }
+}
+@keyframes pulse-done {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(52,211,153,.6); }
+    50% { opacity: .7; box-shadow: 0 0 14px rgba(52,211,153,.9); }
 }
 
 .sidebar-spacer { flex: 1; }
@@ -163,7 +172,7 @@ html, body {
 .term-shell {
     flex: 1; border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
     background: var(--term-bg); box-shadow: var(--shadow-card);
-    display: flex; flex-direction: column; min-width: 0;
+    display: flex; flex-direction: column; min-width: 0; min-height: 0;
 }
 
 .tabbar {
@@ -193,7 +202,7 @@ html, body {
 }
 .tabbar .tab-add:hover { background: var(--surface-2); color: var(--text); }
 
-.term-container { flex: 1; padding: 4px; min-height: 0; }
+.term-container { flex: 1; padding: 4px; min-height: 0; overflow: hidden; }
 .term-container .xterm { height: 100%; }
 
 /* ─── Command Palette ─── */
@@ -455,6 +464,7 @@ class TermSession {
         this.id = id;
         this.name = 'bash';
         this.hasNotification = false;
+        this.notifyState = null; // null | 'working' | 'done'
         this.term = new Terminal({
             cursorBlink: true,
             cursorStyle: 'block',
@@ -498,12 +508,28 @@ class TermSession {
 
     open() {
         this.term.open(this.el);
-        this.term.onBell(() => {
-            if (this.id !== activeSession) {
-                this.hasNotification = true;
+        this._notifyDebounce = null;
+        this._idleTimer = null;
+        this._renderThrottle = null;
+        this.term.onWriteParsed(() => {
+            if (this.id === activeSession) return;
+            if (this.notifyState !== 'working') {
+                this.notifyState = 'working';
+                if (!this._renderThrottle) {
+                    this._renderThrottle = setTimeout(() => {
+                        this._renderThrottle = null;
+                        renderSessions();
+                        renderTabs();
+                    }, 500);
+                }
+            }
+            clearTimeout(this._idleTimer);
+            this._idleTimer = setTimeout(() => {
+                if (this.id === activeSession) return;
+                this.notifyState = 'done';
                 renderSessions();
                 renderTabs();
-            }
+            }, 3000);
         });
         this.term.onTitleChange((title) => {
             if (title) {
@@ -630,6 +656,7 @@ function closeSession(id) {
 function switchSession(id) {
     if (!sessions[id]) return;
     sessions[id].hasNotification = false;
+    sessions[id].notifyState = null;
     sessions.forEach((s, i) => { if (s) { i === id ? s.show() : s.hide(); } });
     activeSession = id;
     document.getElementById('active-tab-name').textContent = sessions[id].name;
@@ -645,8 +672,8 @@ function renderTabs() {
         const btn = document.createElement('button');
         btn.className = `tab-item${i === activeSession ? ' active' : ''}`;
         btn.dataset.id = i;
-        const notifyClass = s.hasNotification ? ' notify' : '';
-        btn.innerHTML = `<span class="tab-dot${notifyClass}"></span>${s.name}<span class="x">×</span>`;
+        const nc = s.notifyState === 'working' ? ' notify' : s.notifyState === 'done' ? ' notify-done' : '';
+        btn.innerHTML = `<span class="tab-dot${nc}"></span>${s.name}<span class="x">×</span>`;
         btn.onclick = (e) => {
             if (e.target.closest('.x')) { closeSession(i); return; }
             switchSession(i);
@@ -680,10 +707,13 @@ function renderSessions() {
         const idx = sessions.findIndex(s => s && s.tmuxName === name);
         el.classList.toggle('active', idx >= 0 && idx === activeSession);
         const dot = el.querySelector('.dot');
-        if (dot && idx >= 0 && sessions[idx] && sessions[idx].hasNotification) {
-            dot.classList.add('notify');
-        } else if (dot) {
-            dot.classList.remove('notify');
+        if (dot) {
+            dot.classList.remove('notify', 'notify-done');
+            if (idx >= 0 && sessions[idx]) {
+                const state = sessions[idx].notifyState;
+                if (state === 'working') dot.classList.add('notify');
+                else if (state === 'done') dot.classList.add('notify-done');
+            }
         }
     });
 }
