@@ -27,7 +27,8 @@
 }
 
 #pi-home { display: none !important; }
-html .xterm-screen { touch-action: none !important; }
+html .xterm-screen, html body .xterm-screen { touch-action: none !important; }
+.xterm-viewport { overflow-y: auto !important; overflow-x: hidden !important; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
     background: var(--bg); color: var(--text);
@@ -135,7 +136,7 @@ html, body {
 .stat.warn .v { color: var(--warn); }
 
 /* ─── Main ─── */
-.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100vh; overflow: hidden; background: var(--bg); }
 
 .topbar {
     height: 48px; border-bottom: 1px solid var(--border);
@@ -173,7 +174,7 @@ html, body {
 }
 
 /* ─── Workspace ─── */
-.workspace { flex: 1; padding: 14px; display: flex; min-height: 0; }
+.workspace { flex: 1; padding: 14px; display: flex; min-height: 0; overflow: hidden; }
 .term-shell {
     flex: 1; border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
     background: var(--term-bg); box-shadow: var(--shadow-card);
@@ -207,8 +208,8 @@ html, body {
 }
 .tabbar .tab-add:hover { background: var(--surface-2); color: var(--text); }
 
-.term-container { flex: 1; padding: 4px; min-height: 0; overflow: hidden; }
-.term-container .xterm { height: 100%; }
+.term-container { flex: 1; padding: 4px; min-height: 0; overflow: hidden; position: relative; }
+.term-container .xterm { position: absolute; top: 4px; left: 4px; right: 4px; bottom: 4px; }
 
 /* ─── Command Palette ─── */
 .scrim {
