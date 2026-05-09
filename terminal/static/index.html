@@ -301,6 +301,16 @@ html, body {
 @keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(10px); } }
 .upload-toast .ut-path { font-family: var(--mono); color: var(--primary); }
 
+/* ─── Copy Toast ─── */
+.copy-toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: var(--surface); border: 1px solid rgba(52,211,153,.3); border-radius: 8px;
+    padding: 6px 14px; font-size: 12px; color: var(--pos);
+    box-shadow: 0 4px 16px rgba(0,0,0,.4); z-index: 60;
+    display: flex; align-items: center; gap: 6px;
+    animation: toast-in .2s ease; pointer-events: none;
+}
+
 /* ─── Mobile ─── */
 .mobile-header, .key-bar, .input-bar, .drawer-scrim { display: none; }
 
@@ -783,7 +793,11 @@ class TermSession {
         this.term.loadAddon(new WebLinksAddon.WebLinksAddon());
         this.term.onSelectionChange(() => {
             const sel = this.term.getSelection();
-            if (sel) navigator.clipboard.writeText(sel).catch(() => {});
+            if (sel) {
+                navigator.clipboard.writeText(sel).then(() => {
+                    showCopyToast(sel.length);
+                }).catch(() => {});
+            }
         });
         this.ws = null;
         this.connected = false;
@@ -892,10 +906,15 @@ function addSession(initCmd) {
     s.connect();
     if (initCmd) {
         const origOnOpen = s.ws.onopen;
+        const isTmux = initCmd.startsWith('tmux attach');
         s.ws.onopen = function(e) {
             origOnOpen.call(this, e);
             setTimeout(() => {
-                s.ws.send(new TextEncoder().encode(initCmd + '\n'));
+                if (isTmux) {
+                    s.ws.send(new TextEncoder().encode('tmux set -g mouse off; ' + initCmd + '\n'));
+                } else {
+                    s.ws.send(new TextEncoder().encode(initCmd + '\n'));
+                }
             }, 300);
         };
     }
@@ -1326,6 +1345,18 @@ function updateMobileHeader() {
 }
 
 initKeyBar();
+
+// Copy toast
+function showCopyToast(charCount) {
+    const existing = document.querySelector('.copy-toast');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.className = 'copy-toast';
+    toast.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg> ${charCount} Zeichen kopiert`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 1800);
+}
+
 
 // File Upload
 async function uploadFiles(files) {
