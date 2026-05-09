@@ -1361,7 +1361,9 @@ function showCopyToast(charCount) {
 // Clipboard Paste (images only — text paste handled by xterm.js)
 window.addEventListener('paste', (e) => {
     const items = e.clipboardData?.items;
-    if (!items) return;
+    if (!items || items.length === 0) { console.log('[paste] no items'); return; }
+    const types = [...items].map(i => i.type);
+    console.log('[paste] items:', types);
     const imageFiles = [];
     for (const item of items) {
         if (item.type.startsWith('image/')) {
@@ -1373,7 +1375,10 @@ window.addEventListener('paste', (e) => {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
+        console.log('[paste] uploading', imageFiles.length, 'image(s)');
         uploadFiles(imageFiles);
+    } else {
+        console.log('[paste] no images found, letting xterm handle text');
     }
 }, true);
 
