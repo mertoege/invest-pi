@@ -275,6 +275,32 @@ html, body {
 }
 .pal-foot .grp { display: flex; align-items: center; gap: 6px; }
 
+/* ─── File Upload ─── */
+.drop-overlay {
+    display: none; position: absolute; inset: 0; z-index: 20;
+    background: rgba(59,130,246,.08); border: 2px dashed var(--primary);
+    border-radius: 12px;
+    place-items: center; pointer-events: none;
+}
+.drop-overlay.active { display: grid; }
+.drop-overlay .drop-label {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 32px; text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+}
+.drop-overlay .drop-label svg { color: var(--primary); margin-bottom: 8px; }
+.drop-overlay .drop-label p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.upload-toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 16px; font-size: 12.5px; color: var(--text);
+    box-shadow: 0 8px 24px rgba(0,0,0,.5); z-index: 60;
+    display: flex; align-items: center; gap: 8px;
+    animation: toast-in .3s ease;
+}
+@keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(10px); } }
+.upload-toast .ut-path { font-family: var(--mono); color: var(--primary); }
+
 /* ─── Mobile ─── */
 .mobile-header, .key-bar, .input-bar, .drawer-scrim { display: none; }
 
@@ -526,6 +552,10 @@ html, body {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
                     ⌘K
                 </button>
+                <button class="pill" onclick="document.getElementById('file-upload').click()" title="Upload">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+                    Upload
+                </button>
                 <button class="pill" onclick="addSession()" title="New Tab">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                     New Tab
@@ -549,7 +579,15 @@ html, body {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                     </span>
                 </div>
-                <div class="term-container" id="term-container"></div>
+                <div class="term-container" id="term-container">
+                    <div class="drop-overlay" id="drop-overlay">
+                        <div class="drop-label">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+                            <div style="font-weight:600;font-size:14px">Datei hochladen</div>
+                            <p>Loslassen zum Hochladen</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -560,6 +598,9 @@ html, body {
         <div class="input-bar" id="input-bar">
             <button class="ib-cmd" onclick="openPalette()" title="⌘K">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>
+            </button>
+            <button class="ib-cmd" onclick="document.getElementById('file-upload').click()" title="Upload" style="color:var(--muted)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
             </button>
             <div class="ib-input">
                 <input type="text" id="m-cmd-input" placeholder="Befehl…" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -689,6 +730,7 @@ html, body {
     </div>
 </div>
 
+<input type="file" id="file-upload" multiple style="display:none">
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
@@ -1278,6 +1320,69 @@ function updateMobileHeader() {
 }
 
 initKeyBar();
+
+// File Upload
+async function uploadFiles(files) {
+    const base = location.pathname.replace(/\/$/, '');
+    for (const file of files) {
+        const form = new FormData();
+        form.append('file', file);
+        try {
+            const r = await fetch(`${base}/api/upload`, { method: 'POST', body: form });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            const s = sessions[activeSession];
+            if (s && s.ws && s.ws.readyState === WebSocket.OPEN) {
+                s.ws.send(new TextEncoder().encode(data.path));
+            }
+            showUploadToast(data.name, data.path);
+        } catch (e) {
+            showUploadToast(file.name, null, e.message);
+        }
+    }
+}
+
+function showUploadToast(name, path, error) {
+    const existing = document.querySelector('.upload-toast');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.className = 'upload-toast';
+    if (error) {
+        toast.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neg)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg><span>${esc(name)}: ${esc(error)}</span>`;
+    } else {
+        toast.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg><span>${esc(name)} → <span class="ut-path">${esc(path)}</span></span>`;
+    }
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+}
+
+document.getElementById('file-upload').addEventListener('change', (e) => {
+    if (e.target.files.length) uploadFiles(e.target.files);
+    e.target.value = '';
+});
+
+// Drag & Drop
+const termContainer = document.getElementById('term-container');
+const dropOverlay = document.getElementById('drop-overlay');
+let dragCounter = 0;
+
+termContainer.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    dropOverlay.classList.add('active');
+});
+termContainer.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) { dropOverlay.classList.remove('active'); dragCounter = 0; }
+});
+termContainer.addEventListener('dragover', (e) => e.preventDefault());
+termContainer.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    dropOverlay.classList.remove('active');
+    if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+});
 
 // Init — tmux Sessions als Default-Tabs
 const defaultSessions = ['investpi', 'pokepi', 'autopi', 'instapi'];

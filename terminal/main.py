@@ -19,7 +19,7 @@ import struct
 import termios
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, Depends, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, Depends, Query, UploadFile, File
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -355,6 +355,25 @@ async def index(request: Request):
     if not token or token not in SESSIONS:
         return RedirectResponse(f"{ROOT}/login")
     return FileResponse(STATIC / "index.html")
+
+
+UPLOAD_DIR = Path(os.path.expanduser("~")) / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+
+
+@app.post("/api/upload")
+async def upload_file(request: Request, file: UploadFile = File(...), _=Depends(verify_session)):
+    safe_name = Path(file.filename).name
+    dest = UPLOAD_DIR / safe_name
+    counter = 1
+    while dest.exists():
+        stem = Path(safe_name).stem
+        suffix = Path(safe_name).suffix
+        dest = UPLOAD_DIR / f"{stem}_{counter}{suffix}"
+        counter += 1
+    content = await file.read()
+    dest.write_bytes(content)
+    return JSONResponse({"path": str(dest), "size": len(content), "name": dest.name})
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
