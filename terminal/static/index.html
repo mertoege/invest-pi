@@ -1359,20 +1359,19 @@ function showCopyToast(charCount) {
 
 
 // Clipboard Paste (images only — text paste handled by xterm.js)
-document.addEventListener('paste', (e) => {
+window.addEventListener('paste', (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
     const imageFiles = [];
-    let hasText = false;
     for (const item of items) {
         if (item.type.startsWith('image/')) {
             const file = item.getAsFile();
             if (file) imageFiles.push(file);
         }
-        if (item.type === 'text/plain') hasText = true;
     }
-    if (imageFiles.length > 0 && !hasText) {
+    if (imageFiles.length > 0) {
         e.preventDefault();
+        e.stopPropagation();
         e.stopImmediatePropagation();
         uploadFiles(imageFiles);
     }
@@ -1386,6 +1385,7 @@ async function uploadFiles(files) {
         form.append('file', file);
         try {
             const r = await fetch(`${base}/api/upload`, { method: 'POST', body: form });
+            if (r.status === 401) { location.href = `${base}/login`; return; }
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
             const s = sessions[activeSession];
