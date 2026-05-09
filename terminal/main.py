@@ -53,9 +53,25 @@ def _get_origin(request: Request) -> str:
     host = request.headers.get("host", "localhost")
     return f"{proto}://{host}"
 
-SESSIONS: dict[str, bool] = {}
+SESSIONS_FILE = DATA_DIR / "sessions.json"
 WEBAUTHN_CREDS_FILE = DATA_DIR / "webauthn_creds.json"
 WEBAUTHN_CHALLENGES: dict[str, bytes] = {}
+
+
+def _load_sessions() -> dict[str, bool]:
+    if SESSIONS_FILE.exists():
+        try:
+            return {k: True for k in json.loads(SESSIONS_FILE.read_text())}
+        except Exception:
+            pass
+    return {}
+
+
+def _save_sessions():
+    SESSIONS_FILE.write_text(json.dumps(list(SESSIONS.keys())))
+
+
+SESSIONS: dict[str, bool] = _load_sessions()
 
 
 def _load_creds() -> list[dict]:
@@ -71,6 +87,7 @@ def _save_creds(creds: list[dict]):
 def _create_session() -> str:
     token = secrets.token_urlsafe(32)
     SESSIONS[token] = True
+    _save_sessions()
     return token
 
 
