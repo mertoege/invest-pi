@@ -518,14 +518,13 @@ class TermSession {
         this._ready = false;
         setTimeout(() => { this._ready = true; }, 5000);
         this.term.onWriteParsed(() => {
-            if (this.id === activeSession || !this._ready) return;
+            if (!this._ready) return;
             if (this.notifyState !== 'working') {
                 this.notifyState = 'working';
                 updateNotifyDots();
             }
             clearTimeout(this._idleTimer);
             this._idleTimer = setTimeout(() => {
-                if (this.id === activeSession) return;
                 this.notifyState = 'done';
                 updateNotifyDots();
             }, 3000);
@@ -655,7 +654,7 @@ function closeSession(id) {
 function switchSession(id) {
     if (!sessions[id]) return;
     sessions[id].hasNotification = false;
-    sessions[id].notifyState = null;
+    if (sessions[id].notifyState === 'done') sessions[id].notifyState = null;
     sessions.forEach((s, i) => { if (s) { i === id ? s.show() : s.hide(); } });
     activeSession = id;
     document.getElementById('active-tab-name').textContent = sessions[id].name;
