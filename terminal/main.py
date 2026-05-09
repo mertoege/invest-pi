@@ -74,7 +74,7 @@ button:hover{background:#5491ff}
 function tryLogin(){
     const t=document.getElementById('tok').value.trim();
     if(!t)return false;
-    document.cookie='terminal_token='+t+';path=/;max-age=86400;SameSite=Strict';
+    document.cookie='terminal_token='+t+';path=/;max-age=31536000;SameSite=Strict';
     fetch('""" + ROOT + """/api/system-info',{headers:{'Authorization':'Bearer '+t}})
         .then(r=>{if(r.ok)location.href='""" + ROOT + """/';else throw 0})
         .catch(()=>{document.getElementById('err').style.display='block'});
@@ -99,7 +99,7 @@ async def index(request: Request):
 
     response = FileResponse(STATIC / "index.html")
     if query_token and hmac.compare_digest(query_token, TOKEN):
-        response.set_cookie("terminal_token", query_token, max_age=86400, httponly=True, samesite="strict")
+        response.set_cookie("terminal_token", query_token, max_age=31536000, httponly=True, samesite="strict")
     return response
 
 
