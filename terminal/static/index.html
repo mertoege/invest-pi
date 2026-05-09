@@ -775,10 +775,16 @@ class TermSession {
             },
             allowTransparency: true,
             scrollback: 5000,
+            rightClickSelectsWord: true,
+            allowProposedApi: true,
         });
         this.fitAddon = new FitAddon.FitAddon();
         this.term.loadAddon(this.fitAddon);
         this.term.loadAddon(new WebLinksAddon.WebLinksAddon());
+        this.term.onSelectionChange(() => {
+            const sel = this.term.getSelection();
+            if (sel) navigator.clipboard.writeText(sel).catch(() => {});
+        });
         this.ws = null;
         this.connected = false;
         this.el = document.createElement('div');
