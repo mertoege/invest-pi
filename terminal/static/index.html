@@ -463,6 +463,7 @@ html, body {
 <script>
 const sessions = [];
 let activeSession = -1;
+let _switchCooldownUntil = 0;
 
 class TermSession {
     constructor(id) {
@@ -519,6 +520,7 @@ class TermSession {
         setTimeout(() => { this._ready = true; }, 5000);
         this.term.onWriteParsed(() => {
             if (!this._ready) return;
+            if (Date.now() < _switchCooldownUntil) return;
             if (this.notifyState !== 'working') {
                 this.notifyState = 'working';
                 updateNotifyDots();
@@ -653,6 +655,7 @@ function closeSession(id) {
 
 function switchSession(id) {
     if (!sessions[id]) return;
+    _switchCooldownUntil = Date.now() + 2000;
     sessions[id].hasNotification = false;
     if (sessions[id].notifyState === 'done') sessions[id].notifyState = null;
     sessions.forEach((s, i) => { if (s) { i === id ? s.show() : s.hide(); } });
