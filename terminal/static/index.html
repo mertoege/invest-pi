@@ -1363,17 +1363,20 @@ document.addEventListener('paste', (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
     const imageFiles = [];
+    let hasText = false;
     for (const item of items) {
         if (item.type.startsWith('image/')) {
             const file = item.getAsFile();
             if (file) imageFiles.push(file);
         }
+        if (item.type === 'text/plain') hasText = true;
     }
-    if (imageFiles.length > 0) {
+    if (imageFiles.length > 0 && !hasText) {
         e.preventDefault();
+        e.stopImmediatePropagation();
         uploadFiles(imageFiles);
     }
-});
+}, true);
 
 // File Upload
 async function uploadFiles(files) {
