@@ -95,6 +95,10 @@ html, body {
 .session .sub { color: var(--muted-2); font-size: 10.5px; }
 .session .close { width: 16px; height: 16px; display: grid; place-items: center; border-radius: 4px; color: var(--muted-2); cursor: pointer; }
 .session .close:hover { background: rgba(255,255,255,.06); color: var(--text); }
+.dot.idle {
+    background: rgba(255,255,255,.45) !important;
+    box-shadow: none;
+}
 .dot.notify {
     background: var(--warn) !important;
     box-shadow: 0 0 8px rgba(245,181,74,.7), 0 0 2px rgba(245,181,74,.9);
@@ -316,19 +320,19 @@ html, body {
         <div class="nav-section-title">tmux Sessions</div>
         <div class="sessions" id="tmux-list">
             <div class="session tmux-link" data-tmux="investpi">
-                <span class="dot" style="background:var(--primary)"></span>
+                <span class="dot idle"></span>
                 <span class="sname">investpi <span class="sub">Trading System</span></span>
             </div>
             <div class="session tmux-link" data-tmux="pokepi">
-                <span class="dot" style="background:var(--warn)"></span>
+                <span class="dot idle"></span>
                 <span class="sname">pokepi <span class="sub">PokéPi App</span></span>
             </div>
             <div class="session tmux-link" data-tmux="autopi">
-                <span class="dot" style="background:var(--pos)"></span>
+                <span class="dot idle"></span>
                 <span class="sname">autopi <span class="sub">AutoPi</span></span>
             </div>
             <div class="session tmux-link" data-tmux="instapi">
-                <span class="dot" style="background:var(--neg)"></span>
+                <span class="dot idle"></span>
                 <span class="sname">instapi <span class="sub">InstaPi</span></span>
             </div>
         </div>
@@ -664,11 +668,14 @@ function updateNotifyDots() {
         const idx = sessions.findIndex(s => s && s.tmuxName === name);
         const dot = el.querySelector('.dot');
         if (dot) {
-            dot.classList.remove('notify', 'notify-done');
+            dot.classList.remove('idle', 'notify', 'notify-done');
             if (idx >= 0 && sessions[idx]) {
                 const st = sessions[idx].notifyState;
                 if (st === 'working') dot.classList.add('notify');
                 else if (st === 'done') dot.classList.add('notify-done');
+                else dot.classList.add('idle');
+            } else {
+                dot.classList.add('idle');
             }
         }
     });
@@ -728,11 +735,14 @@ function renderSessions() {
         el.classList.toggle('active', idx >= 0 && idx === activeSession);
         const dot = el.querySelector('.dot');
         if (dot) {
-            dot.classList.remove('notify', 'notify-done');
+            dot.classList.remove('idle', 'notify', 'notify-done');
             if (idx >= 0 && sessions[idx]) {
                 const state = sessions[idx].notifyState;
                 if (state === 'working') dot.classList.add('notify');
                 else if (state === 'done') dot.classList.add('notify-done');
+                else dot.classList.add('idle');
+            } else {
+                dot.classList.add('idle');
             }
         }
     });
