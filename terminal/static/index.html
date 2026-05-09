@@ -808,6 +808,7 @@ class TermSession {
 
     open() {
         this.term.open(this.el);
+        attachPasteHandler(this.term);
         this._idleTimer = null;
         this._renderThrottle = null;
         this._ready = false;
@@ -1358,29 +1359,27 @@ function showCopyToast(charCount) {
 }
 
 
-// Clipboard Paste (images only — text paste handled by xterm.js)
-window.addEventListener('paste', (e) => {
-    const items = e.clipboardData?.items;
-    if (!items || items.length === 0) { console.log('[paste] no items'); return; }
-    const types = [...items].map(i => i.type);
-    console.log('[paste] items:', types);
-    const imageFiles = [];
-    for (const item of items) {
-        if (item.type.startsWith('image/')) {
-            const file = item.getAsFile();
-            if (file) imageFiles.push(file);
+// Clipboard Paste (images) — attach to xterm textarea directly
+function attachPasteHandler(term) {
+    const textarea = term.element?.querySelector('textarea') || term.textarea;
+    if (!textarea) return;
+    textarea.addEventListener('paste', (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        const imageFiles = [];
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                const file = item.getAsFile();
+                if (file) imageFiles.push(file);
+            }
         }
-    }
-    if (imageFiles.length > 0) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        console.log('[paste] uploading', imageFiles.length, 'image(s)');
-        uploadFiles(imageFiles);
-    } else {
-        console.log('[paste] no images found, letting xterm handle text');
-    }
-}, true);
+        if (imageFiles.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadFiles(imageFiles);
+        }
+    }, true);
+}
 
 // File Upload
 async function uploadFiles(files) {
