@@ -13,13 +13,13 @@
   },
   "git": {
     "branch": "main",
-    "commit": "da10dea2",
+    "commit": "d4b53761",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 65.55,
+    "cpu_temp_c": 65.0,
     "disk_pct": 22,
-    "load_1min": 2.18,
+    "load_1min": 2.17,
     "mem_pct": 44
   },
   "last_runs": {
@@ -32,9 +32,9 @@
     "correct": 2088,
     "incorrect": 566,
     "last_24h": 867,
-    "last_7d": 6342,
-    "pending": 6992,
-    "total": 10451
+    "last_7d": 6345,
+    "pending": 6995,
+    "total": 10454
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-05-09T15:59:14"
+  "timestamp_utc": "2026-05-09T16:01:23"
 }
