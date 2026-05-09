@@ -94,6 +94,15 @@ html, body {
 .session .sub { color: var(--muted-2); font-size: 10.5px; }
 .session .close { width: 16px; height: 16px; display: grid; place-items: center; border-radius: 4px; color: var(--muted-2); cursor: pointer; }
 .session .close:hover { background: rgba(255,255,255,.06); color: var(--text); }
+.dot.notify {
+    background: var(--warn) !important;
+    box-shadow: 0 0 8px rgba(245,181,74,.7), 0 0 2px rgba(245,181,74,.9);
+    animation: pulse-notify 1.5s ease-in-out infinite;
+}
+@keyframes pulse-notify {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(245,181,74,.7); }
+    50% { opacity: .5; box-shadow: 0 0 14px rgba(245,181,74,.9); }
+}
 
 .sidebar-spacer { flex: 1; }
 .sidebar-footer { border-top: 1px solid var(--border-soft); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
@@ -175,6 +184,7 @@ html, body {
 }
 .tab-item .tab-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted-2); }
 .tab-item.active .tab-dot { background: var(--pos); }
+.tab-dot.notify { background: var(--warn) !important; animation: pulse-notify 1.5s ease-in-out infinite; box-shadow: 0 0 6px rgba(245,181,74,.7); }
 .tab-item .x { width: 16px; height: 16px; display: grid; place-items: center; border-radius: 4px; color: var(--muted-2); }
 .tab-item .x:hover { background: rgba(255,255,255,.06); color: var(--text); }
 .tabbar .tab-add {
@@ -444,6 +454,7 @@ class TermSession {
     constructor(id) {
         this.id = id;
         this.name = 'bash';
+        this.hasNotification = false;
         this.term = new Terminal({
             cursorBlink: true,
             cursorStyle: 'block',
@@ -516,8 +527,19 @@ class TermSession {
 
         this.ws.onmessage = (e) => {
             if (e.data instanceof ArrayBuffer) {
-                this.term.write(new Uint8Array(e.data));
+                const bytes = new Uint8Array(e.data);
+                if (this.id !== activeSession && bytes.includes(7)) {
+                    this.hasNotification = true;
+                    renderSessions();
+                    renderTabs();
+                }
+                this.term.write(bytes);
             } else {
+                if (this.id !== activeSession && e.data.includes('\x07')) {
+                    this.hasNotification = true;
+                    renderSessions();
+                    renderTabs();
+                }
                 this.term.write(e.data);
             }
         };
@@ -611,6 +633,7 @@ function closeSession(id) {
 
 function switchSession(id) {
     if (!sessions[id]) return;
+    sessions[id].hasNotification = false;
     sessions.forEach((s, i) => { if (s) { i === id ? s.show() : s.hide(); } });
     activeSession = id;
     document.getElementById('active-tab-name').textContent = sessions[id].name;
@@ -626,7 +649,8 @@ function renderTabs() {
         const btn = document.createElement('button');
         btn.className = `tab-item${i === activeSession ? ' active' : ''}`;
         btn.dataset.id = i;
-        btn.innerHTML = `<span class="tab-dot"></span>${s.name}<span class="x">×</span>`;
+        const notifyClass = s.hasNotification ? ' notify' : '';
+        btn.innerHTML = `<span class="tab-dot${notifyClass}"></span>${s.name}<span class="x">×</span>`;
         btn.onclick = (e) => {
             if (e.target.closest('.x')) { closeSession(i); return; }
             switchSession(i);
@@ -659,6 +683,12 @@ function renderSessions() {
         const name = el.dataset.tmux;
         const idx = sessions.findIndex(s => s && s.tmuxName === name);
         el.classList.toggle('active', idx >= 0 && idx === activeSession);
+        const dot = el.querySelector('.dot');
+        if (dot && idx >= 0 && sessions[idx] && sessions[idx].hasNotification) {
+            dot.classList.add('notify');
+        } else if (dot) {
+            dot.classList.remove('notify');
+        }
     });
 }
 
