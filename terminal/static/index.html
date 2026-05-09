@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Invest-Pi · Terminal</title>
-<meta name="viewport" content="width=1440">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
 <style>
 :root {
@@ -274,6 +274,143 @@ html, body {
     display: flex; align-items: center; gap: 14px; color: var(--muted-2); font-size: 11px;
 }
 .pal-foot .grp { display: flex; align-items: center; gap: 6px; }
+
+/* ─── Mobile ─── */
+.mobile-header, .key-bar, .input-bar, .drawer-scrim { display: none; }
+
+@media (max-width: 768px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar, .topbar { display: none; }
+    .main { height: 100vh; height: 100dvh; }
+    .workspace { padding: 0; }
+    .term-shell { border: 0; border-radius: 0; }
+    .tabbar { border-radius: 0; }
+    .term-container > div { top: 0; left: 0; right: 0; bottom: 0; }
+
+    .mobile-header {
+        display: flex; align-items: center; gap: 10px;
+        padding: 0 12px; height: 52px;
+        background: var(--surface); border-bottom: 1px solid var(--border);
+        padding-top: env(safe-area-inset-top);
+        flex-shrink: 0;
+    }
+    .mobile-header .m-menu {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        display: grid; place-items: center; cursor: pointer; padding: 0; color: var(--text);
+    }
+    .mobile-header .m-title { flex: 1; min-width: 0; }
+    .mobile-header .m-title .m-name {
+        display: flex; align-items: center; gap: 7px;
+        font-size: 14px; font-weight: 600;
+    }
+    .mobile-header .m-title .m-sub {
+        color: var(--muted); font-size: 11px; font-family: var(--mono);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        margin-top: 1px;
+    }
+    .mobile-header .m-conn {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 3px 8px; border-radius: 6px;
+        background: rgba(52,211,153,.08); border: 1px solid rgba(52,211,153,.25);
+        color: var(--pos); font-size: 10.5px; font-family: var(--mono); font-weight: 500;
+    }
+
+    .key-bar {
+        display: flex; gap: 6px; padding: 8px 10px;
+        background: var(--surface); border-top: 1px solid var(--border);
+        overflow-x: auto; scrollbar-width: none; flex-shrink: 0;
+    }
+    .key-bar::-webkit-scrollbar { display: none; }
+    .key-bar button {
+        flex: 0 0 auto; height: 30px; min-width: 36px; padding: 0 10px;
+        background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+        color: var(--text); font-family: var(--mono); font-size: 12px; cursor: pointer;
+    }
+    .key-bar button:active { background: var(--primary-glow); border-color: rgba(59,130,246,.4); }
+
+    .input-bar {
+        display: flex; align-items: center; gap: 8px;
+        padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom));
+        background: var(--surface); border-top: 1px solid var(--border-soft);
+        flex-shrink: 0;
+    }
+    .input-bar .ib-cmd {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        display: grid; place-items: center; cursor: pointer; padding: 0; color: var(--primary);
+    }
+    .input-bar .ib-input {
+        flex: 1; height: 36px; border-radius: 10px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        display: flex; align-items: center; padding: 0 12px;
+        font-family: var(--mono); font-size: 12px; color: var(--text);
+    }
+    .input-bar .ib-input input {
+        flex: 1; background: transparent; border: 0; outline: 0;
+        color: var(--text); font-family: var(--mono); font-size: 12px;
+    }
+    .input-bar .ib-input input::placeholder { color: var(--muted-2); }
+    .input-bar .ib-send {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: var(--primary); border: 1px solid var(--primary);
+        display: grid; place-items: center; cursor: pointer; padding: 0;
+        box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .drawer-scrim {
+        display: none; position: fixed; inset: 0; z-index: 100;
+        background: rgba(8,9,13,.6);
+    }
+    .drawer-scrim.open { display: block; }
+    .drawer {
+        position: absolute; top: 0; bottom: 0; left: 0; width: 82%;
+        max-width: 340px;
+        background: var(--surface); border-right: 1px solid var(--border);
+        box-shadow: 24px 0 60px rgba(0,0,0,.5);
+        display: flex; flex-direction: column;
+        padding-top: env(safe-area-inset-top);
+        overflow-y: auto;
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+    }
+    .drawer-scrim.open .drawer { transform: translateX(0); }
+
+    .drawer .d-brand {
+        padding: 14px 16px; border-bottom: 1px solid var(--border-soft);
+        display: flex; align-items: center; gap: 11px;
+    }
+    .drawer .d-section {
+        padding: 14px 18px 4px; font-size: 10px; text-transform: uppercase;
+        letter-spacing: .7px; color: var(--muted-2); font-weight: 600;
+    }
+    .drawer .d-nav { padding: 0 8px; display: flex; flex-direction: column; gap: 1px; }
+    .drawer .d-item {
+        display: flex; align-items: center; gap: 11px;
+        padding: 10px 12px; border-radius: 10px;
+        border: 1px solid transparent; cursor: pointer; color: var(--text); text-decoration: none;
+    }
+    .drawer .d-item:hover, .drawer .d-item.active { background: var(--surface-2); border-color: var(--border); }
+    .drawer .d-item.active svg { color: var(--primary); }
+    .drawer .d-item span.flex { flex: 1; font-size: 13.5px; }
+    .drawer .d-sessions { padding: 0 8px; display: flex; flex-direction: column; gap: 1px; }
+    .drawer .d-sess {
+        display: flex; align-items: center; gap: 9px;
+        padding: 8px 12px; border-radius: 10px; cursor: pointer;
+        border: 1px solid transparent;
+    }
+    .drawer .d-sess:hover, .drawer .d-sess.active { background: var(--surface-2); border-color: var(--border); }
+    .drawer .d-sess .sname { flex: 1; font-family: var(--mono); font-size: 12.5px; }
+    .drawer .d-sess .sname .sub { color: var(--muted-2); font-size: 11px; }
+    .drawer .d-footer {
+        margin-top: auto;
+        border-top: 1px solid var(--border-soft); padding: 14px;
+        display: flex; flex-direction: column; gap: 9px;
+    }
+
+    .palette { width: calc(100vw - 24px) !important; max-width: 520px; }
+    .scrim { padding-top: 10vh; }
+}
 </style>
 </head>
 <body>
@@ -361,6 +498,23 @@ html, body {
 
     <!-- Main -->
     <main class="main">
+        <!-- Mobile Header -->
+        <header class="mobile-header" id="mobile-header">
+            <button class="m-menu" onclick="toggleDrawer()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="m-title">
+                <div class="m-name">
+                    <span class="dot green" id="m-status-dot"></span>
+                    <span id="m-session-name">investpi</span>
+                </div>
+                <div class="m-sub" id="m-host-sub">investpi@-- · --</div>
+            </div>
+            <span class="m-conn" id="m-conn">
+                <span class="dot green" style="width:5px;height:5px"></span>online
+            </span>
+        </header>
+
         <div class="topbar">
             <div class="crumb">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="color:var(--muted)"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3"/></svg>
@@ -398,7 +552,83 @@ html, body {
                 <div class="term-container" id="term-container"></div>
             </div>
         </div>
+
+        <!-- Mobile Key Bar -->
+        <div class="key-bar" id="key-bar"></div>
+
+        <!-- Mobile Input Bar -->
+        <div class="input-bar" id="input-bar">
+            <button class="ib-cmd" onclick="openPalette()" title="⌘K">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>
+            </button>
+            <div class="ib-input">
+                <input type="text" id="m-cmd-input" placeholder="Befehl…" autocomplete="off" autocapitalize="off" spellcheck="false">
+            </div>
+            <button class="ib-send" onclick="sendMobileCmd()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+        </div>
     </main>
+</div>
+
+<!-- Mobile Drawer -->
+<div class="drawer-scrim" id="drawer-scrim" onclick="if(event.target===this)toggleDrawer()">
+    <div class="drawer" id="drawer">
+        <div class="d-brand">
+            <div class="logo" style="width:36px;height:36px;border-radius:10px;background:radial-gradient(120% 120% at 30% 25%, rgba(59,130,246,.35), transparent 55%), linear-gradient(180deg, #232838, #181b25);border:1px solid var(--border);display:grid;place-items:center;color:var(--primary)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><rect x="8" y="8" width="8" height="8" rx="1"/><path d="M3 9h2M3 15h2M19 9h2M19 15h2M9 3v2M15 3v2M9 19v2M15 19v2"/></svg>
+            </div>
+            <div>
+                <div style="font-size:15px;font-weight:600">Invest-Pi</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:1px">Terminal</div>
+            </div>
+            <span style="margin-left:auto"><span class="dot green"></span></span>
+        </div>
+
+        <div class="d-section">Workspace</div>
+        <div class="d-nav">
+            <a class="d-item" href="/">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-8 9 8"/><path d="M5 10v9a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1v-9"/></svg>
+                <span class="flex">Hub</span>
+            </a>
+            <a class="d-item" href="/investpi/">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+                <span class="flex">Dashboard</span>
+            </a>
+            <div class="d-item" onclick="toggleDrawer();addSession('sudo systemctl list-timers --no-pager | grep invest-pi')">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                <span class="flex">System Status</span>
+                <span class="dot green"></span>
+            </div>
+            <a class="d-item" href="/investpi/">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+                <span class="flex">Services</span>
+                <span class="badge primary" id="m-timer-count">--</span>
+            </a>
+            <div class="d-item active">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>
+                <span class="flex">Terminal</span>
+                <span class="badge primary" id="m-session-count">4</span>
+            </div>
+        </div>
+
+        <div class="d-section">Sessions</div>
+        <div class="d-sessions" id="m-session-list"></div>
+
+        <div class="d-footer">
+            <div class="host-row">
+                <span class="dot green"></span>
+                <span id="m-hostname">--</span>
+                <span class="ip" id="m-host-ip">--</span>
+            </div>
+            <div class="uptime">uptime <b id="m-uptime">--</b> · load <b id="m-load">--</b></div>
+            <div class="stat-grid">
+                <div class="stat"><span class="k">CPU</span><span class="v" id="m-cpu">--%</span></div>
+                <div class="stat"><span class="k">RAM</span><span class="v" id="m-ram">--</span></div>
+                <div class="stat warn"><span class="k">Temp</span><span class="v" id="m-temp">--</span></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Command Palette -->
@@ -476,7 +706,7 @@ class TermSession {
         this.term = new Terminal({
             cursorBlink: true,
             cursorStyle: 'block',
-            fontSize: 13,
+            fontSize: window.innerWidth <= 768 ? 11 : 13,
             fontFamily: '"SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace',
             theme: {
                 background: '#0a0c11',
@@ -665,6 +895,8 @@ function switchSession(id) {
     document.getElementById('active-tab-name').textContent = sessions[id].name;
     renderTabs();
     renderSessions();
+    updateMobileHeader();
+    renderMobileSessions();
 }
 
 function updateNotifyDots() {
@@ -692,6 +924,19 @@ function updateNotifyDots() {
             const st = sessions[id].notifyState;
             if (st === 'working') dot.classList.add('notify');
             else if (st === 'done') dot.classList.add('notify-done');
+        }
+    });
+    // Mobile drawer dots
+    document.querySelectorAll('#m-session-list .d-sess').forEach(el => {
+        const name = el.querySelector('.sname')?.textContent?.trim();
+        const idx = sessions.findIndex(s => s && (s.tmuxName === name || s.name === name));
+        const dot = el.querySelector('.dot');
+        if (dot && idx >= 0 && sessions[idx]) {
+            dot.classList.remove('idle', 'notify', 'notify-done');
+            const st = sessions[idx].notifyState;
+            if (st === 'working') dot.classList.add('notify');
+            else if (st === 'done') dot.classList.add('notify-done');
+            else dot.classList.add('idle');
         }
     });
 }
@@ -900,6 +1145,25 @@ async function loadSystemInfo() {
         document.getElementById('ram-val').textContent = d.ram_used || '--';
         document.getElementById('temp-val').textContent = d.cpu_temp != null ? Math.round(d.cpu_temp) + '°C' : '--';
         document.getElementById('timer-count').textContent = d.active_timers || '--';
+        // Mobile
+        const mh = document.getElementById('m-hostname');
+        if (mh) mh.textContent = d.hostname || '--';
+        const mip = document.getElementById('m-host-ip');
+        if (mip) mip.textContent = d.ip || '--';
+        const msub = document.getElementById('m-host-sub');
+        if (msub) msub.textContent = `investpi@${d.hostname || '--'} · ${d.ip || '--'}`;
+        const mu = document.getElementById('m-uptime');
+        if (mu) mu.textContent = d.uptime || '--';
+        const ml = document.getElementById('m-load');
+        if (ml) ml.textContent = d.load != null ? d.load.toFixed(2) : '--';
+        const mc = document.getElementById('m-cpu');
+        if (mc) mc.textContent = d.cpu_pct != null ? Math.round(d.cpu_pct) + '%' : '--';
+        const mr = document.getElementById('m-ram');
+        if (mr) mr.textContent = d.ram_used || '--';
+        const mt = document.getElementById('m-temp');
+        if (mt) mt.textContent = d.cpu_temp != null ? Math.round(d.cpu_temp) + '°C' : '--';
+        const mtc = document.getElementById('m-timer-count');
+        if (mtc) mtc.textContent = d.active_timers || '--';
     } catch (e) { console.error('system-info:', e); }
 }
 
@@ -908,12 +1172,120 @@ window.addEventListener('resize', () => {
     sessions.forEach(s => { if (s) s.fitAddon.fit(); });
 });
 
+// Mobile functions
+function isMobile() { return window.innerWidth <= 768; }
+
+function toggleDrawer() {
+    document.getElementById('drawer-scrim').classList.toggle('open');
+}
+
+function initKeyBar() {
+    const bar = document.getElementById('key-bar');
+    const keys = [
+        { k: '\x1b', label: 'esc' },
+        { k: '\t', label: 'tab' },
+        { k: null, label: 'ctrl', mod: true },
+        { k: '\x1b', label: 'alt', mod: true },
+        { k: '\x1b[A', label: '↑' },
+        { k: '\x1b[B', label: '↓' },
+        { k: '\x1b[D', label: '←' },
+        { k: '\x1b[C', label: '→' },
+        { k: '|', label: '|' },
+        { k: '~', label: '~' },
+        { k: '/', label: '/' },
+        { k: '-', label: '-' },
+    ];
+    let ctrlMode = false;
+    keys.forEach(k => {
+        const btn = document.createElement('button');
+        btn.textContent = k.label;
+        btn.addEventListener('click', () => {
+            const s = sessions[activeSession];
+            if (!s || !s.ws || s.ws.readyState !== WebSocket.OPEN) return;
+            if (k.label === 'ctrl') {
+                ctrlMode = !ctrlMode;
+                btn.style.background = ctrlMode ? 'var(--primary-glow)' : '';
+                btn.style.borderColor = ctrlMode ? 'rgba(59,130,246,.4)' : '';
+                return;
+            }
+            if (ctrlMode && k.k && k.k.length === 1) {
+                const code = k.k.toUpperCase().charCodeAt(0) - 64;
+                s.ws.send(new Uint8Array([code]));
+                ctrlMode = false;
+                bar.querySelector('button:nth-child(3)').style.background = '';
+                bar.querySelector('button:nth-child(3)').style.borderColor = '';
+            } else if (k.k) {
+                s.ws.send(new TextEncoder().encode(k.k));
+            }
+            s.term.focus();
+        });
+        bar.appendChild(btn);
+    });
+}
+
+function sendMobileCmd() {
+    const input = document.getElementById('m-cmd-input');
+    const cmd = input.value.trim();
+    if (!cmd) return;
+    const s = sessions[activeSession];
+    if (s && s.ws && s.ws.readyState === WebSocket.OPEN) {
+        s.ws.send(new TextEncoder().encode(cmd + '\n'));
+    }
+    input.value = '';
+    s.term.focus();
+}
+
+document.getElementById('m-cmd-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); sendMobileCmd(); }
+});
+
+function renderMobileSessions() {
+    const list = document.getElementById('m-session-list');
+    if (!list) return;
+    list.innerHTML = '';
+    const tmuxNames = ['investpi', 'pokepi', 'autopi', 'instapi'];
+    tmuxNames.forEach(name => {
+        const idx = sessions.findIndex(s => s && s.tmuxName === name);
+        const div = document.createElement('div');
+        div.className = 'd-sess' + (idx === activeSession ? ' active' : '');
+        const st = idx >= 0 && sessions[idx] ? sessions[idx].notifyState : null;
+        const dotCls = st === 'working' ? 'notify' : st === 'done' ? 'notify-done' : 'idle';
+        div.innerHTML = `<span class="dot ${dotCls}"></span><span class="sname">${name}</span><span style="color:var(--muted-2);font-size:16px;line-height:1">×</span>`;
+        div.addEventListener('click', () => {
+            if (idx >= 0) { switchSession(idx); }
+            else { addSession('tmux attach -t ' + name); }
+            toggleDrawer();
+        });
+        list.appendChild(div);
+    });
+    sessions.forEach((s, i) => {
+        if (!s || s.tmuxName) return;
+        const div = document.createElement('div');
+        div.className = 'd-sess' + (i === activeSession ? ' active' : '');
+        div.innerHTML = `<span class="dot ${s.connected ? 'green' : 'idle'}"></span><span class="sname">${s.name}</span><span style="color:var(--muted-2);font-size:16px;line-height:1">×</span>`;
+        div.addEventListener('click', () => { switchSession(i); toggleDrawer(); });
+        list.appendChild(div);
+    });
+    const cnt = document.getElementById('m-session-count');
+    if (cnt) cnt.textContent = sessions.filter(s => s).length;
+}
+
+function updateMobileHeader() {
+    const s = sessions[activeSession];
+    if (!s) return;
+    const name = document.getElementById('m-session-name');
+    if (name) name.textContent = s.name || 'bash';
+}
+
+initKeyBar();
+
 // Init — tmux Sessions als Default-Tabs
 const defaultSessions = ['investpi', 'pokepi', 'autopi', 'instapi'];
 defaultSessions.forEach((name, i) => {
     addSession('tmux attach -t ' + name);
 });
 switchSession(0);
+renderMobileSessions();
 loadSystemInfo();
 setInterval(loadSystemInfo, 30000);
 </script>
