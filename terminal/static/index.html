@@ -27,6 +27,7 @@
 }
 
 #pi-home { display: none !important; }
+html .xterm-screen { touch-action: none !important; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
     background: var(--bg); color: var(--text);
@@ -515,20 +516,13 @@ class TermSession {
             if (this.id === activeSession) return;
             if (this.notifyState !== 'working') {
                 this.notifyState = 'working';
-                if (!this._renderThrottle) {
-                    this._renderThrottle = setTimeout(() => {
-                        this._renderThrottle = null;
-                        renderSessions();
-                        renderTabs();
-                    }, 500);
-                }
+                updateNotifyDots();
             }
             clearTimeout(this._idleTimer);
             this._idleTimer = setTimeout(() => {
                 if (this.id === activeSession) return;
                 this.notifyState = 'done';
-                renderSessions();
-                renderTabs();
+                updateNotifyDots();
             }, 3000);
         });
         this.term.onTitleChange((title) => {
@@ -662,6 +656,32 @@ function switchSession(id) {
     document.getElementById('active-tab-name').textContent = sessions[id].name;
     renderTabs();
     renderSessions();
+}
+
+function updateNotifyDots() {
+    document.querySelectorAll('.tmux-link').forEach(el => {
+        const name = el.dataset.tmux;
+        const idx = sessions.findIndex(s => s && s.tmuxName === name);
+        const dot = el.querySelector('.dot');
+        if (dot) {
+            dot.classList.remove('notify', 'notify-done');
+            if (idx >= 0 && sessions[idx]) {
+                const st = sessions[idx].notifyState;
+                if (st === 'working') dot.classList.add('notify');
+                else if (st === 'done') dot.classList.add('notify-done');
+            }
+        }
+    });
+    document.querySelectorAll('#tab-bar .tab-item').forEach(btn => {
+        const id = parseInt(btn.dataset.id);
+        const dot = btn.querySelector('.tab-dot');
+        if (dot && sessions[id]) {
+            dot.classList.remove('notify', 'notify-done');
+            const st = sessions[id].notifyState;
+            if (st === 'working') dot.classList.add('notify');
+            else if (st === 'done') dot.classList.add('notify-done');
+        }
+    });
 }
 
 function renderTabs() {
