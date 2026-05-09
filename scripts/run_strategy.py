@@ -139,7 +139,7 @@ def take_profit_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
         _record_trade(
             decision_pred_id=None,
             ticker=ticker, side="sell", qty=qty,
-            eur_value=qty * price * 0.92, price=price,
+            eur_value=qty * price * eur_per_usd(), price=price,
             status=result.status, order_id=result.order_id,
             strategy_label="take_profit-v1", source=source,
             notes=f"auto take-profit at +{t_cfg.take_profit_pct:.0%}",
@@ -149,7 +149,7 @@ def take_profit_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
                 from src.alerts import notifier
                 notifier.send_trade(
                     ticker=ticker, side="sell", qty=qty,
-                    eur=qty * price * 0.92, price_usd=price,
+                    eur=qty * price * eur_per_usd(), price_usd=price,
                     reason=f"TAKE-PROFIT at +{t_cfg.take_profit_pct:.0%}",
                     paper=broker.is_paper,
                 )
@@ -183,7 +183,7 @@ def trailing_stop_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
         _record_trade(
             decision_pred_id=None,
             ticker=ticker, side="sell", qty=qty,
-            eur_value=qty * price * 0.92, price=price,
+            eur_value=qty * price * eur_per_usd(), price=price,
             status=result.status, order_id=result.order_id,
             strategy_label="trailing_stop-v1", source=source,
             notes=f"trailing-stop {drawdown:+.0%} from peak {peak:.2f}",
@@ -193,7 +193,7 @@ def trailing_stop_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
                 from src.alerts import notifier
                 notifier.send_trade(
                     ticker=ticker, side="sell", qty=qty,
-                    eur=qty * price * 0.92, price_usd=price,
+                    eur=qty * price * eur_per_usd(), price_usd=price,
                     reason=f"TRAILING-STOP {drawdown:+.0%} from peak",
                     paper=broker.is_paper,
                 )
