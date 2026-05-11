@@ -76,6 +76,17 @@ def main() -> None:
     key_finnhub = cfg.api_keys.get("finnhub", "")
     key_news    = cfg.api_keys.get("newsapi", "")
 
+    # Fallback: Keys aus .env laden wenn config.yaml leer
+    if not key_finnhub:
+        import os
+        key_finnhub = os.environ.get("FINNHUB_API_KEY", "")
+        if not key_finnhub:
+            env_path = Path(__file__).resolve().parents[1] / ".env"
+            if env_path.exists():
+                for line in env_path.read_text().splitlines():
+                    if line.strip().startswith("FINNHUB_API_KEY="):
+                        key_finnhub = line.strip().split("=", 1)[1].strip().strip('"')
+
     # ── Self-Learning-Kontext laden (einmalig pro Lauf) ─────
     _global_calibration = ""
     try:
@@ -115,10 +126,10 @@ def main() -> None:
             try:
                 log_prediction(
                     job_source="score_skip",
-                    model="heuristic-v1",
+                    model="heuristic-v5",
                     subject_type="ticker",
                     subject_id=ticker,
-                    prompt="risk_scorer.score_ticker / 9-dim heuristic / weights-v1",
+                    prompt="risk_scorer.score_ticker / 19-dim heuristic+llm / weights-v5",
                     input_summary=f"{ticker} skip",
                     output={"error": err_msg, "ticker": ticker},
                     confidence=None,
