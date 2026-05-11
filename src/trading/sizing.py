@@ -13,6 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+import numpy as np
+
 from . import TradingConfig
 from .decision import TradeDecision
 
@@ -128,6 +130,25 @@ class SizingResult:
     skip_reason:  str = ""
 
 
+MAX_VAR_PCT_OF_PORTFOLIO = 0.02
+
+
+def _var_position_limit(ticker: str, portfolio_eur: float) -> float | None:
+    """Max Position basierend auf VaR95: position_VaR <= 2% des Portfolios."""
+    from ..common.data_loader import get_prices
+    try:
+        prices = get_prices(ticker, period="6mo")
+        if prices is None or len(prices) < 60:
+            return None
+        returns = prices["close"].pct_change().dropna().values[-60:]
+        var_95 = abs(float(np.percentile(returns, 5)))
+        if var_95 <= 0:
+            return None
+        return (portfolio_eur * MAX_VAR_PCT_OF_PORTFOLIO) / var_95
+    except Exception:
+        return None
+
+
 def size_position(
     decision:     TradeDecision,
     cash_eur:     float,
@@ -157,6 +178,15 @@ def size_position(
 
     target = min(decision.target_eur * factor * vol_factor, config.max_position_eur)
     target = min(target, cash_eur * 0.95)  # nicht 100% aufbrauchen
+
+    # VaR-basiertes Position-Limit: max 2% Portfolio-VaR pro Position
+    var_limit = _var_position_limit(decision.ticker, cash_eur)
+    if var_limit is not None and var_limit < target:
+        decision.extras["var_capped"] = True
+        decision.extras["var_limit_eur"] = round(var_limit, 2)
+        target = var_limit
+    else:
+        decision.extras["var_capped"] = False
 
     if target < config.min_position_eur:
         return SizingResult(

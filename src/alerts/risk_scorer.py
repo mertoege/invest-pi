@@ -83,6 +83,11 @@ DIMENSION_WEIGHTS = {
     "valuation_percentile":     1.0,
     "macro_regime":             1.1,
     "earnings_proximity":       1.0,
+    "updown_volume":            1.1,
+    "hurst_regime":             0.9,
+    "var_risk":                 1.2,
+    "gap_pattern":              0.8,
+    "short_interest":           1.0,
 }
 
 
@@ -801,6 +806,256 @@ def score_earnings_proximity(ticker: str) -> DimensionScore:
                               weight=DIMENSION_WEIGHTS["earnings_proximity"])
 
 
+
+
+# ──────────────── 11. UP/DOWN VOLUME RATIO ──────────────────
+def score_updown_volume(prices: pd.DataFrame) -> DimensionScore:
+    """Up-Volume vs Down-Volume Ratio der letzten 20 Tage."""
+    if len(prices) < 25:
+        return DimensionScore("updown_volume", 0, False, "zu wenig Historie", {},
+                              weight=DIMENSION_WEIGHTS["updown_volume"])
+    recent = prices.tail(20).copy()
+    daily_ret = recent["close"].pct_change()
+    vol = recent["volume"]
+    up_vol = float(vol[daily_ret > 0].sum())
+    down_vol = float(vol[daily_ret < 0].sum())
+    total = up_vol + down_vol
+    if total == 0:
+        return DimensionScore("updown_volume", 0, False, "kein Volumen", {},
+                              weight=DIMENSION_WEIGHTS["updown_volume"])
+    ratio = up_vol / down_vol if down_vol > 0 else 5.0
+    down_pct = down_vol / total
+    score = 0.0
+    reasons = []
+    if ratio < 0.6:
+        score += 60 + 30 * (0.6 - ratio) / 0.6
+        reasons.append(f"Up/Down-Ratio {ratio:.2f} — starke Distribution")
+    elif ratio < 0.85:
+        score += 35 + 25 * (0.85 - ratio) / 0.25
+        reasons.append(f"Up/Down-Ratio {ratio:.2f} — leichte Distribution")
+    elif ratio > 1.8:
+        reasons.append(f"Up/Down-Ratio {ratio:.2f} — starke Akkumulation")
+    down_streak = 0
+    max_down_streak = 0
+    for r in daily_ret.dropna():
+        if r < 0:
+            down_streak += 1
+            max_down_streak = max(max_down_streak, down_streak)
+        else:
+            down_streak = 0
+    if max_down_streak >= 4:
+        score += 15
+        reasons.append(f"{max_down_streak} Tage Down-Streak")
+    score = min(100.0, score)
+    return DimensionScore(
+        "updown_volume", score, score >= 40,
+        "; ".join(reasons) if reasons else "Volumen-Balance normal",
+        {"up_down_ratio": round(ratio, 3), "down_vol_pct": round(down_pct, 3),
+         "max_down_streak": max_down_streak},
+        weight=DIMENSION_WEIGHTS["updown_volume"],
+    )
+
+
+# ──────────────── 12. HURST EXPONENT ───────────────────────
+def _hurst_exponent(series: np.ndarray, max_lag: int = 40) -> float | None:
+    """Rescaled Range (R/S) Hurst-Exponent."""
+    n = len(series)
+    if n < max_lag * 2:
+        return None
+    lags = range(10, max_lag + 1)
+    rs_values = []
+    for lag in lags:
+        rs_lag = []
+        for start in range(0, n - lag, lag):
+            chunk = series[start:start + lag]
+            mean_c = chunk.mean()
+            devs = np.cumsum(chunk - mean_c)
+            r = devs.max() - devs.min()
+            s = chunk.std(ddof=1)
+            if s > 0:
+                rs_lag.append(r / s)
+        if rs_lag:
+            rs_values.append((np.log(lag), np.log(np.mean(rs_lag))))
+    if len(rs_values) < 3:
+        return None
+    x = np.array([v[0] for v in rs_values])
+    y = np.array([v[1] for v in rs_values])
+    slope = float(np.polyfit(x, y, 1)[0])
+    return max(0.0, min(1.0, slope))
+
+
+def score_hurst_regime(prices: pd.DataFrame) -> DimensionScore:
+    """Hurst Exponent: H<0.4=mean-reverting, H~0.5=random, H>0.6=trending."""
+    if len(prices) < 100:
+        return DimensionScore("hurst_regime", 0, False, "zu wenig Historie", {},
+                              weight=DIMENSION_WEIGHTS["hurst_regime"])
+    log_returns = np.log(prices["close"].values[1:] / prices["close"].values[:-1])
+    log_returns = log_returns[~np.isnan(log_returns)]
+    h = _hurst_exponent(log_returns)
+    if h is None:
+        return DimensionScore("hurst_regime", 0, False, "Hurst nicht berechenbar", {},
+                              weight=DIMENSION_WEIGHTS["hurst_regime"])
+    ret_20d = float(prices["close"].iloc[-1] / prices["close"].iloc[-20] - 1) if len(prices) >= 20 else 0.0
+    score = 0.0
+    reasons = []
+    if h < 0.40:
+        if ret_20d > 0.05:
+            score = 55 + 30 * (0.40 - h) / 0.40
+            reasons.append(f"H={h:.2f} mean-reverting nach +{ret_20d:.1%} Rallye — Reversal wahrscheinlich")
+        elif ret_20d < -0.05:
+            score = 20
+            reasons.append(f"H={h:.2f} mean-reverting nach Dip — Bounce moeglich")
+        else:
+            score = 25
+            reasons.append(f"H={h:.2f} mean-reverting — Range-gebunden")
+    elif h > 0.60:
+        if ret_20d < -0.03:
+            score = 50 + 25 * (h - 0.60) / 0.40
+            reasons.append(f"H={h:.2f} trending + Abwaertstrend {ret_20d:.1%} — Momentum-Sell")
+        else:
+            score = 10
+            reasons.append(f"H={h:.2f} trending + Aufwaertstrend")
+    else:
+        score = 15
+        reasons.append(f"H={h:.2f} — Random Walk")
+    score = min(100.0, score)
+    return DimensionScore(
+        "hurst_regime", score, score >= 40,
+        "; ".join(reasons),
+        {"hurst": round(h, 3), "return_20d": round(ret_20d, 4),
+         "regime": "mean_revert" if h < 0.4 else "trending" if h > 0.6 else "random"},
+        weight=DIMENSION_WEIGHTS["hurst_regime"],
+    )
+
+
+# ──────────────── 13. VaR RISK ─────────────────────────────
+def score_var_risk(prices: pd.DataFrame) -> DimensionScore:
+    """Value-at-Risk (95%) und Conditional VaR. Hoher VaR = hohes Tail-Risiko."""
+    if len(prices) < 60:
+        return DimensionScore("var_risk", 0, False, "zu wenig Historie", {},
+                              weight=DIMENSION_WEIGHTS["var_risk"])
+    returns = prices["close"].pct_change().dropna().values
+    recent_returns = returns[-60:]
+    var_95 = float(np.percentile(recent_returns, 5))
+    var_99 = float(np.percentile(recent_returns, 1))
+    cvar_95 = float(recent_returns[recent_returns <= var_95].mean()) if (recent_returns <= var_95).any() else var_95
+    vol_annual = float(np.std(recent_returns) * np.sqrt(252))
+    score = 0.0
+    reasons = []
+    if var_95 < -0.04:
+        score += 40 + 30 * min(1.0, (abs(var_95) - 0.04) / 0.06)
+        reasons.append(f"VaR95 {var_95:.1%}/Tag — erhoehtes Tail-Risiko")
+    elif var_95 < -0.025:
+        score += 20 + 20 * (abs(var_95) - 0.025) / 0.015
+        reasons.append(f"VaR95 {var_95:.1%}/Tag — moderate Tail-Risk")
+    if cvar_95 < -0.06:
+        score += 20
+        reasons.append(f"CVaR95 {cvar_95:.1%} — schwere Tail-Events")
+    if vol_annual > 0.50:
+        score += 15
+        reasons.append(f"Annual Vol {vol_annual:.0%} — extrem volatil")
+    score = min(100.0, score)
+    return DimensionScore(
+        "var_risk", score, score >= 40,
+        "; ".join(reasons) if reasons else f"VaR95 {var_95:.1%}, Vol {vol_annual:.0%} — normal",
+        {"var_95": round(var_95, 4), "var_99": round(var_99, 4),
+         "cvar_95": round(cvar_95, 4), "vol_annual": round(vol_annual, 4)},
+        weight=DIMENSION_WEIGHTS["var_risk"],
+    )
+
+
+# ──────────────── 14. GAP ANALYSIS ─────────────────────────
+def score_gap_pattern(prices: pd.DataFrame) -> DimensionScore:
+    """Gap-Downs (Open vs prev Close). Haeufige Gap-Downs = Overnight-Selling-Pressure."""
+    if len(prices) < 30:
+        return DimensionScore("gap_pattern", 0, False, "zu wenig Historie", {},
+                              weight=DIMENSION_WEIGHTS["gap_pattern"])
+    recent = prices.tail(30)
+    gaps = (recent["open"].values[1:] / recent["close"].values[:-1]) - 1
+    gaps = gaps[~np.isnan(gaps)]
+    if len(gaps) == 0:
+        return DimensionScore("gap_pattern", 0, False, "keine Gap-Daten", {},
+                              weight=DIMENSION_WEIGHTS["gap_pattern"])
+    gap_downs = gaps[gaps < -0.005]
+    n_gap_downs = len(gap_downs)
+    avg_gap_down = float(gap_downs.mean()) if n_gap_downs > 0 else 0.0
+    max_gap_down = float(gap_downs.min()) if n_gap_downs > 0 else 0.0
+    intraday_returns = (recent["close"].values - recent["open"].values) / np.where(
+        recent["open"].values != 0, recent["open"].values, 1.0)
+    gap_fill_rate = 0.0
+    if n_gap_downs > 0:
+        filled = 0
+        for i in range(1, len(recent)):
+            if i - 1 < len(gaps) and gaps[i - 1] < -0.005:
+                if i < len(intraday_returns) and intraday_returns[i] > abs(gaps[i - 1]) * 0.5:
+                    filled += 1
+        gap_fill_rate = filled / n_gap_downs
+    score = 0.0
+    reasons = []
+    if n_gap_downs >= 5:
+        score += 45 + 15 * min(1.0, (n_gap_downs - 5) / 5)
+        reasons.append(f"{n_gap_downs} Gap-Downs in 30T — persistente Overnight-Verkaeufe")
+    elif n_gap_downs >= 3:
+        score += 25 + 10 * (n_gap_downs - 3) / 2
+        reasons.append(f"{n_gap_downs} Gap-Downs in 30T")
+    if max_gap_down < -0.03:
+        score += 20
+        reasons.append(f"Max Gap-Down {max_gap_down:.1%} — signifikant")
+    if gap_fill_rate < 0.3 and n_gap_downs >= 3:
+        score += 15
+        reasons.append(f"Gap-Fill-Rate nur {gap_fill_rate:.0%} — Gaps werden nicht gekauft")
+    score = min(100.0, score)
+    return DimensionScore(
+        "gap_pattern", score, score >= 35,
+        "; ".join(reasons) if reasons else "Gap-Muster unauffaellig",
+        {"n_gap_downs_30d": int(n_gap_downs), "avg_gap_down": round(avg_gap_down, 4),
+         "max_gap_down": round(max_gap_down, 4), "gap_fill_rate": round(gap_fill_rate, 3)},
+        weight=DIMENSION_WEIGHTS["gap_pattern"],
+    )
+
+
+# ──────────────── 15. SHORT INTEREST ───────────────────────
+def score_short_interest(ticker: str) -> DimensionScore:
+    """Short Interest aus yfinance .info (shortPercentOfFloat, shortRatio)."""
+    try:
+        import yfinance as yf
+        info = yf.Ticker(ticker).info or {}
+    except Exception as e:
+        return DimensionScore("short_interest", 0, False, f"yfinance error: {e}", {},
+                              weight=DIMENSION_WEIGHTS["short_interest"])
+    short_pct = info.get("shortPercentOfFloat")
+    short_ratio = info.get("shortRatio")
+    if short_pct is None and short_ratio is None:
+        return DimensionScore("short_interest", 0, False,
+                              "keine Short-Daten (ETF oder nicht verfuegbar)", {},
+                              weight=DIMENSION_WEIGHTS["short_interest"])
+    short_pct = float(short_pct or 0)
+    short_ratio = float(short_ratio or 0)
+    score = 0.0
+    reasons = []
+    if short_pct > 0.20:
+        score += 50 + 25 * min(1.0, (short_pct - 0.20) / 0.20)
+        reasons.append(f"Short Float {short_pct:.1%} — sehr hoch")
+    elif short_pct > 0.10:
+        score += 30 + 20 * (short_pct - 0.10) / 0.10
+        reasons.append(f"Short Float {short_pct:.1%} — erhoeht")
+    elif short_pct > 0.05:
+        score += 10 + 10 * (short_pct - 0.05) / 0.05
+        reasons.append(f"Short Float {short_pct:.1%}")
+    if short_ratio > 5:
+        score += 20
+        reasons.append(f"Days to Cover {short_ratio:.1f} — Squeeze-Potenzial")
+    elif short_ratio > 3:
+        score += 10
+        reasons.append(f"Days to Cover {short_ratio:.1f}")
+    score = min(100.0, score)
+    return DimensionScore(
+        "short_interest", score, score >= 35,
+        "; ".join(reasons) if reasons else f"Short Float {short_pct:.1%} — normal",
+        {"short_pct_float": round(short_pct, 4), "short_ratio": round(short_ratio, 2)},
+        weight=DIMENSION_WEIGHTS["short_interest"],
+    )
+
 # ════════════════════════════════════════════════════════════
 #  COMPOSITE SCORING
 # ════════════════════════════════════════════════════════════
@@ -825,6 +1080,11 @@ def score_ticker(
         score_valuation_percentile(ticker),
         score_macro_regime(),
         score_earnings_proximity(ticker),
+        score_updown_volume(prices),
+        score_hurst_regime(prices),
+        score_var_risk(prices),
+        score_gap_pattern(prices),
+        score_short_interest(ticker),
     ]
 
     # Composite: gewichteter Durchschnitt, bei dem nicht-implementierte Stubs
@@ -878,13 +1138,13 @@ def score_ticker(
     except Exception:
         pass
 
-    _prompt_desc = "risk_scorer.score_ticker / 9-dim heuristic / weights-v1 / pattern-augmented"
+    _prompt_desc = "risk_scorer.score_ticker / 15-dim heuristic / weights-v2 / pattern-augmented"
     if learning_context:
         _prompt_desc += f"\n\n--- LEARNING CONTEXT ---\n{learning_context}"
 
     pred_id = log_prediction(
         job_source="daily_score",
-        model="heuristic-v1",
+        model="heuristic-v2",
         subject_type="ticker",
         subject_id=ticker,
         prompt=_prompt_desc,
