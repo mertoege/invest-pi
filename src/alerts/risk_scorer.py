@@ -89,6 +89,9 @@ DIMENSION_WEIGHTS = {
     "gap_pattern":              0.8,
     "short_interest":           1.0,
     "llm_context":              1.3,
+    "earnings_llm":            1.2,
+    "si_trend":                0.9,
+    "cross_asset":             1.0,
 }
 
 
@@ -1197,6 +1200,262 @@ def score_short_interest(ticker: str) -> DimensionScore:
 
 
 
+# ──────────────── 17. CROSS-ASSET CORRELATION ──────────────
+CROSS_ASSETS = {
+    "BTC-USD":  "Risk-On Proxy (Crypto)",
+    "TLT":      "Long Bonds (Flight-to-Safety)",
+    "GLD":      "Gold (Inflation-Hedge)",
+    "UUP":      "US Dollar Index",
+    "^VIX":     "Volatility Index",
+}
+
+
+def score_cross_asset(ticker: str) -> DimensionScore:
+    """Korrelation mit Cross-Asset-Indikatoren (BTC, Bonds, Gold, Dollar, VIX)."""
+    try:
+        own = get_prices(ticker, period="3mo")
+        if len(own) < 30:
+            return DimensionScore("cross_asset", 0, False, "zu wenig Historie", {},
+                                  weight=DIMENSION_WEIGHTS["cross_asset"])
+        own_ret = own["close"].pct_change().dropna().tail(20)
+        own_ret.index = own_ret.index.tz_localize(None) if own_ret.index.tz else own_ret.index
+        correlations = {}
+        for asset, desc in CROSS_ASSETS.items():
+            try:
+                adf = get_prices(asset, period="3mo")
+                aret = adf["close"].pct_change().dropna().tail(20)
+                aret.index = aret.index.tz_localize(None) if aret.index.tz else aret.index
+                merged = pd.DataFrame({"own": own_ret, "asset": aret}).dropna()
+                if len(merged) >= 10:
+                    c = float(merged["own"].corr(merged["asset"]))
+                    if not np.isnan(c):
+                        correlations[asset] = round(c, 3)
+            except Exception:
+                continue
+        if not correlations:
+            return DimensionScore("cross_asset", 0, False, "keine Cross-Asset-Daten", {},
+                                  weight=DIMENSION_WEIGHTS["cross_asset"])
+        score = 0.0
+        reasons = []
+        vix_corr = correlations.get("^VIX", 0)
+        tlt_corr = correlations.get("TLT", 0)
+        btc_corr = correlations.get("BTC-USD", 0)
+        gld_corr = correlations.get("GLD", 0)
+        if vix_corr > 0.3:
+            score += 25 + 15 * min(1.0, (vix_corr - 0.3) / 0.4)
+            reasons.append(f"VIX-Korr +{vix_corr:.2f} — bewegt sich mit Angst")
+        if tlt_corr < -0.3:
+            score += 20
+            reasons.append(f"TLT-Korr {tlt_corr:.2f} — leidet bei Flight-to-Safety")
+        if btc_corr > 0.5:
+            score += 15
+            reasons.append(f"BTC-Korr +{btc_corr:.2f} — Risk-On-Trade")
+        if gld_corr > 0.4 and ticker not in ("GLD", "GDX", "XLE", "XLB"):
+            score += 10
+            reasons.append(f"Gold-Korr +{gld_corr:.2f} — Regime-Shift?")
+        abs_corrs = [abs(v) for v in correlations.values()]
+        if len(abs_corrs) >= 3 and np.mean(abs_corrs) > 0.5:
+            score += 15
+            reasons.append(f"Avg |Korr| {np.mean(abs_corrs):.2f} — alles korreliert, Crash-Regime")
+        score = min(100.0, score)
+        return DimensionScore(
+            "cross_asset", score, score >= 35,
+            "; ".join(reasons) if reasons else "Cross-Asset-Muster unauffaellig",
+            correlations,
+            weight=DIMENSION_WEIGHTS["cross_asset"],
+        )
+    except Exception as e:
+        return DimensionScore("cross_asset", 0, False, f"error: {e}", {},
+                              weight=DIMENSION_WEIGHTS["cross_asset"])
+
+
+# ──────────────── 18. SHORT INTEREST TREND ─────────────────
+def score_si_trend(ticker: str) -> DimensionScore:
+    """Short Interest Trend aus historisch gespeicherten Werten in risk_scores DB."""
+    try:
+        import yfinance as yf
+        info = yf.Ticker(ticker).info or {}
+        current_si = info.get("shortPercentOfFloat")
+        if current_si is None:
+            return DimensionScore("si_trend", 0, False, "keine Short-Daten", {},
+                                  weight=DIMENSION_WEIGHTS["si_trend"])
+        current_si = float(current_si)
+        from ..common.storage import ALERTS_DB, connect
+        from ..common.json_utils import safe_parse
+        rows = []
+        try:
+            with connect(ALERTS_DB) as conn:
+                rows = conn.execute(
+                    """SELECT timestamp, dimensions_js FROM risk_scores
+                       WHERE ticker=? ORDER BY timestamp DESC LIMIT 100""",
+                    (ticker,)).fetchall()
+        except Exception:
+            pass
+        historical_si = []
+        for row in rows:
+            dims = safe_parse(row["dimensions_js"] or "[]", default=[])
+            for d in dims:
+                if d.get("name") == "short_interest":
+                    si_val = d.get("evidence", {}).get("short_pct_float")
+                    if si_val is not None:
+                        historical_si.append(float(si_val))
+        score = 0.0
+        reasons = []
+        if len(historical_si) >= 5:
+            oldest_si = float(np.mean(historical_si[-5:]))
+            si_change = current_si - oldest_si
+            if si_change > 0.03:
+                score += 40 + 20 * min(1.0, (si_change - 0.03) / 0.07)
+                reasons.append(f"SI steigt: {oldest_si:.1%} -> {current_si:.1%}")
+            elif si_change > 0.01:
+                score += 20 + 10 * (si_change - 0.01) / 0.02
+                reasons.append(f"SI leicht steigend: +{si_change:.1%}")
+            elif si_change < -0.03:
+                reasons.append(f"SI faellt: Shorts covern")
+        else:
+            reasons.append(f"SI={current_si:.1%}, zu wenig Historie fuer Trend")
+            if current_si > 0.15:
+                score += 20
+        score = min(100.0, score)
+        return DimensionScore(
+            "si_trend", score, score >= 30,
+            "; ".join(reasons) if reasons else f"SI-Trend stabil ({current_si:.1%})",
+            {"current_si": round(current_si, 4), "n_historical": len(historical_si),
+             "oldest_si": round(float(np.mean(historical_si[-5:])), 4) if len(historical_si) >= 5 else None},
+            weight=DIMENSION_WEIGHTS["si_trend"],
+        )
+    except Exception as e:
+        return DimensionScore("si_trend", 0, False, f"error: {e}", {},
+                              weight=DIMENSION_WEIGHTS["si_trend"])
+
+
+# ──────────────── 19. EARNINGS TRANSCRIPT LLM ──────────────
+def score_earnings_llm(ticker: str) -> DimensionScore:
+    """
+    LLM-Analyse des letzten Earnings-Calls via Haiku.
+    Quelle: Financial Modeling Prep (Free) oder yfinance-Headlines Fallback.
+    """
+    try:
+        from ..common.llm import call_haiku, is_configured
+        if not is_configured():
+            return DimensionScore("earnings_llm", 0, False,
+                                  "LLM nicht konfiguriert",
+                                  {"stub": True},
+                                  weight=DIMENSION_WEIGHTS["earnings_llm"])
+        from .earnings import get_last_earnings_date
+        last_ed = get_last_earnings_date(ticker)
+        if not last_ed or (dt.date.today() - last_ed).days > 30:
+            return DimensionScore("earnings_llm", 0, False,
+                                  "keine kuerzlichen Earnings (>30d)",
+                                  {"last_earnings": str(last_ed) if last_ed else None},
+                                  weight=DIMENSION_WEIGHTS["earnings_llm"])
+
+        transcript_text = None
+        try:
+            import os, requests
+            fmp_key = os.environ.get("FMP_API_KEY", "")
+            if not fmp_key:
+                env_path = "/home/investpi/invest-pi/.env"
+                if os.path.exists(env_path):
+                    for line in open(env_path):
+                        if line.strip().startswith("FMP_API_KEY="):
+                            fmp_key = line.strip().split("=", 1)[1].strip().strip('"')
+            if fmp_key:
+                q = (last_ed.month - 1) // 3 + 1
+                resp = requests.get(
+                    f"https://financialmodelingprep.com/api/v3/earning_call_transcript/{ticker}",
+                    params={"quarter": q, "year": last_ed.year, "apikey": fmp_key},
+                    timeout=15,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data and isinstance(data, list) and data[0].get("content"):
+                        transcript_text = data[0]["content"][:3000]
+        except Exception:
+            pass
+
+        headlines = []
+        try:
+            import yfinance as yf
+            news = yf.Ticker(ticker).news or []
+            for n in news[:10]:
+                t = n.get("title", "").lower()
+                if any(kw in t for kw in ("earning", "quarter", "revenue", "guidance", "beat", "miss")):
+                    headlines.append(n["title"])
+        except Exception:
+            pass
+
+        if not transcript_text and not headlines:
+            return DimensionScore("earnings_llm", 0, False,
+                                  "keine Earnings-Daten fuer LLM",
+                                  {"last_earnings": str(last_ed)},
+                                  weight=DIMENSION_WEIGHTS["earnings_llm"])
+
+        source = "transcript" if transcript_text else "headlines"
+        earnings_ctx = transcript_text if transcript_text else "\n".join(f"- {h}" for h in headlines)
+
+        system_prompt = (
+            "Du bist ein Earnings-Analyst. Analysiere den Earnings-Call/News und bewerte "
+            "das Risiko fuer die naechsten 30 Tage.\n"
+            "Fokus: Guidance (raised/maintained/lowered), Margin-Trend, Management-Ton.\n"
+            "Antworte NUR als JSON: {\"risk_score\": 0-100, "
+            "\"guidance\": \"raised/maintained/lowered/unclear\", "
+            "\"mgmt_tone\": \"confident/neutral/defensive\", "
+            "\"key_concern\": \"1 Satz\", \"bullish_point\": \"1 Satz\"}"
+        )
+
+        result = call_haiku(
+            system=system_prompt,
+            prompt=f"Ticker: {ticker}\nEarnings ({source}, {last_ed}):\n{earnings_ctx}",
+            job_source="risk_earnings_llm",
+            subject_id=ticker,
+            input_summary=f"{ticker}: earnings {source} ({last_ed})",
+            max_tokens=256,
+            temperature=0.0,
+            estimated_cost_eur=0.003,
+        )
+
+        if not result.ok:
+            return DimensionScore("earnings_llm", 0, False,
+                                  f"LLM error: {result.error}", {},
+                                  weight=DIMENSION_WEIGHTS["earnings_llm"])
+
+        parsed = result.parsed_json
+        if not isinstance(parsed, dict):
+            return DimensionScore("earnings_llm", 0, False,
+                                  "LLM response nicht parsebar",
+                                  {"raw": result.text[:200]},
+                                  weight=DIMENSION_WEIGHTS["earnings_llm"])
+
+        llm_score = float(parsed.get("risk_score", 0))
+        guidance = str(parsed.get("guidance", "unclear"))
+        mgmt_tone = str(parsed.get("mgmt_tone", "neutral"))
+        key_concern = str(parsed.get("key_concern", ""))
+        bullish_point = str(parsed.get("bullish_point", ""))
+
+        score = min(100.0, max(0.0, llm_score))
+        if guidance == "lowered":
+            score = min(100.0, score + 15)
+        elif guidance == "raised":
+            score = max(0.0, score - 10)
+
+        reasons = [f"Guidance: {guidance}, Ton: {mgmt_tone}"]
+        if key_concern:
+            reasons.append(f"Risiko: {key_concern}")
+
+        return DimensionScore(
+            "earnings_llm", score, score >= 40,
+            "; ".join(reasons),
+            {"llm_score": llm_score, "guidance": guidance, "mgmt_tone": mgmt_tone,
+             "key_concern": key_concern, "bullish_point": bullish_point,
+             "source": source, "last_earnings": str(last_ed), "cost_eur": result.cost_eur},
+            weight=DIMENSION_WEIGHTS["earnings_llm"],
+        )
+    except Exception as e:
+        return DimensionScore("earnings_llm", 0, False, f"error: {e}", {},
+                              weight=DIMENSION_WEIGHTS["earnings_llm"])
+
+
 # ──────────────── 16. LLM CONTEXT ANALYSIS ─────────────────
 def score_llm_context(ticker: str, dimensions: list[DimensionScore]) -> DimensionScore:
     """
@@ -1223,20 +1482,33 @@ def score_llm_context(ticker: str, dimensions: list[DimensionScore]) -> Dimensio
             for d in dimensions if d.score > 10
         )
 
+        news_ctx = ""
+        try:
+            import yfinance as yf
+            news = yf.Ticker(ticker).news or []
+            if news:
+                headlines = [n.get("title", "") for n in news[:8] if n.get("title")]
+                if headlines:
+                    news_ctx = "\n\nAktuelle Headlines:\n" + "\n".join(f"- {h}" for h in headlines)
+        except Exception:
+            pass
+
         system_prompt = (
             "Du bist ein quantitativer Risk-Analyst. Analysiere die Risk-Dimensionen "
-            "eines Tickers und bewerte ob die Signale zusammen ein kohaerentes Risiko-Bild "
-            "ergeben oder ob es sich um noise/false-positives handelt.\n"
+            "und aktuellen News eines Tickers. Bewerte:\n"
+            "1. Bilden die Signale ein kohaerentes Risiko-Narrativ?\n"
+            "2. Erklaeren die News die Signale (strukturell vs temporaer)?\n"
             "Antworte NUR als JSON: {\"risk_score\": 0-100, \"coherent\": true/false, "
-            "\"narrative\": \"1-2 Saetze\", \"key_risk\": \"Hauptrisiko\"}"
+            "\"narrative\": \"2-3 Saetze\", \"key_risk\": \"Hauptrisiko\", "
+            "\"structural\": true/false, \"news_aligned\": true/false}"
         )
 
         prompt = (
             f"Ticker: {ticker}\n"
             f"Aktive Risk-Dimensionen ({len(triggered_dims)} von {len(dimensions)} triggered):\n"
-            f"{dim_summary}\n\n"
-            f"Frage: Bilden diese Signale ein kohaerentes Risiko-Narrativ? "
-            f"Oder sind es unabhaengige, schwache Signale die zusammen kein echtes Risiko darstellen?"
+            f"{dim_summary}"
+            f"{news_ctx}\n\n"
+            f"Analyse: Bilden diese Signale + News ein kohaerentes Risiko-Narrativ?"
         )
 
         result = call_haiku(
@@ -1267,8 +1539,12 @@ def score_llm_context(ticker: str, dimensions: list[DimensionScore]) -> Dimensio
         coherent = bool(parsed.get("coherent", False))
         narrative = str(parsed.get("narrative", ""))
         key_risk = str(parsed.get("key_risk", ""))
+        structural = parsed.get("structural", None)
+        news_aligned = parsed.get("news_aligned", None)
 
         score = min(100.0, max(0.0, llm_score))
+        if structural is True:
+            score = min(100.0, score * 1.15)
         triggered = score >= 40 and coherent
 
         reason_parts = []
@@ -1276,6 +1552,12 @@ def score_llm_context(ticker: str, dimensions: list[DimensionScore]) -> Dimensio
             reason_parts.append(f"LLM: kohaerentes Risiko-Bild (Score {score:.0f})")
         else:
             reason_parts.append(f"LLM: Signale inkonsistent (Score {score:.0f})")
+        if structural is True:
+            reason_parts.append("strukturelles Risiko")
+        elif structural is False:
+            reason_parts.append("temporaerer Katalysator")
+        if news_aligned is False:
+            reason_parts.append("News widersprechen Signalen")
         if key_risk:
             reason_parts.append(f"Hauptrisiko: {key_risk}")
 
@@ -1284,6 +1566,7 @@ def score_llm_context(ticker: str, dimensions: list[DimensionScore]) -> Dimensio
             "; ".join(reason_parts),
             {"llm_score": llm_score, "coherent": coherent,
              "narrative": narrative, "key_risk": key_risk,
+             "structural": structural, "news_aligned": news_aligned,
              "cost_eur": result.cost_eur, "model": result.model},
             weight=DIMENSION_WEIGHTS["llm_context"],
         )
@@ -1323,7 +1606,12 @@ def score_ticker(
         score_short_interest(ticker),
     ]
 
-    # LLM Context Analysis: Meta-Layer ueber alle anderen Dimensionen
+    # Cross-Asset + SI Trend + Earnings LLM
+    dimensions.append(score_cross_asset(ticker))
+    dimensions.append(score_si_trend(ticker))
+    dimensions.append(score_earnings_llm(ticker))
+
+    # LLM Context Analysis: Meta-Layer ueber alle anderen Dimensionen (last)
     dimensions.append(score_llm_context(ticker, dimensions))
 
     # Composite: gewichteter Durchschnitt, bei dem nicht-implementierte Stubs
@@ -1377,13 +1665,13 @@ def score_ticker(
     except Exception:
         pass
 
-    _prompt_desc = "risk_scorer.score_ticker / 16-dim heuristic+llm / weights-v3 / pattern-augmented"
+    _prompt_desc = "risk_scorer.score_ticker / 19-dim heuristic+llm+cross-asset+earnings / weights-v5 / pattern-augmented"
     if learning_context:
         _prompt_desc += f"\n\n--- LEARNING CONTEXT ---\n{learning_context}"
 
     pred_id = log_prediction(
         job_source="daily_score",
-        model="heuristic-v3",
+        model="heuristic-v5",
         subject_type="ticker",
         subject_id=ticker,
         prompt=_prompt_desc,
