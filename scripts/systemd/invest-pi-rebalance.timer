@@ -1,8 +1,8 @@
 [Unit]
-Description=Invest-Pi · Rebalance/Sell-Pass Mo-Fr 20:00
+Description=Invest-Pi · Rebalance/Sell-Pass Mo-Fr 21:30 (Market Close)
 
 [Timer]
-OnCalendar=Mon..Fri *-*-* 20:00:00
+OnCalendar=Mon..Fri *-*-* 21:30:00
 Persistent=true
 
 [Install]

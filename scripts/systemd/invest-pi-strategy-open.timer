@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · Strategy-Run Mo-Fr 15:35 (Market Open)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 15:35:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
