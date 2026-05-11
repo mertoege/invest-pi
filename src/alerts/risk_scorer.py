@@ -88,6 +88,7 @@ DIMENSION_WEIGHTS = {
     "var_risk":                 1.2,
     "gap_pattern":              0.8,
     "short_interest":           1.0,
+    "llm_context":              1.3,
 }
 
 
@@ -315,11 +316,8 @@ def score_volume_divergence(prices: pd.DataFrame) -> DimensionScore:
 # ──────────────── 3. INSIDER SELLING CLUSTER ──────────────���─
 def score_insider_selling(ticker: str, finnhub_key: Optional[str] = None) -> DimensionScore:
     """
-    Finnhub /stock/insider-transactions: Form-4-Daten der letzten 90 Tage.
-    Scoring:
-      - Zaehle Sell-Transaktionen der letzten 30 Tage
-      - >= 3 verschiedene Insider verkaufen → triggered
-      - Score proportional zu Anzahl Seller
+    Finnhub Form-4 + Dollar-Volumen, Buy/Sell-Ratio, verbleibende Shares.
+    Phase 2 Upgrade: nicht nur Seller-Count, sondern $ Impact.
     """
     if not finnhub_key:
         return DimensionScore(
@@ -343,37 +341,71 @@ def score_insider_selling(ticker: str, finnhub_key: Optional[str] = None) -> Dim
                                   weight=DIMENSION_WEIGHTS["insider_selling"])
         data = resp.json().get("data", [])
 
-        cutoff = (dt.datetime.now() - dt.timedelta(days=30)).strftime("%Y-%m-%d")
+        cutoff_30 = (dt.datetime.now() - dt.timedelta(days=30)).strftime("%Y-%m-%d")
+
         recent_sells = [t for t in data
                         if t.get("transactionType") in ("S - Sale", "S - Sale+OE")
-                        and (t.get("filingDate", "") >= cutoff)]
+                        and (t.get("filingDate", "") >= cutoff_30)]
+        recent_buys = [t for t in data
+                       if t.get("transactionType") in ("P - Purchase",)
+                       and (t.get("filingDate", "") >= cutoff_30)]
 
         unique_sellers = len(set(t.get("name", "") for t in recent_sells))
+        unique_buyers = len(set(t.get("name", "") for t in recent_buys))
+
+        sell_dollar = sum(abs(t.get("share", 0)) * abs(t.get("transactionPrice", 0))
+                         for t in recent_sells)
+        buy_dollar = sum(abs(t.get("share", 0)) * abs(t.get("transactionPrice", 0))
+                        for t in recent_buys)
         total_shares_sold = sum(abs(t.get("share", 0)) for t in recent_sells)
+
+        sell_buy_ratio = sell_dollar / buy_dollar if buy_dollar > 0 else (999.0 if sell_dollar > 0 else 0.0)
 
         score = 0.0
         reasons = []
-        if unique_sellers >= 5:
-            score = min(80.0, unique_sellers * 12)
-            reasons.append(f"{unique_sellers} Insider verkauft (30d)")
-        elif unique_sellers >= 3:
-            score = unique_sellers * 10
-            reasons.append(f"{unique_sellers} Insider verkauft (30d)")
-        elif unique_sellers >= 1:
-            score = unique_sellers * 5
-            reasons.append(f"{unique_sellers} Insider verkauft (30d)")
 
+        if sell_dollar > 50_000_000:
+            score += 50 + 20 * min(1.0, (sell_dollar - 50e6) / 200e6)
+            reasons.append(f"${sell_dollar/1e6:.0f}M Insider-Verkaeufe (30d)")
+        elif sell_dollar > 10_000_000:
+            score += 25 + 25 * (sell_dollar - 10e6) / 40e6
+            reasons.append(f"${sell_dollar/1e6:.1f}M Insider-Verkaeufe (30d)")
+        elif sell_dollar > 1_000_000:
+            score += 10 + 15 * (sell_dollar - 1e6) / 9e6
+            reasons.append(f"${sell_dollar/1e6:.1f}M Insider-Verkaeufe (30d)")
+
+        if unique_sellers >= 5:
+            score += 15
+            reasons.append(f"{unique_sellers} verschiedene Seller")
+        elif unique_sellers >= 3:
+            score += 8
+
+        if sell_buy_ratio > 20 and sell_dollar > 5_000_000:
+            score += 15
+            reasons.append(f"Sell/Buy-Ratio {sell_buy_ratio:.0f}:1 — kein Insider kauft")
+        elif sell_buy_ratio > 5 and sell_dollar > 1_000_000:
+            score += 8
+            reasons.append(f"Sell/Buy-Ratio {sell_buy_ratio:.0f}:1")
+
+        if unique_buyers > 0 and sell_dollar < 5_000_000:
+            score = max(0, score - 10)
+            reasons.append(f"{unique_buyers} Insider kaufen — positives Signal")
+
+        score = min(100.0, score)
         triggered = score >= 30
         return DimensionScore(
-            "insider_selling", min(100, score), triggered,
-            "; ".join(reasons) if reasons else "keine auffälligen Insider-Verkäufe",
-            {"unique_sellers_30d": unique_sellers, "total_shares_sold": total_shares_sold,
-             "transactions_90d": len(data)},
+            "insider_selling", score, triggered,
+            "; ".join(reasons) if reasons else "keine auffaelligen Insider-Verkaeufe",
+            {"unique_sellers_30d": unique_sellers, "unique_buyers_30d": unique_buyers,
+             "sell_dollar_30d": round(sell_dollar, 2), "buy_dollar_30d": round(buy_dollar, 2),
+             "sell_buy_ratio": round(sell_buy_ratio, 1),
+             "total_shares_sold": total_shares_sold, "transactions_90d": len(data)},
             weight=DIMENSION_WEIGHTS["insider_selling"],
         )
     except Exception as e:
         return DimensionScore("insider_selling", 0, False, f"error: {e}", {},
                               weight=DIMENSION_WEIGHTS["insider_selling"])
+
 
 
 # ──────────────── 4. ANALYST DOWNGRADES ─────────────────────
@@ -474,8 +506,8 @@ def score_analyst_downgrades(ticker: str, finnhub_key: Optional[str] = None) -> 
 # ──────────────── 5. OPTIONS PUT/CALL SKEW ──────────────────
 def score_options_skew(ticker: str) -> DimensionScore:
     """
-    Analysiere die Options-Chain: ist der Put/Call-Ratio ungewöhnlich hoch?
-    Funktioniert mit yfinance-Optionsdaten (15 min delayed, frei).
+    Phase 3 Upgrade: P/C Ratio + Max Pain + IV vs Realized Vol.
+    Max Pain = Strike mit max OI-Schmerz fuer Options-Halter.
     """
     try:
         import yfinance as yf
@@ -483,37 +515,101 @@ def score_options_skew(ticker: str) -> DimensionScore:
         expirations = tk.options
         if not expirations:
             return DimensionScore("options_skew", 0, False,
-                                  "keine Options verfügbar", {},
+                                  "keine Options verfuegbar", {},
                                   weight=DIMENSION_WEIGHTS["options_skew"])
 
-        # Nähester Verfallstermin
         nearest = expirations[0]
         chain = tk.option_chain(nearest)
+        calls = chain.calls
+        puts = chain.puts
 
-        call_oi = chain.calls["openInterest"].sum()
-        put_oi  = chain.puts["openInterest"].sum()
-        if call_oi == 0:
-            return DimensionScore("options_skew", 0, False, "kein Call-OI", {},
+        call_oi = calls["openInterest"].sum()
+        put_oi = puts["openInterest"].sum()
+        if call_oi == 0 and put_oi == 0:
+            return DimensionScore("options_skew", 0, False, "kein OI", {},
                                   weight=DIMENSION_WEIGHTS["options_skew"])
 
-        pc_ratio = put_oi / call_oi
+        pc_ratio = put_oi / call_oi if call_oi > 0 else 5.0
 
-        # Schwellen: historischer Schnitt ~0.7, Extrem > 1.5
+        max_pain = None
+        try:
+            all_strikes = sorted(set(calls["strike"].tolist() + puts["strike"].tolist()))
+            if all_strikes:
+                min_pain_val = float("inf")
+                for strike in all_strikes:
+                    call_pain = calls.apply(
+                        lambda r: max(0, strike - r["strike"]) * r["openInterest"], axis=1).sum()
+                    put_pain = puts.apply(
+                        lambda r: max(0, r["strike"] - strike) * r["openInterest"], axis=1).sum()
+                    total_pain = call_pain + put_pain
+                    if total_pain < min_pain_val:
+                        min_pain_val = total_pain
+                        max_pain = strike
+        except Exception:
+            pass
+
+        iv_mean = None
+        rv_ratio = None
+        try:
+            all_iv = pd.concat([
+                calls[["impliedVolatility"]].dropna(),
+                puts[["impliedVolatility"]].dropna()
+            ])
+            if len(all_iv) > 0:
+                iv_mean = float(all_iv["impliedVolatility"].median())
+            if iv_mean and iv_mean > 0:
+                prices = get_prices(ticker, period="3mo")
+                if len(prices) >= 30:
+                    rv = float(prices["close"].pct_change().tail(30).std() * np.sqrt(252))
+                    if rv > 0:
+                        rv_ratio = iv_mean / rv
+        except Exception:
+            pass
+
+        current_price = None
+        try:
+            prices = get_prices(ticker, period="5d")
+            current_price = float(prices["close"].iloc[-1])
+        except Exception:
+            pass
+
         score = 0.0
         reasons = []
+
         if pc_ratio > 1.5:
-            score = min(100.0, (pc_ratio - 1.0) * 50)
+            score += min(40.0, (pc_ratio - 1.0) * 40)
             reasons.append(f"Put/Call Ratio {pc_ratio:.2f} (hoch)")
         elif pc_ratio > 1.0:
-            score = (pc_ratio - 0.7) * 40
-            reasons.append(f"Put/Call Ratio {pc_ratio:.2f} (erhöht)")
+            score += (pc_ratio - 0.7) * 30
+            reasons.append(f"Put/Call Ratio {pc_ratio:.2f} (erhoeht)")
 
-        triggered = score >= 40
+        if max_pain and current_price:
+            mp_dist = (current_price - max_pain) / current_price
+            if mp_dist > 0.05:
+                score += 15 + 15 * min(1.0, (mp_dist - 0.05) / 0.10)
+                reasons.append(f"Max Pain ${max_pain:.0f} liegt {mp_dist:.1%} unter Kurs — Magnet nach unten")
+            elif mp_dist < -0.05:
+                reasons.append(f"Max Pain ${max_pain:.0f} ueber Kurs — Magnet nach oben")
+
+        if rv_ratio is not None:
+            if rv_ratio > 1.5:
+                score += 15
+                reasons.append(f"IV/RV={rv_ratio:.1f} — Options stark ueber-preist, Event erwartet")
+            elif rv_ratio < 0.8:
+                score += 10
+                reasons.append(f"IV/RV={rv_ratio:.1f} — Options unter-preist, Markt unterschaetzt Risiko")
+
+        score = min(100.0, score)
+        triggered = score >= 35
         return DimensionScore(
             "options_skew", score, triggered,
             "; ".join(reasons) if reasons else f"P/C-Ratio {pc_ratio:.2f} normal",
             {"put_call_ratio": float(pc_ratio),
              "call_oi": int(call_oi), "put_oi": int(put_oi),
+             "max_pain": float(max_pain) if max_pain else None,
+             "current_price": current_price,
+             "iv_median": round(iv_mean, 4) if iv_mean else None,
+             "iv_rv_ratio": round(rv_ratio, 2) if rv_ratio else None,
              "expiration": nearest},
             weight=DIMENSION_WEIGHTS["options_skew"],
         )
@@ -521,6 +617,7 @@ def score_options_skew(ticker: str) -> DimensionScore:
         return DimensionScore("options_skew", 0, False,
                               f"options data error: {e}", {},
                               weight=DIMENSION_WEIGHTS["options_skew"])
+
 
 
 # ──────────────── 6. SENTIMENT REVERSAL ─────────────────────
@@ -598,59 +695,101 @@ PEER_MAP = {
 
 
 def score_peer_weakness(ticker: str) -> DimensionScore:
-    """Vergleiche relative Performance der letzten 30 Tage vs. Peers."""
+    """
+    Phase 2 Upgrade: taegliche Move-Deltas + 30d Relative Return.
+    Erkennt ob ein Drop stock-spezifisch oder sektor-weit ist.
+    """
     peers = PEER_MAP.get(ticker)
     if not peers:
         return DimensionScore("peer_weakness", 0, False,
-                              f"keine Peer-Definition für {ticker}", {},
+                              f"keine Peer-Definition fuer {ticker}", {},
                               weight=DIMENSION_WEIGHTS["peer_weakness"])
-
     try:
         own = get_prices(ticker, period="3mo")
-        own_ret = (own["close"].iloc[-1] / own["close"].iloc[-30]) - 1
+        if len(own) < 30:
+            return DimensionScore("peer_weakness", 0, False, "zu wenig Historie", {},
+                                  weight=DIMENSION_WEIGHTS["peer_weakness"])
+        own_ret_30d = (own["close"].iloc[-1] / own["close"].iloc[-30]) - 1
+        own_daily = own["close"].pct_change().dropna().tail(20)
 
-        peer_rets = []
+        peer_daily_list = []
+        peer_rets_30d = []
         for p in peers:
             try:
-                peer_df = get_prices(p, period="3mo")
-                peer_rets.append((peer_df["close"].iloc[-1] / peer_df["close"].iloc[-30]) - 1)
+                pdf = get_prices(p, period="3mo")
+                peer_rets_30d.append((pdf["close"].iloc[-1] / pdf["close"].iloc[-30]) - 1)
+                pdr = pdf["close"].pct_change().dropna().tail(20)
+                pdr.index = pdr.index.tz_localize(None) if pdr.index.tz else pdr.index
+                peer_daily_list.append(pdr)
             except Exception:
                 continue
 
-        if not peer_rets:
-            return DimensionScore("peer_weakness", 0, False,
-                                  "keine Peer-Daten", {},
+        if not peer_rets_30d:
+            return DimensionScore("peer_weakness", 0, False, "keine Peer-Daten", {},
                                   weight=DIMENSION_WEIGHTS["peer_weakness"])
 
-        peer_avg = float(np.mean(peer_rets))
-        delta = own_ret - peer_avg
+        peer_avg_30d = float(np.mean(peer_rets_30d))
+        delta_30d = own_ret_30d - peer_avg_30d
 
-        # Score: wie weit ist unser Titel hinter den Peers zurück?
+        stock_specific_days = 0
+        n_big_down = 0
+        own_idx = own_daily.copy()
+        own_idx.index = own_idx.index.tz_localize(None) if own_idx.index.tz else own_idx.index
+        for i, (date, own_r) in enumerate(own_idx.items()):
+            if own_r < -0.02:
+                n_big_down += 1
+                peer_rs = []
+                for pdr in peer_daily_list:
+                    if date in pdr.index:
+                        peer_rs.append(float(pdr.loc[date]))
+                if peer_rs:
+                    peer_avg_day = np.mean(peer_rs)
+                    if own_r < peer_avg_day - 0.02:
+                        stock_specific_days += 1
+
+        daily_corrs = []
+        for pdr in peer_daily_list:
+            merged = pd.DataFrame({"own": own_idx, "peer": pdr}).dropna()
+            if len(merged) >= 10:
+                c = float(merged["own"].corr(merged["peer"]))
+                if not np.isnan(c):
+                    daily_corrs.append(c)
+        avg_corr = float(np.mean(daily_corrs)) if daily_corrs else 0.5
+
         score = 0.0
         reasons = []
 
-        # Fall A: eigener Titel fällt, Peers fallen auch → Sektor-Schwäche
-        if own_ret < -0.05 and peer_avg < -0.03:
-            score = min(100.0, abs(own_ret) * 500)
-            reasons.append(f"Sektor-Schwäche: eigener {own_ret:+.1%}, Peers {peer_avg:+.1%}")
-        # Fall B: eigener Titel schwächer als Peers → relative Schwäche
-        elif delta < -0.05:
-            score = min(100.0, abs(delta) * 300)
-            reasons.append(f"Unter Peer-Durchschnitt: {delta:+.1%} relativ")
+        if stock_specific_days >= 3:
+            score += 35 + 10 * min(1.0, (stock_specific_days - 3) / 3)
+            reasons.append(f"{stock_specific_days} stock-spezifische Down-Days (20T)")
+        elif stock_specific_days >= 1:
+            score += 15 * stock_specific_days
 
-        triggered = score >= 40
+        if own_ret_30d < -0.05 and peer_avg_30d < -0.03:
+            score += min(40.0, abs(own_ret_30d) * 300)
+            reasons.append(f"Sektor-Schwaeche: eigener {own_ret_30d:+.1%}, Peers {peer_avg_30d:+.1%}")
+        elif delta_30d < -0.05:
+            score += min(35.0, abs(delta_30d) * 250)
+            reasons.append(f"Relative Schwaeche: {delta_30d:+.1%} vs Peers (30d)")
+
+        if avg_corr < 0.3 and n_big_down >= 2:
+            score += 10
+            reasons.append(f"Niedrige Peer-Korrelation ({avg_corr:.2f}) — entkoppelt")
+
+        score = min(100.0, score)
+        triggered = score >= 35
         return DimensionScore(
             "peer_weakness", score, triggered,
-            "; ".join(reasons) if reasons else f"im Peer-Bereich ({delta:+.1%} vs Avg)",
-            {"own_return_30d": float(own_ret),
-             "peer_avg": peer_avg,
-             "peers": peers},
+            "; ".join(reasons) if reasons else f"im Peer-Bereich ({delta_30d:+.1%} vs Avg)",
+            {"own_return_30d": float(own_ret_30d), "peer_avg_30d": peer_avg_30d,
+             "delta_30d": round(delta_30d, 4), "stock_specific_days": stock_specific_days,
+             "avg_peer_corr": round(avg_corr, 3), "peers": peers},
             weight=DIMENSION_WEIGHTS["peer_weakness"],
         )
     except Exception as e:
-        return DimensionScore("peer_weakness", 0, False,
-                              f"error: {e}", {},
+        return DimensionScore("peer_weakness", 0, False, f"error: {e}", {},
                               weight=DIMENSION_WEIGHTS["peer_weakness"])
+
 
 
 # ──────────────── 8. VALUATION PERCENTILE ───────────────────
@@ -1056,6 +1195,103 @@ def score_short_interest(ticker: str) -> DimensionScore:
         weight=DIMENSION_WEIGHTS["short_interest"],
     )
 
+
+
+# ──────────────── 16. LLM CONTEXT ANALYSIS ─────────────────
+def score_llm_context(ticker: str, dimensions: list[DimensionScore]) -> DimensionScore:
+    """
+    Phase 3: LLM-Meta-Analyse aller Dimensionen via Haiku (billig).
+    Bewertet ob Signale kohaerentes Risiko-Narrativ bilden oder Noise sind.
+    Nur bei >= 3 triggered Dimensionen (Kostenoptimierung).
+    """
+    triggered_dims = [d for d in dimensions if d.triggered]
+    if len(triggered_dims) < 3:
+        return DimensionScore("llm_context", 0, False,
+                              "zu wenig aktive Signale fuer LLM-Analyse",
+                              {"skipped": True, "triggered_n": len(triggered_dims)},
+                              weight=DIMENSION_WEIGHTS["llm_context"])
+    try:
+        from ..common.llm import call_haiku, is_configured
+        if not is_configured():
+            return DimensionScore("llm_context", 0, False,
+                                  "LLM nicht konfiguriert (kein API-Key)",
+                                  {"stub": True},
+                                  weight=DIMENSION_WEIGHTS["llm_context"])
+
+        dim_summary = "\n".join(
+            f"- {d.name}: score={d.score:.0f}, reason={d.reason}"
+            for d in dimensions if d.score > 10
+        )
+
+        system_prompt = (
+            "Du bist ein quantitativer Risk-Analyst. Analysiere die Risk-Dimensionen "
+            "eines Tickers und bewerte ob die Signale zusammen ein kohaerentes Risiko-Bild "
+            "ergeben oder ob es sich um noise/false-positives handelt.\n"
+            "Antworte NUR als JSON: {\"risk_score\": 0-100, \"coherent\": true/false, "
+            "\"narrative\": \"1-2 Saetze\", \"key_risk\": \"Hauptrisiko\"}"
+        )
+
+        prompt = (
+            f"Ticker: {ticker}\n"
+            f"Aktive Risk-Dimensionen ({len(triggered_dims)} von {len(dimensions)} triggered):\n"
+            f"{dim_summary}\n\n"
+            f"Frage: Bilden diese Signale ein kohaerentes Risiko-Narrativ? "
+            f"Oder sind es unabhaengige, schwache Signale die zusammen kein echtes Risiko darstellen?"
+        )
+
+        result = call_haiku(
+            system=system_prompt,
+            prompt=prompt,
+            job_source="risk_llm_context",
+            subject_id=ticker,
+            input_summary=f"{ticker}: {len(triggered_dims)} triggered dims",
+            max_tokens=256,
+            temperature=0.0,
+            estimated_cost_eur=0.002,
+        )
+
+        if not result.ok:
+            return DimensionScore("llm_context", 0, False,
+                                  f"LLM error: {result.error}",
+                                  {"llm_error": result.error},
+                                  weight=DIMENSION_WEIGHTS["llm_context"])
+
+        parsed = result.parsed_json
+        if not isinstance(parsed, dict):
+            return DimensionScore("llm_context", 0, False,
+                                  "LLM response nicht parsebar",
+                                  {"raw": result.text[:200]},
+                                  weight=DIMENSION_WEIGHTS["llm_context"])
+
+        llm_score = float(parsed.get("risk_score", 0))
+        coherent = bool(parsed.get("coherent", False))
+        narrative = str(parsed.get("narrative", ""))
+        key_risk = str(parsed.get("key_risk", ""))
+
+        score = min(100.0, max(0.0, llm_score))
+        triggered = score >= 40 and coherent
+
+        reason_parts = []
+        if coherent:
+            reason_parts.append(f"LLM: kohaerentes Risiko-Bild (Score {score:.0f})")
+        else:
+            reason_parts.append(f"LLM: Signale inkonsistent (Score {score:.0f})")
+        if key_risk:
+            reason_parts.append(f"Hauptrisiko: {key_risk}")
+
+        return DimensionScore(
+            "llm_context", score, triggered,
+            "; ".join(reason_parts),
+            {"llm_score": llm_score, "coherent": coherent,
+             "narrative": narrative, "key_risk": key_risk,
+             "cost_eur": result.cost_eur, "model": result.model},
+            weight=DIMENSION_WEIGHTS["llm_context"],
+        )
+    except Exception as e:
+        return DimensionScore("llm_context", 0, False,
+                              f"llm error: {e}", {},
+                              weight=DIMENSION_WEIGHTS["llm_context"])
+
 # ════════════════════════════════════════════════════════════
 #  COMPOSITE SCORING
 # ════════════════════════════════════════════════════════════
@@ -1086,6 +1322,9 @@ def score_ticker(
         score_gap_pattern(prices),
         score_short_interest(ticker),
     ]
+
+    # LLM Context Analysis: Meta-Layer ueber alle anderen Dimensionen
+    dimensions.append(score_llm_context(ticker, dimensions))
 
     # Composite: gewichteter Durchschnitt, bei dem nicht-implementierte Stubs
     # (score=0, evidence enthält "todo") mit reduziertem Einfluss eingehen
@@ -1138,13 +1377,13 @@ def score_ticker(
     except Exception:
         pass
 
-    _prompt_desc = "risk_scorer.score_ticker / 15-dim heuristic / weights-v2 / pattern-augmented"
+    _prompt_desc = "risk_scorer.score_ticker / 16-dim heuristic+llm / weights-v3 / pattern-augmented"
     if learning_context:
         _prompt_desc += f"\n\n--- LEARNING CONTEXT ---\n{learning_context}"
 
     pred_id = log_prediction(
         job_source="daily_score",
-        model="heuristic-v2",
+        model="heuristic-v3",
         subject_type="ticker",
         subject_id=ticker,
         prompt=_prompt_desc,
