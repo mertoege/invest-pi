@@ -35,25 +35,26 @@ Einstiegspunkte für die systemd Timers:
 , , , ,
 , , , 
 
-## Systemd Timers (16 Stück)
+## Systemd Timers (17 Stueck)
 | Timer | Intervall |
 |-------|-----------|
-|  | alle 2 Min |
-|  | alle 2 Min |
-|  | alle 30s |
-|  | alle 30 Min |
-|  | alle 30 Min |
-|  | alle 20 Min |
-|  | wöchentlich (Sa) |
-|  | täglich 18:00 |
-|  | So 10:00 |
-|  | Mo-Fr |
-|  | monatlich |
-|  | monatlich |
-|  | monatlich |
-|  | wöchentlich |
-|  | 1x/Tag |
-|  | täglich 03:30 |
+| invest-pi-auto-pull | alle 2 Min |
+| invest-pi-status-push | alle 2 Min |
+| invest-pi-score | alle 30s |
+| invest-pi-data-refresh | alle 30 Min |
+| invest-pi-signals | alle 30 Min |
+| invest-pi-learning | alle 20 Min |
+| invest-pi-weekly-rotation | woechentlich (Sa) |
+| invest-pi-daily-report | taeglich 18:00 |
+| invest-pi-meta-review | So 10:00 |
+| invest-pi-strategy-open | Mo-Fr 15:35 (Market Open) |
+| invest-pi-strategy | Mo-Fr 18:00 (Midday) |
+| invest-pi-rebalance | Mo-Fr 21:30 (Market Close, sell-only) |
+| invest-pi-monthly-dca | monatlich |
+| invest-pi-dca-watchdog | monatlich |
+| invest-pi-weekly-mini-review | woechentlich |
+| invest-pi-outcome-tracker | 1x/Tag |
+| invest-pi-db-maintenance | taeglich 03:30 |
 
 ## Deployment
 - **auto_pull** Timer holt alle 2 Min von GitHub 

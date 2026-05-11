@@ -167,13 +167,39 @@ def score_technical_breakdown(prices: pd.DataFrame) -> DimensionScore:
         score += 30.0
         reasons.append("MACD bearish crossover")
 
+    # Signal 4: RSI overbought
+    rsi = _rsi(close, 14)
+    if rsi is not None:
+        if rsi > 80:
+            score += 20.0
+            reasons.append(f"RSI stark ueberkauft ({rsi:.0f})")
+        elif rsi > 70:
+            score += 10.0
+            reasons.append(f"RSI ueberkauft ({rsi:.0f})")
+
+    # Signal 5: Bollinger Band breach
+    bb_upper, bb_lower, bb_mid = _bollinger(close, 20, 2)
+    if bb_lower is not None and current < bb_lower:
+        score += 15.0
+        reasons.append("Kurs unter unterem Bollinger Band")
+    elif bb_upper is not None and current > bb_upper:
+        score += 10.0
+        reasons.append("Kurs ueber oberem Bollinger Band")
+
+    # Signal 6: ADX trend strength (high ADX + bearish = dangerous)
+    adx_val = _adx(prices, 14)
+    if adx_val is not None and adx_val > 25 and current < ma50:
+        score += 10.0
+        reasons.append(f"starker Abwaertstrend (ADX={adx_val:.0f})")
+
     score = min(100.0, score)
     triggered = score >= 40
     return DimensionScore(
         "technical_breakdown", score, triggered,
-        "; ".join(reasons) if reasons else "keine Schwäche",
+        "; ".join(reasons) if reasons else "keine Schwaeche",
         {"current": float(current), "ma50": ma50, "ma200": ma200,
-         "macd": float(macd)},
+         "macd": float(macd), "rsi": float(rsi) if rsi else None,
+         "adx": float(adx_val) if adx_val else None},
         weight=DIMENSION_WEIGHTS["technical_breakdown"],
     )
 
@@ -186,6 +212,53 @@ def _ema(values: np.ndarray, span: int) -> np.ndarray:
     for i in range(1, len(values)):
         ema[i] = alpha * values[i] + (1 - alpha) * ema[i - 1]
     return ema
+
+
+def _rsi(close: np.ndarray, period: int = 14) -> Optional[float]:
+    if len(close) < period + 1:
+        return None
+    deltas = np.diff(close[-(period + 1):])
+    gains = np.where(deltas > 0, deltas, 0)
+    losses = np.where(deltas < 0, -deltas, 0)
+    avg_gain = float(np.mean(gains))
+    avg_loss = float(np.mean(losses))
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return 100.0 - (100.0 / (1.0 + rs))
+
+
+def _bollinger(close: np.ndarray, period: int = 20, num_std: float = 2.0):
+    if len(close) < period:
+        return None, None, None
+    window = close[-period:]
+    mid = float(np.mean(window))
+    std = float(np.std(window))
+    return mid + num_std * std, mid - num_std * std, mid
+
+
+def _adx(prices: pd.DataFrame, period: int = 14) -> Optional[float]:
+    if len(prices) < period + 1:
+        return None
+    high = prices["high"].values[-(period + 1):]
+    low = prices["low"].values[-(period + 1):]
+    close_arr = prices["close"].values[-(period + 1):]
+    tr = np.maximum(high[1:] - low[1:],
+                    np.maximum(np.abs(high[1:] - close_arr[:-1]),
+                               np.abs(low[1:] - close_arr[:-1])))
+    plus_dm = np.where((high[1:] - high[:-1]) > (low[:-1] - low[1:]),
+                       np.maximum(high[1:] - high[:-1], 0), 0)
+    minus_dm = np.where((low[:-1] - low[1:]) > (high[1:] - high[:-1]),
+                        np.maximum(low[:-1] - low[1:], 0), 0)
+    atr = float(np.mean(tr))
+    if atr == 0:
+        return None
+    plus_di = 100 * float(np.mean(plus_dm)) / atr
+    minus_di = 100 * float(np.mean(minus_dm)) / atr
+    di_sum = plus_di + minus_di
+    if di_sum == 0:
+        return None
+    return float(100 * abs(plus_di - minus_di) / di_sum)
 
 
 # ──────────────── 2. VOLUME DIVERGENCE ──────────────────────

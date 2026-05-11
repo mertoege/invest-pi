@@ -276,14 +276,8 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
     print(f"  regime-budget: {budget_left:.0f} EUR verfuegbar "
           f"({current_invested:.0f}/{max_invest:.0f} EUR, Ziel {target_invest_pct:.0%})")
 
-    # Korrelations-Check vorbereiten
-    corr_check_available = False
-    try:
-        from src.learning.correlation import correlation_check_for_buy
-        corr_check_available = True
-    except Exception:
-        pass
-
+    # Phase 1: Collect buy-eligible candidates
+    eligible = []
     for entry in candidates:
         # Stoppe wenn wir das Tages-Limit fuer Trades erreichen
         check = pre_trade_check(broker, t_cfg)
@@ -326,38 +320,71 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             decisions["skips"].append({"ticker": entry.ticker, "reason": f"correlation: {corr_reason}"})
             continue
 
-        if dry_run:
-            print(f"  BUY (dry-run) {entry.ticker}: {sz.qty} @ {quote.last:.2f} = {sz.eur_amount:.2f} EUR  ({decision.reason})")
-            decisions["buys"].append({"ticker": entry.ticker, "qty": sz.qty, "dry_run": True})
+        from src.trading.decision import latest_risk_score
+        score = latest_risk_score(entry.ticker)
+        eligible.append({
+            "ticker": entry.ticker, "decision": decision, "quote": quote, "sz": sz,
+            "composite": score["composite"] if score else 0,
+            "confidence": score["confidence"] if score else "low",
+            "alert": score["alert_level"] if score else 0,
+            "triggered": score["triggered_n"] if score else 0,
+        })
+
+    # Phase 2: LLM screening
+    if eligible and not dry_run:
+        try:
+            llm_approved = _llm_screen_candidates(eligible, t_cfg, regime_info, held)
+            llm_approved_set = set(llm_approved)
+        except Exception as e:
+            print(f"  llm-screen failed ({e}), all candidates pass")
+            llm_approved_set = {item["ticker"] for item in eligible}
+    else:
+        llm_approved_set = {item["ticker"] for item in eligible}
+
+    # Phase 3: Execute approved buys
+    trades_done = []
+    for item in eligible:
+        ticker = item["ticker"]
+        decision, quote, sz = item["decision"], item["quote"], item["sz"]
+
+        if ticker not in llm_approved_set:
+            decisions["skips"].append({"ticker": ticker, "reason": "llm-screen: nicht empfohlen"})
+            print(f"  SKIP {ticker}: LLM-Screen abgelehnt")
             continue
 
-        result = broker.place_order(ticker=entry.ticker, side="buy", qty=sz.qty)
+        if dry_run:
+            print(f"  BUY (dry-run) {ticker}: {sz.qty} @ {quote.last:.2f} = {sz.eur_amount:.2f} EUR  ({decision.reason})")
+            decisions["buys"].append({"ticker": ticker, "qty": sz.qty, "dry_run": True})
+            continue
+
+        result = broker.place_order(ticker=ticker, side="buy", qty=sz.qty)
         _record_trade(
             decision_pred_id=decision.decision_pred_id,
-            ticker=entry.ticker, side="buy", qty=sz.qty,
+            ticker=ticker, side="buy", qty=sz.qty,
             eur_value=sz.eur_amount, price=quote.last,
             status=result.status, order_id=result.order_id,
             strategy_label=f"{t_cfg.mode}-{decision.strategy_label}-v1", source=source,
             notes=decision.reason,
         )
         if result.status == "filled":
-            _update_position_after_buy(
-                entry.ticker,
-                f"{t_cfg.mode}-{decision.strategy_label}-v1",
-                source, quote.last,
-            )
-        print(f"  BUY {entry.ticker}: {sz.qty} @ {quote.last:.2f} = {sz.eur_amount:.2f} EUR  [{result.status}]")
-        decisions["buys"].append({
-            "ticker": entry.ticker, "qty": sz.qty,
-            "status": result.status, "order_id": result.order_id,
-        })
+            _update_position_after_buy(ticker, f"{t_cfg.mode}-{decision.strategy_label}-v1", source, quote.last)
+        print(f"  BUY {ticker}: {sz.qty} @ {quote.last:.2f} = {sz.eur_amount:.2f} EUR  [{result.status}]")
+        decisions["buys"].append({"ticker": ticker, "qty": sz.qty, "status": result.status, "order_id": result.order_id})
+        trades_done.append({"ticker": ticker, "side": "buy", "qty": sz.qty, "price": quote.last, "reason": decision.reason})
 
         if result.status in ("filled", "pending_new", "accepted"):
-            held.add(entry.ticker)
+            held.add(ticker)
             open_n += 1
             if open_n >= t_cfg.max_open_positions:
                 print(f"  max_open_positions reached, stopping for today")
                 break
+
+    # Phase 4: Post-trade LLM analysis
+    if trades_done and not dry_run:
+        try:
+            _llm_post_trade_analysis(trades_done, regime_info)
+        except Exception as e:
+            print(f"  post-trade analysis failed: {e}")
 
     return decisions
 
@@ -529,8 +556,10 @@ def main() -> None:
         if n_rb:
             print(f"  regime-rebalance: {n_rb} sells")
 
+    regime_str = f"{regime.label} ({regime.probability:.0%})" if regime else "unbekannt"
+
     if not args.skip_buys:
-        decisions = buy_pass(broker, cfg, t_cfg, src, args.dry_run)
+        decisions = buy_pass(broker, cfg, t_cfg, src, args.dry_run, regime_info=regime_str)
         print(f"\n  buys:  {len(decisions['buys'])}")
         print(f"  skips: {len(decisions['skips'])}")
         if decisions['errors']:

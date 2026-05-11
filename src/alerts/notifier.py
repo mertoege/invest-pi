@@ -117,6 +117,9 @@ def _log_notification(
 _LEVEL_LABEL = {0: "Green", 1: "Watch", 2: "Caution", 3: "Red"}
 _LEVEL_EMOJI = {0: "🟢", 1: "🟡", 2: "🟠", 3: "🔴"}
 
+_ALERTS_ENABLED = False
+_TRADES_ENABLED = False
+
 
 def send_alert(
     *,
@@ -127,10 +130,10 @@ def send_alert(
     prediction_id:      Optional[int] = None,
     dimensions_summary: Optional[str] = None,
 ) -> bool:
-    """
-    Risk-Alert an Telegram. Bei alert_level >= 2 mit Inline-Buttons.
-    Returns True wenn der Telegram-API-Call erfolgreich war.
-    """
+    """Risk-Alert — DB-Logging immer, Telegram nur wenn _ALERTS_ENABLED."""
+    _log_notification(ticker, alert_level, f"composite={composite:.1f}", True, prediction_id)
+    if not _ALERTS_ENABLED:
+        return True
     if not is_configured():
         log.info(f"telegram nicht konfiguriert, skip alert {ticker}")
         return False
@@ -182,7 +185,9 @@ def send_trade(
     reason:    str = "",
     paper:     bool = True,
 ) -> bool:
-    """Info-Nachricht über einen ausgeführten Trade. Keine Buttons."""
+    """Trade-Benachrichtigung — deaktiviert via _TRADES_ENABLED Flag."""
+    if not _TRADES_ENABLED:
+        return True
     if not is_configured():
         return False
     badge = "📝 Paper" if paper else "💰 LIVE"
