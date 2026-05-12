@@ -1118,7 +1118,7 @@ def score_gap_pattern(prices: pd.DataFrame) -> DimensionScore:
     if len(gaps) == 0:
         return DimensionScore("gap_pattern", 0, False, "keine Gap-Daten", {},
                               weight=DIMENSION_WEIGHTS["gap_pattern"])
-    gap_downs = gaps[gaps < -0.005]
+    gap_downs = gaps[gaps < -0.01]
     n_gap_downs = len(gap_downs)
     avg_gap_down = float(gap_downs.mean()) if n_gap_downs > 0 else 0.0
     max_gap_down = float(gap_downs.min()) if n_gap_downs > 0 else 0.0
@@ -1128,22 +1128,25 @@ def score_gap_pattern(prices: pd.DataFrame) -> DimensionScore:
     if n_gap_downs > 0:
         filled = 0
         for i in range(1, len(recent)):
-            if i - 1 < len(gaps) and gaps[i - 1] < -0.005:
+            if i - 1 < len(gaps) and gaps[i - 1] < -0.01:
                 if i < len(intraday_returns) and intraday_returns[i] > abs(gaps[i - 1]) * 0.5:
                     filled += 1
         gap_fill_rate = filled / n_gap_downs
     score = 0.0
     reasons = []
-    if n_gap_downs >= 5:
-        score += 45 + 15 * min(1.0, (n_gap_downs - 5) / 5)
-        reasons.append(f"{n_gap_downs} Gap-Downs in 30T — persistente Overnight-Verkaeufe")
-    elif n_gap_downs >= 3:
-        score += 25 + 10 * (n_gap_downs - 3) / 2
-        reasons.append(f"{n_gap_downs} Gap-Downs in 30T")
-    if max_gap_down < -0.03:
+    if n_gap_downs >= 7:
+        score += 50 + 15 * min(1.0, (n_gap_downs - 7) / 5)
+        reasons.append(f"{n_gap_downs} Gap-Downs >1% in 30T — persistente Overnight-Verkaeufe")
+    elif n_gap_downs >= 4:
+        score += 25 + 8 * (n_gap_downs - 4) / 3
+        reasons.append(f"{n_gap_downs} Gap-Downs >1% in 30T")
+    if max_gap_down < -0.05:
         score += 20
         reasons.append(f"Max Gap-Down {max_gap_down:.1%} — signifikant")
-    if gap_fill_rate < 0.3 and n_gap_downs >= 3:
+    elif max_gap_down < -0.03:
+        score += 10
+        reasons.append(f"Max Gap-Down {max_gap_down:.1%}")
+    if gap_fill_rate < 0.3 and n_gap_downs >= 4:
         score += 15
         reasons.append(f"Gap-Fill-Rate nur {gap_fill_rate:.0%} — Gaps werden nicht gekauft")
     score = min(100.0, score)
