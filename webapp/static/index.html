@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0f1117">
     <title>Invest-Pi</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -112,7 +112,7 @@
             border:1px solid var(--border-soft);flex-shrink:0;
         }
 
-        .content{flex:1;overflow-y:auto;padding:24px;background:radial-gradient(circle at 70% -10%,rgba(59,130,246,.06) 0%,transparent 50%)}
+        .content{flex:1;overflow-y:auto;overflow-x:hidden;padding:24px;background:radial-gradient(circle at 70% -10%,rgba(59,130,246,.06) 0%,transparent 50%)}
 
         /* ============ Pages ============ */
         .page{display:none;animation:fadein .25s ease-out both}
@@ -282,6 +282,33 @@
         ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
         ::-webkit-scrollbar-track{background:transparent}
 
+        #pi-home{display:none !important}
+
+        /* ============ Mobile Tab Bar ============ */
+        .mobile-tabbar{
+            display:none;position:fixed;left:0;right:0;bottom:0;
+            height:calc(82px + env(safe-area-inset-bottom, 0px));
+            background:rgba(15,17,23,.78);
+            backdrop-filter:blur(28px) saturate(160%);-webkit-backdrop-filter:blur(28px) saturate(160%);
+            border-top:1px solid var(--border-soft);
+            padding:10px 8px env(safe-area-inset-bottom, 0px);z-index:100;
+            justify-content:space-around;align-items:flex-start;
+        }
+        .mobile-tabbar .mtab{
+            flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;
+            padding:8px 4px;border-radius:14px;color:var(--muted);
+            position:relative;cursor:pointer;-webkit-tap-highlight-color:transparent;
+        }
+        .mobile-tabbar .mtab .mlbl{font-size:10px;font-weight:600;letter-spacing:.01em}
+        .mobile-tabbar .mtab svg{width:24px;height:24px}
+        .mobile-tabbar .mtab.active{color:var(--primary)}
+        .mobile-tabbar .mtab.active::before{
+            content:"";position:absolute;top:-2px;left:50%;transform:translateX(-50%);
+            width:64px;height:64px;border-radius:50%;
+            background:radial-gradient(circle,rgba(59,130,246,.28) 0%,rgba(59,130,246,0) 70%);
+            pointer-events:none;
+        }
+
         /* ============ Responsive ============ */
         @media (max-width:1100px){
             .hero-row{grid-template-columns:1fr 1fr}
@@ -295,15 +322,56 @@
             .dca-grid{grid-template-columns:repeat(2,1fr)}
         }
         @media (max-width:768px){
-            .app{grid-template-columns:1fr}
+            html,body{overflow-x:hidden}
+            .app{grid-template-columns:1fr;overflow-x:hidden;max-width:100vw}
+            .main{overflow-x:hidden}
             .side{display:none}
-            .kpis{grid-template-columns:repeat(2,1fr)}
-            .sys-row{grid-template-columns:repeat(2,1fr)}
-            .tstat-row{grid-template-columns:repeat(2,1fr)}
+            .topbar{display:none}
+            .mobile-tabbar{display:flex}
+            .content{padding:16px 14px 100px;background:var(--bg);overflow-x:hidden}
+            .page{overflow-x:hidden;max-width:100%}
+
+            .page-h h2{font-size:22px}
+            .page-h .sub{font-size:12px}
+            .page-h{margin-bottom:14px}
+
+            .hero-row{grid-template-columns:1fr;gap:10px}
+            .stat .v{font-size:22px}
+            .stat.primary .v{font-size:28px}
+            .stat{padding:14px}
+
+            .kpis{grid-template-columns:repeat(2,1fr);gap:8px}
+            .kpi .v{font-size:15px}
+            .kpi{padding:10px 12px}
+
+            .charts-row{grid-template-columns:1fr !important}
+            .chart-container{height:180px}
+            .two-col{grid-template-columns:1fr}
+
+            .tstat-row{grid-template-columns:repeat(2,1fr);gap:8px}
+            .sys-row{grid-template-columns:repeat(2,1fr);gap:8px}
             .timer-grid{grid-template-columns:1fr}
-            .dca-hero{grid-template-columns:1fr}
+
+            .dca-hero{grid-template-columns:1fr 1fr;gap:16px;padding:16px}
             .dca-grid{grid-template-columns:1fr}
-            .topbar .search{display:none}
+
+            .card{overflow:hidden;max-width:100%}
+            .card .h{padding:12px 14px}
+            .card .body{padding:12px 14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+            table.tbl{font-size:11px;min-width:0}
+            table.tbl th{padding:8px 6px;font-size:9px;white-space:nowrap}
+            table.tbl td{padding:8px 6px;white-space:nowrap}
+
+            .donut-wrap{grid-template-columns:110px 1fr;gap:10px}
+
+            .stat .delta{font-size:12px}
+            .stat .bar{margin-top:8px}
+            .badge{font-size:9px;padding:2px 6px}
+            .strat{font-size:9px}
+
+            .sys-stat .v{font-size:16px}
+            .timer{font-size:11px;padding:9px 10px}
         }
     </style>
 </head>
@@ -334,6 +402,10 @@
             DCA
         </div>
         <div class="nav-section">System</div>
+        <a class="nav-item" href="/" style="text-decoration:none;color:inherit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M9 21V12h6v9"/></svg>
+            Hub
+        </a>
         <div class="nav-item" data-page="system" onclick="switchPage('system')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8 2 2 0 1 1-2.8 2.8 1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0 1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3 2 2 0 1 1-2.8-2.8 1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8 2 2 0 1 1 2.8-2.8 1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0 1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3 2 2 0 1 1 2.8 2.8 1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4 1.7 1.7 0 0 0-1.5 1z"/></svg>
             System<span class="badge" id="nav-timers-count">--</span>
@@ -635,6 +707,34 @@
     </main>
 </div>
 
+<!-- Mobile Tab Bar -->
+<nav class="mobile-tabbar" id="mobile-tabbar">
+    <div class="mtab active" data-page="dashboard" onclick="switchPage('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+        <span class="mlbl">Dashboard</span>
+    </div>
+    <div class="mtab" data-page="portfolio" onclick="switchPage('portfolio')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h13v4H5a2 2 0 0 1-2-2z"/><path d="M3 7v10a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1H5a2 2 0 0 1-2-1z"/><circle cx="17" cy="14" r="1.2" fill="currentColor"/></svg>
+        <span class="mlbl">Portfolio</span>
+    </div>
+    <div class="mtab" data-page="trades" onclick="switchPage('trades')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17 9 11l4 4 8-9"/><path d="M14 6h7v7"/></svg>
+        <span class="mlbl">Trades</span>
+    </div>
+    <div class="mtab" data-page="dca" onclick="switchPage('dca')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v18"/><path d="M17 7c-1-1.6-3-2.5-5-2.5C9 4.5 7 6 7 8s2 3 5 3.5S17 13 17 15s-2 3.5-5 3.5c-2 0-4-.9-5-2.5"/></svg>
+        <span class="mlbl">DCA</span>
+    </div>
+    <div class="mtab" data-page="system" onclick="switchPage('system')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        <span class="mlbl">System</span>
+    </div>
+    <a class="mtab" href="/" style="text-decoration:none;color:inherit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M9 21V12h6v9"/></svg>
+        <span class="mlbl">Hub</span>
+    </a>
+</nav>
+
 <script>
     const BASE = '/investpi/api';
 
@@ -650,12 +750,15 @@
     function switchPage(page) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.mtab[data-page]').forEach(n => n.classList.remove('active'));
         const el = document.getElementById('page-' + page);
         if (!el) return;
         el.classList.add('active');
         el.style.animation = 'none'; el.offsetHeight; el.style.animation = '';
         const nav = document.querySelector(`.nav-item[data-page="${page}"]`);
         if (nav) nav.classList.add('active');
+        const mtab = document.querySelector(`.mtab[data-page="${page}"]`);
+        if (mtab) mtab.classList.add('active');
         const crumb = document.getElementById('topbar-crumb');
         const pageName = page.charAt(0).toUpperCase() + page.slice(1);
         crumb.innerHTML = `<b>${pageName}</b><i>·</i><span id="topbar-sub">${crumbTexts[page] || ''}</span>`;
@@ -663,6 +766,7 @@
     }
     const savedPage = localStorage.getItem('invest-pi-page');
     if (savedPage) switchPage(savedPage);
+    else { const mt = document.querySelector('.mtab[data-page="dashboard"]'); if (mt) mt.classList.add('active'); }
 
     // ─── Clock ───
     function updateClock() {
