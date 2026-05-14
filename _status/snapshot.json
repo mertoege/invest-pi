@@ -13,28 +13,28 @@
   },
   "git": {
     "branch": "main",
-    "commit": "beaf88db",
+    "commit": "6884a738",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 58.4,
+    "cpu_temp_c": 60.6,
     "disk_pct": 30,
-    "load_1min": 0.07,
-    "mem_pct": 46
+    "load_1min": 0.27,
+    "mem_pct": 50
   },
   "last_runs": {
     "run_strategy": "Wed 2026-05-13 18:00:23 CEST",
-    "score_portfolio": "Thu 2026-05-14 16:34:33 CEST",
+    "score_portfolio": null,
     "sync_positions": "Thu 2026-05-14 16:35:18 CEST",
     "track_outcomes": "Thu 2026-05-14 02:46:05 CEST"
   },
   "predictions": {
     "correct": 5523,
     "incorrect": 1231,
-    "last_24h": 952,
-    "last_7d": 6405,
-    "pending": 7128,
-    "total": 15058
+    "last_24h": 953,
+    "last_7d": 6391,
+    "pending": 7134,
+    "total": 15064
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-05-14T15:29:16"
+  "timestamp_utc": "2026-05-14T15:31:16"
 }
