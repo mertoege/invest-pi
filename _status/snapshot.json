@@ -13,14 +13,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "b1241e12",
+    "commit": "bda3dea2",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 59.5,
+    "cpu_temp_c": 60.05,
     "disk_pct": 30,
-    "load_1min": 0.38,
-    "mem_pct": 49
+    "load_1min": 0.3,
+    "mem_pct": 50
   },
   "last_runs": {
     "run_strategy": "Wed 2026-05-13 18:00:23 CEST",
@@ -31,10 +31,10 @@
   "predictions": {
     "correct": 5523,
     "incorrect": 1231,
-    "last_24h": 955,
-    "last_7d": 6430,
-    "pending": 7025,
-    "total": 14955
+    "last_24h": 957,
+    "last_7d": 6419,
+    "pending": 7037,
+    "total": 14967
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-05-14T12:31:27"
+  "timestamp_utc": "2026-05-14T12:33:27"
 }
