@@ -46,9 +46,48 @@ from ..learning.reflection import generate_reflection
 # KONFIG
 # ────────────────────────────────────────────────────────────
 WINDOWS_DAYS = (1, 7, 30)
-DRAWDOWN_THRESHOLD = -0.05    # -5% in 7d-Fenster = "Risiko realisierte sich"
+DRAWDOWN_THRESHOLD_BASE = -0.05  # baseline for ~25% annual vol stocks
 DRIFT_WINDOW_DAYS = 7
 DRIFT_DELTA_THRESHOLD = 0.15  # 15pp
+_VOL_BASELINE = 0.25  # 25% annual vol = "normal" stock
+
+
+def _volatility_adjusted_threshold(
+    output_json: str | None,
+    prices: pd.DataFrame | None = None,
+) -> float:
+    """
+    Per-Ticker Drawdown-Threshold basierend auf historischer Volatility.
+    High-vol Ticker (PLTR ~50%) bekommen einen grosszuegigeren Threshold,
+    Low-vol Ticker (KO ~15%) einen strengeren.
+    """
+    import numpy as np
+    vol_annual = None
+
+    # 1. Versuche vol aus var_risk Dimension im output_json
+    if output_json:
+        out = safe_parse(output_json, default={})
+        for d in out.get("dimensions", []):
+            if d.get("name") == "var_risk":
+                vol_annual = d.get("evidence", {}).get("vol_annual")
+                if vol_annual:
+                    vol_annual = float(vol_annual)
+                    break
+
+    # 2. Fallback: berechne aus Preisdaten
+    if vol_annual is None and prices is not None and len(prices) >= 60:
+        try:
+            returns = prices["close"].pct_change().dropna().values[-60:]
+            vol_annual = float(np.std(returns) * np.sqrt(252))
+        except Exception:
+            pass
+
+    if vol_annual is None or vol_annual <= 0:
+        return DRAWDOWN_THRESHOLD_BASE
+
+    # Skaliere proportional: doppelte Vol = doppelt so grosszuegiger Threshold
+    scaled = DRAWDOWN_THRESHOLD_BASE * (vol_annual / _VOL_BASELINE)
+    return max(-0.20, min(-0.02, scaled))
 
 
 # ────────────────────────────────────────────────────────────
@@ -110,16 +149,20 @@ def _measure_window(prices: pd.DataFrame, start_date: dt.datetime, days: int) ->
     )
 
 
-def _correctness_for_alert(alert_level: int, max_dd_7d: Optional[float]) -> Optional[int]:
+def _correctness_for_alert(
+    alert_level: int,
+    max_dd_7d: Optional[float],
+    threshold: float = DRAWDOWN_THRESHOLD_BASE,
+) -> Optional[int]:
     """
     Maps (alert_level, realized 7d drawdown) → 1 (correct) / 0 (wrong) / None (unmessbar).
+    Threshold is per-ticker volatility-adjusted.
     """
     if max_dd_7d is None:
         return None
     if alert_level == 1:
-        # Watch ist absichtlich nicht binary korrekt-/falsch-bar
         return None
-    risk_realized = max_dd_7d <= DRAWDOWN_THRESHOLD
+    risk_realized = max_dd_7d <= threshold
     if alert_level >= 2:
         return 1 if risk_realized else 0
     if alert_level == 0:
@@ -171,22 +214,26 @@ def measure_outcome_for(pred: PredictionRecord) -> Optional[dict]:
     if not has_7d and alert_level != 1:
         return None  # 7d noch nicht abgelaufen, später nochmal versuchen
 
+    # Per-ticker volatility-adjusted threshold
+    threshold = _volatility_adjusted_threshold(pred.output_json, prices)
+
     correctness = _correctness_for_alert(
-        alert_level, measurements["7d"]["max_drawdown"]
+        alert_level, measurements["7d"]["max_drawdown"], threshold
     )
 
     # Multi-Horizon: auch 1d und 30d separat bewerten
     correctness_1d = _correctness_for_alert(
-        alert_level, measurements["1d"]["max_drawdown"]
+        alert_level, measurements["1d"]["max_drawdown"], threshold
     ) if measurements["1d"]["max_drawdown"] is not None else None
     correctness_30d = _correctness_for_alert(
-        alert_level, measurements["30d"]["max_drawdown"]
+        alert_level, measurements["30d"]["max_drawdown"], threshold
     ) if measurements["30d"]["max_drawdown"] is not None else None
 
     return {
         "alert_level":     alert_level,
         "windows":         measurements,
-        "correctness_basis": "max_drawdown <= -5% per horizon",
+        "correctness_basis": f"max_drawdown <= {threshold:.1%} (vol-adjusted)",
+        "threshold_used":  round(threshold, 4),
         "_correct":        correctness,
         "_correct_1d":     correctness_1d,
         "_correct_30d":    correctness_30d,

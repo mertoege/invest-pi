@@ -27,6 +27,7 @@ from ..common.storage import LEARNING_DB, connect
 
 
 # Default-Gewichte (Fallback wenn nicht genug Daten)
+# Muss alle 19 Dimensionen aus risk_scorer.DIMENSION_WEIGHTS enthalten.
 DEFAULT_WEIGHTS = {
     "technical_breakdown":      1.2,
     "volume_divergence":        1.0,
@@ -38,6 +39,15 @@ DEFAULT_WEIGHTS = {
     "valuation_percentile":     1.0,
     "macro_regime":             1.1,
     "earnings_proximity":       1.0,
+    "updown_volume":            1.1,
+    "hurst_regime":             0.9,
+    "var_risk":                 1.2,
+    "gap_pattern":              0.8,
+    "short_interest":           1.0,
+    "llm_context":              1.3,
+    "cross_asset":              1.0,
+    "si_trend":                 0.9,
+    "earnings_llm":             1.2,
 }
 
 # Sicherheits-Grenzen
