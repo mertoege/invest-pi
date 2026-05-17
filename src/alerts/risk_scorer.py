@@ -1617,17 +1617,19 @@ def score_ticker(
     # LLM Context Analysis: Meta-Layer ueber alle anderen Dimensionen (last)
     dimensions.append(score_llm_context(ticker, dimensions))
 
-    # Composite: gewichteter Durchschnitt, bei dem nicht-implementierte Stubs
-    # (score=0, evidence enthält "todo") mit reduziertem Einfluss eingehen
-    total_weight = 0.0
-    weighted_sum = 0.0
-    for d in dimensions:
-        is_stub = d.evidence.get("todo") is not None
-        effective_weight = d.weight * (0.3 if is_stub else 1.0)
-        weighted_sum += d.score * effective_weight
-        total_weight += effective_weight
+    # Composite: gewichteter Durchschnitt NUR der getriggerten Dimensionen.
+    # Nicht-getriggerte (score=0) verduennen den Score nicht mehr.
+    triggered_dims = [d for d in dimensions if d.triggered]
 
-    composite = weighted_sum / total_weight if total_weight > 0 else 0
+    if len(triggered_dims) >= 2:
+        total_weight = 0.0
+        weighted_sum = 0.0
+        for d in triggered_dims:
+            weighted_sum += d.score * d.weight
+            total_weight += d.weight
+        composite = weighted_sum / total_weight if total_weight > 0 else 0
+    else:
+        composite = 0.0
     alert_level = _alert_level_from_score(composite)
     alert_label = {0: "Green", 1: "Watch", 2: "Caution", 3: "Red"}[alert_level]
 
