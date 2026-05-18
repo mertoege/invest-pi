@@ -64,10 +64,10 @@ def _finnhub_throttle():
 # KONFIGURATION
 # ────────────────────────────────────────────────────────────
 ALERT_THRESHOLDS = {
-    0: (0,   25),     # Green  · Normal
-    1: (25,  50),     # Watch  · Beobachten
-    2: (50,  75),     # Caution · Vorsicht
-    3: (75, 101),     # Red    · Handlung
+    0: (0,   40),     # Green  · Normal
+    1: (40,  55),     # Watch  · Beobachten
+    2: (55,  70),     # Caution · Vorsicht
+    3: (70, 101),     # Red    · Handlung
 }
 
 # Gewichte pro Dimension (siehe § 04 Signal-Hierarchie)
@@ -1617,17 +1617,20 @@ def score_ticker(
     # LLM Context Analysis: Meta-Layer ueber alle anderen Dimensionen (last)
     dimensions.append(score_llm_context(ticker, dimensions))
 
-    # Composite: gewichteter Durchschnitt NUR der getriggerten Dimensionen.
-    # Nicht-getriggerte (score=0) verduennen den Score nicht mehr.
+    # Composite: gewichteter Durchschnitt der getriggerten Dimensionen,
+    # skaliert mit Breadth-Faktor (mehr Triggers = hoehere Konfidenz).
     triggered_dims = [d for d in dimensions if d.triggered]
+    n_triggered = len(triggered_dims)
 
-    if len(triggered_dims) >= 2:
+    if n_triggered >= 2:
         total_weight = 0.0
         weighted_sum = 0.0
         for d in triggered_dims:
             weighted_sum += d.score * d.weight
             total_weight += d.weight
-        composite = weighted_sum / total_weight if total_weight > 0 else 0
+        avg_score = weighted_sum / total_weight if total_weight > 0 else 0
+        breadth = min(1.0, 0.7 + 0.1 * (n_triggered - 2))
+        composite = avg_score * breadth
     else:
         composite = 0.0
     alert_level = _alert_level_from_score(composite)
