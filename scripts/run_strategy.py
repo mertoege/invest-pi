@@ -552,14 +552,6 @@ def main() -> None:
         print(f"  regime: {regime_de} ({regime.probability:.0%}, {regime.method})")
         if transition:
             print(f"  REGIME-WECHSEL: {transition['from']} -> {transition['to']}")
-            try:
-                notifier.send_info(
-                    f"<b>Regime-Wechsel</b>\n"
-                    f"{transition['from']} -> <b>{transition['to']}</b> ({regime.probability:.0%})",
-                    label="regime_transition",
-                )
-            except Exception:
-                pass
     except Exception as e:
         print(f"\n=== run_strategy · broker={broker} · mode={t_cfg.mode} · source={src} ===")
         print(f"  regime check failed: {e}")
