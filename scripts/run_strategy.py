@@ -270,7 +270,7 @@ def risk_sell_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
     return sells
 
 
-def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_run: bool) -> dict:
+def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_run: bool, regime_info: str = "") -> dict:
     """Pruefe alle tradeable Tickers, treffe Decision, fuehre Buys aus."""
     from src.trading import get_active_profile
     held = {p.ticker for p in broker.get_positions()}
