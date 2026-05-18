@@ -96,6 +96,23 @@ def decide_action(
     Conservative-Strategy. Pure-Function, kein Network, kein DB-Write.
     Logging passiert in apply_and_log_decision.
     """
+    # Gehaltene Positionen: pruefen ob Risk-Score Sell erfordert
+    # Muss VOR Ring-Check stehen damit auch Ring-3 Positionen verkauft werden
+    if ticker in held_tickers:
+        score = latest_risk_score(ticker)
+        if score and score["alert_level"] >= 3:
+            return TradeDecision(
+                ticker=ticker, action="sell",
+                reason=f"RED alert: composite {score['composite']:.1f}, {score['triggered_n']} triggers",
+                risk_composite=score["composite"], alert_level=score["alert_level"],
+                confidence=score["confidence"],
+                based_on_pred_id=score["pred_id"],
+            )
+        return TradeDecision(
+            ticker=ticker, action="skip",
+            reason="already in positions",
+        )
+
     # Hard-Filter: ist der Ring ueberhaupt tradeable?
     if ring not in config.tradeable_rings:
         return TradeDecision(
@@ -103,18 +120,13 @@ def decide_action(
             reason=f"ring {ring} not in tradeable_rings {config.tradeable_rings}",
         )
 
-    # Hard-Filter: schon gehalten?
-    if ticker in held_tickers:
+    # Hard-Filter: zu viele offene Positionen? (Regime-Profile-aware)
+    profile = get_active_profile(config)
+    max_positions = profile.get("max_open_positions", config.max_open_positions)
+    if open_positions_count >= max_positions:
         return TradeDecision(
             ticker=ticker, action="skip",
-            reason="already in positions",
-        )
-
-    # Hard-Filter: zu viele offene Positionen?
-    if open_positions_count >= config.max_open_positions:
-        return TradeDecision(
-            ticker=ticker, action="skip",
-            reason=f"max_open_positions reached ({open_positions_count}/{config.max_open_positions})",
+            reason=f"max_open_positions reached ({open_positions_count}/{max_positions})",
         )
 
     # Risk-Score holen

@@ -233,6 +233,43 @@ def stop_loss_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
     return len(triggered)
 
 
+def risk_sell_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry_run: bool) -> int:
+    """Verkauft Positionen mit RED-Alert (composite >= 70, alert_level 3)."""
+    from src.trading.decision import latest_risk_score
+    positions = broker.get_positions()
+    sells = 0
+    for pos in positions:
+        score = latest_risk_score(pos.ticker)
+        if not score or score["alert_level"] < 3:
+            continue
+        print(f"  RISK-SELL {pos.ticker}: RED alert (composite={score['composite']:.1f}, "
+              f"{score['triggered_n']} triggers), sell {pos.qty} @ {pos.market_price:.2f}")
+        if dry_run:
+            sells += 1
+            continue
+        result = broker.place_order(ticker=pos.ticker, side="sell", qty=pos.qty)
+        _record_trade(
+            decision_pred_id=None,
+            ticker=pos.ticker, side="sell", qty=pos.qty,
+            eur_value=pos.market_value_eur, price=pos.market_price,
+            status=result.status, order_id=result.order_id,
+            strategy_label="risk_sell-v1", source=source,
+            notes=f"RED alert: composite={score['composite']:.1f}",
+        )
+        if result.status == "filled":
+            try:
+                notifier.send_trade(
+                    ticker=pos.ticker, side="sell", qty=pos.qty,
+                    eur=pos.market_value_eur, price_usd=pos.market_price,
+                    reason=f"RISK-SELL: RED alert composite={score['composite']:.1f}",
+                    paper=broker.is_paper,
+                )
+            except Exception as e:
+                print(f"  notifier failed: {e}")
+        sells += 1
+    return sells
+
+
 def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_run: bool) -> dict:
     """Pruefe alle tradeable Tickers, treffe Decision, fuehre Buys aus."""
     from src.trading import get_active_profile
@@ -549,6 +586,12 @@ def main() -> None:
         print(f"  trailing-stop pass: {n_tr} sells")
         n = stop_loss_pass(broker, t_cfg, src, args.dry_run)
         print(f"  stop-loss pass: {n} sells")
+
+    # Risk-Score-basierte Sells: RED-Alert Positionen verkaufen
+    if not args.skip_stop_loss:
+        n_risk = risk_sell_pass(broker, t_cfg, src, args.dry_run)
+        if n_risk:
+            print(f"  risk-sell pass: {n_risk} sells")
 
     # Regime-Rebalancing bei Wechsel
     if transition:
