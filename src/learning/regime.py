@@ -246,36 +246,70 @@ def regime_buy_multiplier() -> float:
 
 _REGIME_FILE = DATA_DIR / "last_regime.json"
 
+_HYSTERESIS_PROB_MIN  = 0.85
+_HYSTERESIS_CONFIRM_N = 2
+
 
 def detect_regime_transition() -> dict | None:
     """
     Vergleicht aktuelles Regime mit dem zuletzt gespeicherten.
-    Returns dict mit 'from'/'to' bei Wechsel, sonst None.
+    Hysterese: Wechsel nur bei hoher Konfidenz oder nach N konsekutiven
+    gleichen Signalen. Verhindert Whipsaw zwischen Regimes.
     """
     import json
     r = current_regime()
+
     prev_label = None
+    pending_label = None
+    pending_count = 0
 
     if _REGIME_FILE.exists():
         try:
             prev = json.loads(_REGIME_FILE.read_text())
             prev_label = prev.get("label")
+            pending_label = prev.get("pending_label")
+            pending_count = prev.get("pending_count", 0)
         except Exception:
             pass
 
+    confirmed_label = prev_label or r.label
+    transition = None
+
+    if prev_label and prev_label != r.label:
+        high_confidence = r.probability >= _HYSTERESIS_PROB_MIN
+        if r.label == pending_label:
+            pending_count += 1
+        else:
+            pending_count = 1
+            pending_label = r.label
+
+        if high_confidence or pending_count >= _HYSTERESIS_CONFIRM_N:
+            confirmed_label = r.label
+            pending_label = None
+            pending_count = 0
+            log.info(f"REGIME TRANSITION: {prev_label} -> {r.label} "
+                     f"(prob={r.probability:.0%}, confirmed)")
+            transition = {
+                "from": prev_label,
+                "to": r.label,
+                "probability": r.probability,
+                "method": r.method,
+            }
+        else:
+            confirmed_label = prev_label
+            log.info(f"Regime signal {r.label} (prob={r.probability:.0%}), "
+                     f"pending {pending_count}/{_HYSTERESIS_CONFIRM_N} — holding {prev_label}")
+    else:
+        pending_label = None
+        pending_count = 0
+
     _REGIME_FILE.write_text(json.dumps({
-        "label": r.label,
+        "label": confirmed_label,
         "probability": r.probability,
         "method": r.method,
         "as_of": r.as_of,
+        "pending_label": pending_label,
+        "pending_count": pending_count,
     }))
 
-    if prev_label and prev_label != r.label:
-        log.info(f"REGIME TRANSITION: {prev_label} -> {r.label} (prob={r.probability:.0%})")
-        return {
-            "from": prev_label,
-            "to": r.label,
-            "probability": r.probability,
-            "method": r.method,
-        }
-    return None
+    return transition

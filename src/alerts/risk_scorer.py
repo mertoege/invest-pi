@@ -1332,19 +1332,17 @@ def score_si_trend(ticker: str) -> DimensionScore:
                               weight=DIMENSION_WEIGHTS["si_trend"])
 
 
-# ──────────────── 19. EARNINGS TRANSCRIPT LLM ──────────────
+# ──────────────── 19. EARNINGS HEADLINE HEURISTIC ──────────
+_BEARISH_KW = ("miss", "missed", "lowered", "guidance down", "cut", "warns",
+               "disappoints", "decline", "weak", "loss", "below expectations",
+               "downgrade", "slump", "plunge", "shortfall")
+_BULLISH_KW = ("beat", "beats", "raised", "guidance up", "record", "surpass",
+               "strong", "exceeds", "upside", "upgrade", "surge", "growth")
+
+
 def score_earnings_llm(ticker: str) -> DimensionScore:
-    """
-    LLM-Analyse des letzten Earnings-Calls via Haiku.
-    Quelle: Financial Modeling Prep (Free) oder yfinance-Headlines Fallback.
-    """
+    """Keyword-basierte Earnings-Headline-Analyse (ersetzt LLM-Version)."""
     try:
-        from ..common.llm import call_haiku, is_configured
-        if not is_configured():
-            return DimensionScore("earnings_llm", 0, False,
-                                  "LLM nicht konfiguriert",
-                                  {"stub": True},
-                                  weight=DIMENSION_WEIGHTS["earnings_llm"])
         from .earnings import get_last_earnings_date
         last_ed = get_last_earnings_date(ticker)
         if not last_ed or (dt.date.today() - last_ed).days > 30:
@@ -1353,105 +1351,44 @@ def score_earnings_llm(ticker: str) -> DimensionScore:
                                   {"last_earnings": str(last_ed) if last_ed else None},
                                   weight=DIMENSION_WEIGHTS["earnings_llm"])
 
-        transcript_text = None
-        try:
-            import os, requests
-            fmp_key = os.environ.get("FMP_API_KEY", "")
-            if not fmp_key:
-                env_path = "/home/investpi/invest-pi/.env"
-                if os.path.exists(env_path):
-                    for line in open(env_path):
-                        if line.strip().startswith("FMP_API_KEY="):
-                            fmp_key = line.strip().split("=", 1)[1].strip().strip('"')
-            if fmp_key:
-                q = (last_ed.month - 1) // 3 + 1
-                resp = requests.get(
-                    f"https://financialmodelingprep.com/api/v3/earning_call_transcript/{ticker}",
-                    params={"quarter": q, "year": last_ed.year, "apikey": fmp_key},
-                    timeout=15,
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    if data and isinstance(data, list) and data[0].get("content"):
-                        transcript_text = data[0]["content"][:3000]
-        except Exception:
-            pass
-
         headlines = []
         try:
             import yfinance as yf
             news = yf.Ticker(ticker).news or []
-            for n in news[:10]:
-                t = n.get("title", "").lower()
-                if any(kw in t for kw in ("earning", "quarter", "revenue", "guidance", "beat", "miss")):
-                    headlines.append(n["title"])
+            for n in news[:15]:
+                t = n.get("title", "")
+                if t:
+                    headlines.append(t)
         except Exception:
             pass
 
-        if not transcript_text and not headlines:
+        if not headlines:
             return DimensionScore("earnings_llm", 0, False,
-                                  "keine Earnings-Daten fuer LLM",
+                                  "keine Headlines verfuegbar",
                                   {"last_earnings": str(last_ed)},
                                   weight=DIMENSION_WEIGHTS["earnings_llm"])
 
-        source = "transcript" if transcript_text else "headlines"
-        earnings_ctx = transcript_text if transcript_text else "\n".join(f"- {h}" for h in headlines)
+        bear_hits = 0
+        bull_hits = 0
+        for h in headlines:
+            hl = h.lower()
+            if any(kw in hl for kw in _BEARISH_KW):
+                bear_hits += 1
+            if any(kw in hl for kw in _BULLISH_KW):
+                bull_hits += 1
 
-        system_prompt = (
-            "Du bist ein Earnings-Analyst. Analysiere den Earnings-Call/News und bewerte "
-            "das Risiko fuer die naechsten 30 Tage.\n"
-            "Fokus: Guidance (raised/maintained/lowered), Margin-Trend, Management-Ton.\n"
-            "Antworte NUR als JSON: {\"risk_score\": 0-100, "
-            "\"guidance\": \"raised/maintained/lowered/unclear\", "
-            "\"mgmt_tone\": \"confident/neutral/defensive\", "
-            "\"key_concern\": \"1 Satz\", \"bullish_point\": \"1 Satz\"}"
-        )
+        net = bear_hits - bull_hits
+        score = min(100.0, max(0.0, 20.0 + net * 15.0)) if net > 0 else 0.0
 
-        result = call_haiku(
-            system=system_prompt,
-            prompt=f"Ticker: {ticker}\nEarnings ({source}, {last_ed}):\n{earnings_ctx}",
-            job_source="risk_earnings_llm",
-            subject_id=ticker,
-            input_summary=f"{ticker}: earnings {source} ({last_ed})",
-            max_tokens=256,
-            temperature=0.0,
-            estimated_cost_eur=0.003,
-        )
-
-        if not result.ok:
-            return DimensionScore("earnings_llm", 0, False,
-                                  f"LLM error: {result.error}", {},
-                                  weight=DIMENSION_WEIGHTS["earnings_llm"])
-
-        parsed = result.parsed_json
-        if not isinstance(parsed, dict):
-            return DimensionScore("earnings_llm", 0, False,
-                                  "LLM response nicht parsebar",
-                                  {"raw": result.text[:200]},
-                                  weight=DIMENSION_WEIGHTS["earnings_llm"])
-
-        llm_score = float(parsed.get("risk_score", 0))
-        guidance = str(parsed.get("guidance", "unclear"))
-        mgmt_tone = str(parsed.get("mgmt_tone", "neutral"))
-        key_concern = str(parsed.get("key_concern", ""))
-        bullish_point = str(parsed.get("bullish_point", ""))
-
-        score = min(100.0, max(0.0, llm_score))
-        if guidance == "lowered":
-            score = min(100.0, score + 15)
-        elif guidance == "raised":
-            score = max(0.0, score - 10)
-
-        reasons = [f"Guidance: {guidance}, Ton: {mgmt_tone}"]
-        if key_concern:
-            reasons.append(f"Risiko: {key_concern}")
+        guidance = "lowered" if net >= 2 else ("raised" if net <= -2 else "mixed")
+        triggered = score >= 40
 
         return DimensionScore(
-            "earnings_llm", score, score >= 40,
-            "; ".join(reasons),
-            {"llm_score": llm_score, "guidance": guidance, "mgmt_tone": mgmt_tone,
-             "key_concern": key_concern, "bullish_point": bullish_point,
-             "source": source, "last_earnings": str(last_ed), "cost_eur": result.cost_eur},
+            "earnings_llm", score, triggered,
+            f"Headline-Heuristik: {bear_hits} bearish, {bull_hits} bullish, guidance={guidance}",
+            {"bear_hits": bear_hits, "bull_hits": bull_hits, "net": net,
+             "guidance": guidance, "n_headlines": len(headlines),
+             "last_earnings": str(last_ed), "cost_eur": 0.0},
             weight=DIMENSION_WEIGHTS["earnings_llm"],
         )
     except Exception as e:
@@ -1459,124 +1396,67 @@ def score_earnings_llm(ticker: str) -> DimensionScore:
                               weight=DIMENSION_WEIGHTS["earnings_llm"])
 
 
-# ──────────────── 16. LLM CONTEXT ANALYSIS ─────────────────
+# ──────────────── 16. SIGNAL COHERENCE HEURISTIC ──────────
+_COHERENCE_GROUPS = {
+    "technical":   {"technical_breakdown", "volume_divergence", "updown_volume", "gap_pattern", "hurst_regime"},
+    "fundamental": {"valuation_pct", "analyst_downgrades", "earnings_llm"},
+    "sentiment":   {"sentiment_reversal", "short_interest", "si_trend", "options_skew"},
+    "macro":       {"macro_regime", "cross_asset", "earnings_proximity"},
+}
+
+
 def score_llm_context(ticker: str, dimensions: list[DimensionScore]) -> DimensionScore:
-    """
-    Phase 3: LLM-Meta-Analyse aller Dimensionen via Haiku (billig).
-    Bewertet ob Signale kohaerentes Risiko-Narrativ bilden oder Noise sind.
-    Nur bei >= 3 triggered Dimensionen (Kostenoptimierung).
-    """
+    """Heuristischer Kohaerenz-Check (ersetzt LLM-Meta-Analyse)."""
     triggered_dims = [d for d in dimensions if d.triggered]
-    if len(triggered_dims) < 3:
+    n_triggered = len(triggered_dims)
+    if n_triggered < 3:
         return DimensionScore("llm_context", 0, False,
-                              "zu wenig aktive Signale fuer LLM-Analyse",
-                              {"skipped": True, "triggered_n": len(triggered_dims)},
+                              "zu wenig aktive Signale fuer Kohaerenz-Check",
+                              {"skipped": True, "triggered_n": n_triggered},
                               weight=DIMENSION_WEIGHTS["llm_context"])
+
     try:
-        from ..common.llm import call_haiku, is_configured
-        if not is_configured():
-            return DimensionScore("llm_context", 0, False,
-                                  "LLM nicht konfiguriert (kein API-Key)",
-                                  {"stub": True},
-                                  weight=DIMENSION_WEIGHTS["llm_context"])
+        triggered_names = {d.name for d in triggered_dims}
+        active_groups = set()
+        for group, members in _COHERENCE_GROUPS.items():
+            if triggered_names & members:
+                active_groups.add(group)
 
-        dim_summary = "\n".join(
-            f"- {d.name}: score={d.score:.0f}, reason={d.reason}"
-            for d in dimensions if d.score > 10
-        )
+        n_groups = len(active_groups)
+        avg_triggered_score = sum(d.score for d in triggered_dims) / n_triggered
 
-        news_ctx = ""
-        try:
-            import yfinance as yf
-            news = yf.Ticker(ticker).news or []
-            if news:
-                headlines = [n.get("title", "") for n in news[:8] if n.get("title")]
-                if headlines:
-                    news_ctx = "\n\nAktuelle Headlines:\n" + "\n".join(f"- {h}" for h in headlines)
-        except Exception:
-            pass
+        coherent = n_groups >= 2
+        if n_groups >= 3:
+            score = min(100.0, avg_triggered_score * 1.1)
+        elif n_groups == 2:
+            score = avg_triggered_score * 0.85
+        else:
+            score = avg_triggered_score * 0.5
 
-        system_prompt = (
-            "Du bist ein quantitativer Risk-Analyst. Analysiere die Risk-Dimensionen "
-            "und aktuellen News eines Tickers. Bewerte:\n"
-            "1. Bilden die Signale ein kohaerentes Risiko-Narrativ?\n"
-            "2. Erklaeren die News die Signale (strukturell vs temporaer)?\n"
-            "Antworte NUR als JSON: {\"risk_score\": 0-100, \"coherent\": true/false, "
-            "\"narrative\": \"2-3 Saetze\", \"key_risk\": \"Hauptrisiko\", "
-            "\"structural\": true/false, \"news_aligned\": true/false}"
-        )
-
-        prompt = (
-            f"Ticker: {ticker}\n"
-            f"Aktive Risk-Dimensionen ({len(triggered_dims)} von {len(dimensions)} triggered):\n"
-            f"{dim_summary}"
-            f"{news_ctx}\n\n"
-            f"Analyse: Bilden diese Signale + News ein kohaerentes Risiko-Narrativ?"
-        )
-
-        result = call_haiku(
-            system=system_prompt,
-            prompt=prompt,
-            job_source="risk_llm_context",
-            subject_id=ticker,
-            input_summary=f"{ticker}: {len(triggered_dims)} triggered dims",
-            max_tokens=256,
-            temperature=0.0,
-            estimated_cost_eur=0.002,
-        )
-
-        if not result.ok:
-            return DimensionScore("llm_context", 0, False,
-                                  f"LLM error: {result.error}",
-                                  {"llm_error": result.error},
-                                  weight=DIMENSION_WEIGHTS["llm_context"])
-
-        parsed = result.parsed_json
-        if not isinstance(parsed, dict):
-            return DimensionScore("llm_context", 0, False,
-                                  "LLM response nicht parsebar",
-                                  {"raw": result.text[:200]},
-                                  weight=DIMENSION_WEIGHTS["llm_context"])
-
-        llm_score = float(parsed.get("risk_score", 0))
-        coherent = bool(parsed.get("coherent", False))
-        narrative = str(parsed.get("narrative", ""))
-        key_risk = str(parsed.get("key_risk", ""))
-        structural = parsed.get("structural", None)
-        news_aligned = parsed.get("news_aligned", None)
-
-        score = min(100.0, max(0.0, llm_score))
-        if structural is True:
-            score = min(100.0, score * 1.15)
+        score = min(100.0, max(0.0, score))
         triggered = score >= 40 and coherent
 
         reason_parts = []
         if coherent:
-            reason_parts.append(f"LLM: kohaerentes Risiko-Bild (Score {score:.0f})")
+            reason_parts.append(f"Kohaerentes Risiko: {n_groups} Kategorien aktiv (Score {score:.0f})")
         else:
-            reason_parts.append(f"LLM: Signale inkonsistent (Score {score:.0f})")
-        if structural is True:
-            reason_parts.append("strukturelles Risiko")
-        elif structural is False:
-            reason_parts.append("temporaerer Katalysator")
-        if news_aligned is False:
-            reason_parts.append("News widersprechen Signalen")
-        if key_risk:
-            reason_parts.append(f"Hauptrisiko: {key_risk}")
+            reason_parts.append(f"Isoliertes Signal: nur {n_groups} Kategorie (Score {score:.0f})")
+        grp_str = ", ".join(sorted(active_groups))
+        reason_parts.append(f"Gruppen: {grp_str}")
 
         return DimensionScore(
             "llm_context", score, triggered,
             "; ".join(reason_parts),
-            {"llm_score": llm_score, "coherent": coherent,
-             "narrative": narrative, "key_risk": key_risk,
-             "structural": structural, "news_aligned": news_aligned,
-             "cost_eur": result.cost_eur, "model": result.model},
+            {"n_groups": n_groups, "active_groups": sorted(active_groups),
+             "coherent": coherent, "avg_triggered_score": round(avg_triggered_score, 1),
+             "n_triggered": n_triggered, "cost_eur": 0.0},
             weight=DIMENSION_WEIGHTS["llm_context"],
         )
     except Exception as e:
         return DimensionScore("llm_context", 0, False,
-                              f"llm error: {e}", {},
+                              f"coherence error: {e}", {},
                               weight=DIMENSION_WEIGHTS["llm_context"])
+
 
 # ════════════════════════════════════════════════════════════
 #  COMPOSITE SCORING
