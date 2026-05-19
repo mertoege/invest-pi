@@ -180,8 +180,9 @@ def decide_action(
         )
 
     # Buy-Trigger: composite unter Regime-adjustierter Schwelle
-    # Relaxed modes erlauben triggered_dims > 0 wenn composite ausreichend niedrig
-    triggered_ok = triggered == 0 if not is_relaxed else triggered <= 2
+    # Triggered-Count ist bereits im Composite eingepreist (breadth-faktor),
+    # daher kein separates Limit mehr noetig.
+    triggered_ok = True
 
     # Adaptive-Profile holen wenn mode=adaptive, sonst config-Werte
     profile = get_active_profile(config)
