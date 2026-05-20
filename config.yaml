@@ -177,6 +177,43 @@ universe:
       note: "Apple Intelligence · On-Device-AI · eigene Neural Engine"
 
   # ══════════════════════════════════════════════════════════
+  #  RING 2: Growth Blue Chips (diversifiziert)
+  # ══════════════════════════════════════════════════════════
+
+  ring_2_growth:
+    - ticker: V
+      name: "Visa"
+      note: "Payments-Monopol · stabiles Wachstum · PE 22"
+
+    - ticker: COST
+      name: "Costco"
+      note: "Membership-Modell · Konsumenten-Momentum"
+
+    - ticker: ABBV
+      name: "AbbVie"
+      note: "Pharma-Pipeline · Humira-Nachfolger · PE 13"
+
+    - ticker: WMT
+      name: "Walmart"
+      note: "Retail-Riese · E-Commerce-Wachstum"
+
+    - ticker: TXN
+      name: "Texas Instruments"
+      note: "Analog-Halbleiter · Industriezyklusgewinner"
+
+    - ticker: ADBE
+      name: "Adobe"
+      note: "Creative Cloud + Firefly AI · PE 9 extrem guenstig"
+
+    - ticker: NFLX
+      name: "Netflix"
+      note: "Streaming-Leader · Ad-Tier-Wachstum · PE 23"
+
+    - ticker: BRK-B
+      name: "Berkshire Hathaway B"
+      note: "Buffett-Konglomerat · Cash-Berg · defensiver Anker"
+
+  # ══════════════════════════════════════════════════════════
   #  RING 3: Spekulative AI-Plays + Europa
   #  Höheres Risiko, aber Self-Learning kann hier am meisten
   #  aus Fehlern lernen und sich kalibrieren.
@@ -202,6 +239,14 @@ universe:
     - ticker: NOW
       name: "ServiceNow"
       note: "AI-Automatisierung in Unternehmens-IT"
+
+    - ticker: PANW
+      name: "Palo Alto Networks"
+      note: "Cybersecurity-Leader · Platformization-Strategie"
+
+    - ticker: CRWD
+      name: "CrowdStrike"
+      note: "Endpoint-Security · Cloud-Native · starkes Momentum"
 
   # ── BENCHMARK-ETFs (für Scoring + Backtesting, nicht getradet) ──
   etfs:
@@ -284,7 +329,7 @@ settings:
     market_close_cet:         "22:00"
 
     # Universe-Filter: nur diese Rings dürfen tactical traded werden
-    tradeable_rings:           [1, 2]
+    tradeable_rings:           [1, 2, 3]
     # ETF-Fallback wenn kein Titel überzeugt (bleibt fix)
     dca_fallback_ticker:      "SMH"
 
@@ -363,18 +408,18 @@ settings:
 
     # Sector-Map fuer max_per_sector_pct-Constraint (neu)
     sector_map:
-      technology:        [XLK, NVDA, AMD, AVGO, TSM, ASML, MSFT, AAPL]
-      financials:        [XLF, JPM]
+      technology:        [XLK, NVDA, AMD, AVGO, TSM, ASML, MSFT, AAPL, TXN, ADBE]
+      financials:        [XLF, JPM, V, BRK-B]
       energy:            [XLE, XOM]
-      healthcare:        [XLV, UNH, LLY, JNJ]
+      healthcare:        [XLV, UNH, LLY, JNJ, ABBV]
       industrials:       [XLI]
-      consumer_staples:  [XLP, PG, KO]
+      consumer_staples:  [XLP, PG, KO, COST, WMT]
       consumer_disc:     [XLY, AMZN]
       utilities:         [XLU]
       real_estate:       [XLRE]
-      communication:     [XLC, GOOGL, META]
+      communication:     [XLC, GOOGL, META, NFLX]
       materials:         [XLB]
-      software:          [CRM, NOW, PLTR, MRVL, SMCI]
+      software:          [CRM, NOW, PLTR, MRVL, SMCI, PANW, CRWD]
       etfs:              [SMH, SPY, QQQ]
 
 
