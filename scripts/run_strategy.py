@@ -564,10 +564,14 @@ def _llm_screen_candidates(eligible: list, t_cfg, regime_info: str, held: set) -
         return [item["ticker"] for item in eligible]
 
     for r in rejected:
-        print(f"  llm-screen REJECT {r.get('ticker','?')}: {r.get('reason','?')}")
-    if approved:
-        print(f"  llm-screen APPROVED: {approved} (cost {result.cost_eur:.4f}€)")
+        if isinstance(r, dict):
+            print(f"  llm-screen REJECT {r.get('ticker','?')}: {r.get('reason','?')}")
 
+    if not approved:
+        print(f"  llm-screen: all rejected, fallback to all-pass")
+        return [item["ticker"] for item in eligible]
+
+    print(f"  llm-screen: {len(approved)} approved, {len(rejected)} rejected, cost {result.cost_eur:.4f}€")
     return approved
 
 
