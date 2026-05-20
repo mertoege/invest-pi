@@ -137,10 +137,16 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         "2. Wenn du Prior-Reviews siehst: bewerte ob deine letzten Empfehlungen gewirkt haben.\n"
         "3. Erlaubte config_patches Pfade:\n"
         "   trading.* (stop_loss_pct, take_profit_pct, score_buy_max, max_open_positions, etc.)\n"
-        "   regime.<label>.<param> (score_buy_max, target_invest_pct, sector_avoid, etc.)\n"
+        "   regime.<label>.<param> (score_buy_max, target_invest_pct, sector_avoid, sector_preference, etc.)\n"
         "   Nur patchen wenn 7d-Daten das klar rechtfertigen.\n"
-        "4. Max 3 Patches pro Weekly-Review. Sei konservativ.\n"
-        "5. Fokus: welche Ticker performen schlecht? Drift? Regime-Wechsel?"
+        "4. Max 5 Patches pro Weekly-Review.\n"
+        "5. Fokus: welche Ticker performen schlecht? Drift? Regime-Wechsel?\n"
+        "6. SEKTOR-EMPFEHLUNGEN PFLICHT: Basierend auf aktueller Marktlage, setze\n"
+        "   regime.<aktuelles_regime>.sector_preference und regime.<aktuelles_regime>.sector_avoid\n"
+        "   als config_patches. Gueltige Sektoren: technology, software, consumer_disc,\n"
+        "   consumer_staples, healthcare, financials, communication, utilities, energy,\n"
+        "   industrials, materials, real_estate. Ohne deine Empfehlung sind sector_preference\n"
+        "   und sector_avoid leer — das System kauft dann ohne Sektor-Praeferenz."
     )
 
     prior_block = ""
@@ -242,7 +248,7 @@ def run(job_source: str = "daily_score", dry_run: bool = False) -> dict:
             with connect(LEARNING_DB) as conn:
                 mr_row = conn.execute("SELECT id FROM meta_reviews ORDER BY id DESC LIMIT 1").fetchone()
             mr_id = mr_row["id"] if mr_row else None
-            log_patches(config_patches[:3], meta_review_id=mr_id, source="weekly_mini_review")
+            log_patches(config_patches[:5], meta_review_id=mr_id, source="weekly_mini_review")
         except Exception as e:
             log.warning(f"weekly patch processing failed: {e}")
 

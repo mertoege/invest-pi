@@ -293,6 +293,8 @@ settings:
     #   - aggressive in Bull: +39.89% (Sharpe 1.14)
     #   - conservative in Bear: -0.73% (vs SMH -34.97%, Alpha +34%)
     #   - kombiniert gewinnt adaptive
+    # sector_preference + sector_avoid werden dynamisch von weekly_mini_review
+    # gesetzt via config_patches. Hier nur strukturelle Defaults.
     regime_profiles:
       low_vol_bull:
         score_buy_max:        55
@@ -304,7 +306,7 @@ settings:
         trailing_activation:  0.20
         trailing_stop_pct:    0.12
         target_invest_pct:    0.90
-        sector_preference:    [technology, software, consumer_disc, communication]
+        sector_preference:    []
         sector_avoid:         []
       high_vol_mixed:
         score_buy_max:        50
@@ -316,7 +318,7 @@ settings:
         trailing_activation:  0.10
         trailing_stop_pct:    0.10
         target_invest_pct:    0.80
-        sector_preference:    [technology, healthcare, financials, communication]
+        sector_preference:    []
         sector_avoid:         []
       bear:
         score_buy_max:        40
@@ -328,8 +330,8 @@ settings:
         trailing_activation:  0.05
         trailing_stop_pct:    0.06
         target_invest_pct:    0.40
-        sector_preference:    [healthcare, consumer_staples, utilities]
-        sector_avoid:         [software]
+        sector_preference:    []
+        sector_avoid:         []
       unknown:
         score_buy_max:        45
         max_open_positions:   20
