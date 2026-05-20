@@ -72,6 +72,13 @@ def latest_risk_score(ticker: str, max_age_hours: int = 24) -> Optional[dict]:
     if not row:
         return None
     output = safe_parse(row["output_json"] or "{}", default={})
+    earnings_days = None
+    for dim in output.get("dimensions", []):
+        if dim.get("name") == "earnings_proximity":
+            ev = dim.get("evidence", {})
+            if "days_until" in ev:
+                earnings_days = ev["days_until"]
+            break
     return {
         "pred_id":      row["id"],
         "created_at":   row["created_at"],
@@ -79,6 +86,7 @@ def latest_risk_score(ticker: str, max_age_hours: int = 24) -> Optional[dict]:
         "alert_level":  int(output.get("alert_level", 0)),
         "triggered_n":  int(output.get("triggered_n", 0)),
         "confidence":   row["confidence"] or "low",
+        "earnings_days_until": earnings_days,
     }
 
 
@@ -179,9 +187,17 @@ def decide_action(
             based_on_pred_id=score["pred_id"],
         )
 
-    # Buy-Trigger: composite unter Regime-adjustierter Schwelle
-    # Triggered-Count ist bereits im Composite eingepreist (breadth-faktor),
-    # daher kein separates Limit mehr noetig.
+    # Hard-Filter: Earnings in <7 Tagen → Binary-Event-Risiko
+    earnings_days = score.get("earnings_days_until")
+    if earnings_days is not None and 0 <= earnings_days <= 7:
+        return TradeDecision(
+            ticker=ticker, action="skip",
+            reason=f"earnings in {earnings_days}d — binary event risk",
+            risk_composite=risk, alert_level=alert,
+            confidence=confidence,
+            based_on_pred_id=score["pred_id"],
+        )
+
     triggered_ok = True
 
     profile_buy_max = profile.get("score_buy_max", config.score_buy_max)
