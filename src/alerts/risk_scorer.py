@@ -1498,21 +1498,20 @@ def score_ticker(
     dimensions.append(score_llm_context(ticker, dimensions))
 
     # Composite: gewichteter Durchschnitt der getriggerten Dimensionen,
-    # skaliert mit Breadth-Faktor (mehr Triggers = hoehere Konfidenz).
+    # skaliert mit Breadth-Faktor. Bei 0 Triggers: gedaempfter All-Dims-Average.
     triggered_dims = [d for d in dimensions if d.triggered]
     n_triggered = len(triggered_dims)
 
-    if n_triggered >= 2:
-        total_weight = 0.0
-        weighted_sum = 0.0
-        for d in triggered_dims:
-            weighted_sum += d.score * d.weight
-            total_weight += d.weight
+    if n_triggered >= 1:
+        total_weight = sum(d.weight for d in triggered_dims)
+        weighted_sum = sum(d.score * d.weight for d in triggered_dims)
         avg_score = weighted_sum / total_weight if total_weight > 0 else 0
-        breadth = min(1.0, 0.7 + 0.1 * (n_triggered - 2))
+        breadth = min(1.0, 0.5 + 0.1 * n_triggered)
         composite = avg_score * breadth
     else:
-        composite = 0.0
+        all_weight = sum(d.weight for d in dimensions)
+        all_sum = sum(d.score * d.weight for d in dimensions)
+        composite = (all_sum / all_weight * 0.25) if all_weight > 0 else 0
     alert_level = _alert_level_from_score(composite)
     alert_label = {0: "Green", 1: "Watch", 2: "Caution", 3: "Red"}[alert_level]
 

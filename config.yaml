@@ -315,7 +315,7 @@ settings:
 
     # Sell-Trigger
     stop_loss_pct:             0.10             # auto-sell bei -10 % (conservative: 0.15)
-    take_profit_pct:           0.20             # auto-sell bei +20 % (NEU)
+    take_profit_pct:           0.25             # auto-sell bei +25 %
     trailing_stop_pct:         0.08             # ab +12% Profit: -8% vom High = sell (NEU)
     trailing_activation_pct:   0.12             # ab welchem Profit Trailing-Stop aktiv wird
 
@@ -347,9 +347,9 @@ settings:
         max_position_eur:     6000
         max_trades_per_day:   10
         stop_loss_pct:        0.12
-        take_profit_pct:      0.65
-        trailing_activation:  0.20
-        trailing_stop_pct:    0.12
+        take_profit_pct:      0.25
+        trailing_activation:  0.10
+        trailing_stop_pct:    0.08
         target_invest_pct:    0.90
         sector_preference:    []
         sector_avoid:         []
