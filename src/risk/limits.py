@@ -72,12 +72,19 @@ def is_market_open(now_utc: Optional[dt.datetime] = None,
         from zoneinfo import ZoneInfo
         berlin = now_utc.astimezone(ZoneInfo("Europe/Berlin"))
     except ImportError:
-        # Fallback: manuell CEST (Maerz-Okt) vs CET bestimmen
+        # Fallback: CEST (letzter Sonntag Maerz bis letzter Sonntag Oktober)
         month = now_utc.month
-        if 4 <= month <= 10:
-            berlin = now_utc + dt.timedelta(hours=2)  # CEST
+        if 4 <= month <= 9:
+            offset = 2  # Apr-Sep: immer CEST
+        elif month == 3:
+            last_sun = 31 - (dt.date(now_utc.year, 3, 31).weekday() + 1) % 7
+            offset = 2 if now_utc.day >= last_sun else 1
+        elif month == 10:
+            last_sun = 31 - (dt.date(now_utc.year, 10, 31).weekday() + 1) % 7
+            offset = 1 if now_utc.day >= last_sun else 2
         else:
-            berlin = now_utc + dt.timedelta(hours=1)  # CET
+            offset = 1  # Nov-Feb: immer CET
+        berlin = now_utc + dt.timedelta(hours=offset)
     minutes = berlin.hour * 60 + berlin.minute
     open_h, open_m = (int(x) for x in open_cet.split(":"))
     close_h, close_m = (int(x) for x in close_cet.split(":"))
@@ -185,7 +192,7 @@ def positions_to_stop_loss(broker: BrokerAdapter,
     """
     triggered = []
     for pos in broker.get_positions():
-        if pos.avg_price <= 0:
+        if pos.avg_price <= 0 or pos.market_price <= 0:
             continue
         unrealized_pct = (pos.market_price / pos.avg_price) - 1.0
         label = _position_strategy(broker, pos.ticker)
@@ -375,7 +382,7 @@ def positions_to_take_profit(broker, config) -> list:
     """
     triggered = []
     for pos in broker.get_positions():
-        if pos.avg_price <= 0:
+        if pos.avg_price <= 0 or pos.market_price <= 0:
             continue
         gain_pct = (pos.market_price / pos.avg_price) - 1.0
         label = _position_strategy(broker, pos.ticker)
@@ -393,7 +400,7 @@ def positions_to_trailing_stop(broker, config, peak_prices: dict) -> list:
     """
     triggered = []
     for pos in broker.get_positions():
-        if pos.avg_price <= 0:
+        if pos.avg_price <= 0 or pos.market_price <= 0:
             continue
         gain_pct = (pos.market_price / pos.avg_price) - 1.0
         label = _position_strategy(broker, pos.ticker)

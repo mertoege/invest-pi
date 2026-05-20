@@ -276,6 +276,8 @@ settings:
 
     max_daily_loss_pct:        0.05             # Tages-Drawdown der Equity-Curve, Notbremse
     max_trades_per_day:        5                # Hard-Cap (conservative: 3)
+    cash_floor_pct:            0.10             # min. 10% Cash-Reserve halten
+    max_per_sector_pct:        0.35             # max. 35% Equity in einem Sektor
 
     # Marktöffnung (CET) — keine Orders außerhalb
     market_open_cet:          "15:30"

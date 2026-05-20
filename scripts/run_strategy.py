@@ -130,8 +130,9 @@ def take_profit_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
     triggered = positions_to_take_profit(broker, t_cfg)
     if not triggered:
         return 0
+    avg_prices = {p.ticker: p.avg_price for p in broker.get_positions() if p.avg_price > 0}
     for ticker, qty, price in triggered:
-        gain_pct = ((price / next((p.avg_price for p in broker.get_positions() if p.ticker == ticker), price)) - 1.0)
+        gain_pct = ((price / avg_prices.get(ticker, price)) - 1.0)
         print(f"  TAKE-PROFIT {ticker}: +{gain_pct:.0%} reached, sell {qty} @ {price:.2f}")
         if dry_run:
             continue
