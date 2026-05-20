@@ -151,7 +151,9 @@ def rotation_pass(broker, cfg, t_cfg, profile, source, dry_run) -> dict:
         if dry_run:
             buys.append({"ticker": entry.ticker, "risk": cand["risk"], "dry_run": True})
             continue
-        result = broker.place_order(ticker=entry.ticker, side="buy", qty=qty)
+        limit_price = round(quote.ask * 1.001, 2) if quote.ask > 0 else round(quote.last * 1.002, 2)
+        result = broker.place_order(ticker=entry.ticker, side="buy", qty=qty,
+                                    order_type="limit", limit_price=limit_price)
         _record_trade(
             ticker=entry.ticker, side="buy", qty=qty,
             eur_value=eur_amount, price=quote.last,
@@ -208,7 +210,9 @@ def topup_pass(broker, t_cfg, profile, source, dry_run) -> list:
         if dry_run:
             topups.append({"ticker": p.ticker, "gap_eur": gap, "dry_run": True})
             continue
-        result = broker.place_order(ticker=p.ticker, side="buy", qty=qty)
+        limit_price = round(quote.ask * 1.001, 2) if quote.ask > 0 else round(quote.last * 1.002, 2)
+        result = broker.place_order(ticker=p.ticker, side="buy", qty=qty,
+                                    order_type="limit", limit_price=limit_price)
         _record_trade(
             ticker=p.ticker, side="buy", qty=qty,
             eur_value=gap, price=quote.last,

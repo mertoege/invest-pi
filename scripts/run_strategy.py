@@ -413,7 +413,11 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             decisions["buys"].append({"ticker": ticker, "qty": sz.qty, "dry_run": True})
             continue
 
-        result = broker.place_order(ticker=ticker, side="buy", qty=sz.qty)
+        limit_price = round(quote.ask * 1.001, 2) if quote.ask > 0 else round(quote.last * 1.002, 2)
+        result = broker.place_order(
+            ticker=ticker, side="buy", qty=sz.qty,
+            order_type="limit", limit_price=limit_price,
+        )
         _record_trade(
             decision_pred_id=decision.decision_pred_id,
             ticker=ticker, side="buy", qty=sz.qty,

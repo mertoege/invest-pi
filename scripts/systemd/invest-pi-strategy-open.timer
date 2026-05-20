@@ -1,8 +1,8 @@
 [Unit]
-Description=Invest-Pi · Strategy-Run Mo-Fr 15:35 (Market Open)
+Description=Invest-Pi · Strategy-Run Mo-Fr 16:15 (nach Opening-Volatility)
 
 [Timer]
-OnCalendar=Mon..Fri *-*-* 15:35:00
+OnCalendar=Mon..Fri *-*-* 16:15:00
 Persistent=true
 
 [Install]
