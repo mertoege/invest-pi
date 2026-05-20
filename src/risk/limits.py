@@ -377,9 +377,10 @@ def _position_strategy(broker, ticker: str, source: str = "paper") -> str:
 
 def positions_to_take_profit(broker, config) -> list:
     """
-    Returns [(ticker, qty, current_price), ...] fuer Positionen die strategy-
-    spezifischen take_profit_pct erreichen.
+    Returns [(ticker, qty, current_price, label), ...].
+    Partial profit: sell 50% at partial_take_profit_pct, 100% at full take_profit_pct.
     """
+    partial_pct = getattr(config, "partial_take_profit_pct", None)
     triggered = []
     for pos in broker.get_positions():
         if pos.avg_price <= 0 or pos.market_price <= 0:
@@ -388,8 +389,26 @@ def positions_to_take_profit(broker, config) -> list:
         label = _position_strategy(broker, pos.ticker)
         thr = _strategy_thresholds(config, label)
         if gain_pct >= thr["take_profit_pct"]:
-            triggered.append((pos.ticker, pos.qty, pos.market_price))
+            triggered.append((pos.ticker, pos.qty, pos.market_price, "full"))
+        elif partial_pct and gain_pct >= partial_pct:
+            already_partial = _has_partial_take_profit(pos.ticker)
+            if not already_partial:
+                sell_qty = round(pos.qty * 0.5, 4)
+                if sell_qty > 0:
+                    triggered.append((pos.ticker, sell_qty, pos.market_price, "partial"))
     return triggered
+
+
+def _has_partial_take_profit(ticker: str) -> bool:
+    try:
+        with connect(TRADING_DB) as conn:
+            row = conn.execute(
+                "SELECT 1 FROM trades WHERE ticker=? AND strategy_label LIKE '%partial_tp%' LIMIT 1",
+                (ticker,),
+            ).fetchone()
+        return row is not None
+    except Exception:
+        return False
 
 
 def positions_to_trailing_stop(broker, config, peak_prices: dict) -> list:
