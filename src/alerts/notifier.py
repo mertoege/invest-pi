@@ -154,15 +154,9 @@ def send_alert(
         parts.append(dimensions_summary)
     text = "\n".join(parts)
 
+    # Autonomer Modus: System handelt selbst (Caution→50% sell, Red→100% sell).
+    # Feedback wird automatisch nach 7d vom Outcome-Tracker geschrieben.
     reply_markup = None
-    if alert_level >= 2 and prediction_id is not None:
-        reply_markup = {
-            "inline_keyboard": [[
-                {"text": "✅ habe verkauft",  "callback_data": f"fb:{prediction_id}:sold"},
-                {"text": "❌ false positive", "callback_data": f"fb:{prediction_id}:fp"},
-                {"text": "🤷 ignoriere",       "callback_data": f"fb:{prediction_id}:ignore"},
-            ]]
-        }
 
     try:
         result = _send_message(text, reply_markup)

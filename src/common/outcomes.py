@@ -39,6 +39,7 @@ from .predictions import (
     hit_rate,
     PredictionRecord,
 )
+from .storage import LEARNING_DB, connect
 from ..learning.reflection import generate_reflection
 
 
@@ -295,6 +296,10 @@ def run_tracker(
         else:
             stats["by_correctness"]["neutral"] += 1
 
+        # ── Auto-Feedback (ersetzt manuelle Telegram-Buttons) ──
+        if c is not None:
+            _auto_feedback(pred.id, result)
+
         # ── Reflection generieren (Self-Learning-Loop) ──────
         try:
             generate_reflection(
@@ -317,6 +322,51 @@ def run_tracker(
 # ────────────────────────────────────────────────────────────
 # DRIFT DETECTION
 # ────────────────────────────────────────────────────────────
+def _auto_feedback(prediction_id: int, result: dict) -> None:
+    """
+    Automatisches Feedback basierend auf gemessenem Outcome.
+    Ersetzt die manuellen Telegram-Inline-Buttons.
+
+    correct=1 + alert>=2 → alert war berechtigt (reason: "auto:confirmed")
+    correct=0 + alert>=2 → false positive (reason: "auto:fp")
+    correct=1 + alert==0 → green war korrekt (reason: "auto:confirmed")
+    correct=0 + alert==0 → green war falsch, haette warnen sollen (reason: "auto:missed")
+    """
+    c = result.get("_correct")
+    alert = result.get("alert_level", 0)
+    if c is None:
+        return
+
+    if alert >= 2:
+        fb_type = "confirmed" if c == 1 else "false_positive"
+        reason_code = "auto:confirmed" if c == 1 else "auto:fp"
+    elif alert == 0:
+        fb_type = "confirmed" if c == 1 else "missed_risk"
+        reason_code = "auto:confirmed" if c == 1 else "auto:missed"
+    else:
+        return
+
+    dd_7d = result.get("windows", {}).get("7d", {}).get("max_drawdown")
+    reason_text = f"7d-drawdown={dd_7d:.1%}" if dd_7d is not None else "auto"
+
+    try:
+        with connect(LEARNING_DB) as conn:
+            existing = conn.execute(
+                "SELECT id FROM feedback_reasons WHERE prediction_id = ? AND reason_code LIKE 'auto:%'",
+                (prediction_id,),
+            ).fetchone()
+            if existing:
+                return
+            conn.execute(
+                """INSERT INTO feedback_reasons
+                   (prediction_id, feedback_type, reason_code, reason_text)
+                   VALUES (?, ?, ?, ?)""",
+                (prediction_id, fb_type, reason_code, reason_text),
+            )
+    except Exception:
+        pass
+
+
 def detect_drift(job_source: str = "daily_score",
                  window_days: int = DRIFT_WINDOW_DAYS) -> Optional[dict]:
     """
