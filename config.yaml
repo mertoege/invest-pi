@@ -297,26 +297,26 @@ settings:
       low_vol_bull:
         score_buy_max:        55
         max_open_positions:   30
-        max_position_eur:     5000
+        max_position_eur:     6000
         max_trades_per_day:   10
         stop_loss_pct:        0.12
         take_profit_pct:      0.65
         trailing_activation:  0.20
         trailing_stop_pct:    0.12
-        target_invest_pct:    0.85
+        target_invest_pct:    0.90
         sector_preference:    [technology, software, consumer_disc, communication]
         sector_avoid:         []
       high_vol_mixed:
         score_buy_max:        50
         max_open_positions:   25
-        max_position_eur:     3000
+        max_position_eur:     4000
         max_trades_per_day:   5
         stop_loss_pct:        0.10
         take_profit_pct:      0.40
         trailing_activation:  0.10
         trailing_stop_pct:    0.10
-        target_invest_pct:    0.70
-        sector_preference:    [healthcare, consumer_staples, financials]
+        target_invest_pct:    0.80
+        sector_preference:    [technology, healthcare, financials, communication]
         sector_avoid:         []
       bear:
         score_buy_max:        40
