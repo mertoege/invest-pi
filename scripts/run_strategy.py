@@ -365,15 +365,26 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
 
         from src.trading.decision import latest_risk_score
         score = latest_risk_score(entry.ticker)
+        # Momentum: 20-Tage-Rendite als Tiebreaker
+        momentum = 0.0
+        try:
+            from src.common.data_loader import get_prices
+            prices = get_prices(entry.ticker, period="1mo")
+            if prices is not None and len(prices) >= 5:
+                momentum = float(prices["close"].iloc[-1] / prices["close"].iloc[0] - 1)
+        except Exception:
+            pass
         eligible.append({
             "ticker": entry.ticker, "decision": decision, "quote": quote, "sz": sz,
             "composite": score["composite"] if score else 0,
             "confidence": score["confidence"] if score else "low",
             "alert": score["alert_level"] if score else 0,
             "triggered": score["triggered_n"] if score else 0,
+            "momentum": momentum,
         })
 
-    eligible.sort(key=lambda x: x["composite"])
+    # Rank: niedrigster Composite + höchstes Momentum = bester Kandidat
+    eligible.sort(key=lambda x: x["composite"] - x["momentum"] * 30)
 
     # Phase 2: LLM screening
     if eligible and not dry_run:
@@ -537,6 +548,15 @@ def main() -> None:
     args = parser.parse_args()
 
     init_all()
+
+    try:
+        from src.learning.weight_optimizer import load_latest_weights, apply_weights
+        saved = load_latest_weights()
+        if saved:
+            apply_weights(saved)
+    except Exception:
+        pass
+
     cfg = cfg_mod.load()
     t_cfg = load_trading_config()
 

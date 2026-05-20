@@ -38,6 +38,15 @@ def main() -> None:
     cfg = cfg_mod.load()
     init_all()
 
+    # ── Restore persisted weights from last optimization ─────
+    try:
+        from src.learning.weight_optimizer import load_latest_weights, apply_weights
+        saved = load_latest_weights()
+        if saved:
+            apply_weights(saved)
+    except Exception:
+        pass
+
     # ── Dynamic Weight Optimization (Self-Learning) ─────
     try:
         from src.learning.weight_optimizer import optimize_and_apply
