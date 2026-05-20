@@ -36,6 +36,8 @@ from src.trading.decision import latest_risk_score
 MAX_SELLS_PER_WEEK = 3
 MAX_TOPUPS_PER_RUN = 5
 TOPUP_THRESHOLD_PCT = 0.40  # Position aufstocken wenn < 40% von target
+_SECTOR_ETFS = {"XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
+MAX_ETF_TOPUPS = 1  # max 1 ETF-Top-Up pro Run, Einzelaktien bevorzugt
 
 
 def _record_trade(*, ticker, side, qty, eur_value, price, status, order_id, strategy_label, source, notes=""):
@@ -58,15 +60,14 @@ def _record_trade(*, ticker, side, qty, eur_value, price, status, order_id, stra
 def score_position(ticker: str, pct_change: float) -> float:
     """
     Composite score für Rotation: höher = schlechter (sell-Kandidat).
-    Kombiniert Risk-Score (0-100) + inverse Performance.
+    Kombiniert Risk-Score (0-100) + inverse Performance + ETF-Malus.
     """
     risk = latest_risk_score(ticker)
     risk_composite = risk["composite"] if risk else 50.0
-    # Performance-Malus: negative Performance erhöht Score
     perf_penalty = max(0, -pct_change * 2)  # -5% → +10 Punkte
-    # Bonus für gute Performance (senkt Score)
     perf_bonus = max(0, pct_change * 0.5)  # +10% → -5 Punkte
-    return risk_composite + perf_penalty - perf_bonus
+    etf_malus = 8.0 if ticker in _SECTOR_ETFS else 0.0
+    return risk_composite + perf_penalty - perf_bonus + etf_malus
 
 
 def rotation_pass(broker, cfg, t_cfg, profile, source, dry_run) -> dict:
@@ -183,11 +184,18 @@ def topup_pass(broker, t_cfg, profile, source, dry_run) -> list:
             continue
         underweight.append({"pos": p, "gap_eur": gap_eur, "risk": risk["composite"]})
 
-    underweight.sort(key=lambda x: x["risk"])  # Best risk first
+    underweight.sort(key=lambda x: (x["pos"].ticker in _SECTOR_ETFS, x["risk"]))
     topups = []
+    etf_topups = 0
 
-    for item in underweight[:MAX_TOPUPS_PER_RUN]:
+    for item in underweight[:MAX_TOPUPS_PER_RUN + 3]:
+        if len(topups) >= MAX_TOPUPS_PER_RUN:
+            break
         p = item["pos"]
+        if p.ticker in _SECTOR_ETFS:
+            if etf_topups >= MAX_ETF_TOPUPS:
+                continue
+            etf_topups += 1
         gap = min(item["gap_eur"], broker.get_account().cash_eur * 0.10)
         if gap < t_cfg.min_position_eur:
             continue

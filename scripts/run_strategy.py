@@ -113,15 +113,21 @@ def _update_peak_prices(broker: BrokerAdapter, source: str) -> int:
 
 
 def _update_position_after_buy(ticker: str, strategy_label: str, source: str, price: float) -> None:
-    """Setzt strategy_label und initialisiert peak_price nach einem Buy."""
+    """Setzt strategy_label, peak_price und stop_loss_price nach einem Buy."""
+    t_cfg = load_trading_config()
+    from src.trading import get_active_profile
+    profile = get_active_profile(t_cfg) or {}
+    sl_pct = profile.get("stop_loss_pct", t_cfg.stop_loss_pct)
+    stop_price = round(price * (1 - sl_pct), 4)
     with connect(TRADING_DB) as conn:
         conn.execute(
             """UPDATE positions
                SET strategy_label = ?,
                    peak_price = CASE WHEN peak_price IS NULL OR peak_price < ? THEN ? ELSE peak_price END,
+                   stop_loss_price = CASE WHEN stop_loss_price IS NULL THEN ? ELSE stop_loss_price END,
                    last_updated = datetime('now')
              WHERE ticker = ? AND source = ?""",
-            (strategy_label, price, price, ticker, source),
+            (strategy_label, price, price, stop_price, ticker, source),
         )
 
 
@@ -235,38 +241,37 @@ def stop_loss_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
 
 
 def risk_sell_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry_run: bool) -> int:
-    """Verkauft Positionen mit RED-Alert (composite >= 70, alert_level 3)."""
+    """Verkauft Positionen basierend auf Risk-Score: RED=100%, CAUTION=50%."""
     from src.trading.decision import latest_risk_score
     positions = broker.get_positions()
     sells = 0
     for pos in positions:
         score = latest_risk_score(pos.ticker)
-        if not score or score["alert_level"] < 3:
+        if not score or score["alert_level"] < 2:
             continue
-        print(f"  RISK-SELL {pos.ticker}: RED alert (composite={score['composite']:.1f}, "
-              f"{score['triggered_n']} triggers), sell {pos.qty} @ {pos.market_price:.2f}")
+        if score["alert_level"] >= 3:
+            sell_pct, label = 1.0, "RED"
+        else:
+            sell_pct, label = 0.5, "CAUTION"
+        sell_qty = round(pos.qty * sell_pct, 4)
+        if sell_qty <= 0:
+            continue
+        sell_eur = pos.market_value_eur * sell_pct
+        print(f"  RISK-SELL {pos.ticker}: {label} alert (composite={score['composite']:.1f}, "
+              f"{score['triggered_n']} triggers), sell {sell_pct:.0%} = {sell_qty} @ {pos.market_price:.2f}")
         if dry_run:
             sells += 1
             continue
-        result = broker.place_order(ticker=pos.ticker, side="sell", qty=pos.qty)
+        result = broker.place_order(ticker=pos.ticker, side="sell", qty=sell_qty)
         _record_trade(
             decision_pred_id=None,
-            ticker=pos.ticker, side="sell", qty=pos.qty,
-            eur_value=pos.market_value_eur, price=pos.market_price,
+            ticker=pos.ticker, side="sell", qty=sell_qty,
+            eur_value=sell_eur, price=pos.market_price,
             status=result.status, order_id=result.order_id,
-            strategy_label="risk_sell-v1", source=source,
-            notes=f"RED alert: composite={score['composite']:.1f}",
+            strategy_label=f"risk_sell_{label.lower()}-v1", source=source,
+            notes=f"{label} alert: composite={score['composite']:.1f}, sell {sell_pct:.0%}",
         )
-        if result.status == "filled":
-            try:
-                notifier.send_trade(
-                    ticker=pos.ticker, side="sell", qty=pos.qty,
-                    eur=pos.market_value_eur, price_usd=pos.market_price,
-                    reason=f"RISK-SELL: RED alert composite={score['composite']:.1f}",
-                    paper=broker.is_paper,
-                )
-            except Exception as e:
-                print(f"  notifier failed: {e}")
+        if result.status in ("filled", "pending_new", "accepted"):
             sells += 1
     return sells
 
@@ -367,6 +372,8 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             "alert": score["alert_level"] if score else 0,
             "triggered": score["triggered_n"] if score else 0,
         })
+
+    eligible.sort(key=lambda x: x["composite"])
 
     # Phase 2: LLM screening
     if eligible and not dry_run:
