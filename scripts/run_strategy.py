@@ -449,58 +449,125 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
     return decisions
 
 
+def _build_candidate_context(item: dict, t_cfg) -> str:
+    """Baut reichen Kontext pro Kandidat fuer LLM-Screening."""
+    import json as _json
+    from src.common.storage import MARKET_DB, LEARNING_DB, connect
+
+    ticker = item["ticker"]
+    parts = [f"### {ticker}"]
+    parts.append(f"Risk: composite={item['composite']:.1f}, alert={item['alert']}, "
+                 f"triggered={item['triggered']}, confidence={item['confidence']}, "
+                 f"momentum_20d={item.get('momentum', 0):+.1%}")
+
+    # Fundamentals
+    try:
+        with connect(MARKET_DB) as conn:
+            fund = conn.execute("SELECT * FROM fundamentals WHERE ticker=?", (ticker,)).fetchone()
+        if fund:
+            parts.append(f"Fundamentals: PE={fund['pe_ratio']}, PB={fund['pb_ratio']}, "
+                         f"MCap=${fund['market_cap']/1e9:.0f}B, Beta={fund['beta']}, "
+                         f"Sector={fund['sector']}, Div={fund['dividend_yld']}%")
+    except Exception:
+        pass
+
+    # Key risk dimensions (nur die relevanten)
+    try:
+        with connect(LEARNING_DB) as conn:
+            row = conn.execute(
+                "SELECT output_json FROM predictions WHERE job_source='daily_score' AND subject_id=? ORDER BY created_at DESC LIMIT 1",
+                (ticker,),
+            ).fetchone()
+        if row:
+            out = _json.loads(row["output_json"] or "{}")
+            active = []
+            for d in out.get("dimensions", []):
+                s = d.get("score", 0)
+                if s >= 15:
+                    ev = d.get("evidence", {})
+                    detail = ""
+                    if d["name"] == "valuation_percentile" and "current_pe" in ev:
+                        detail = f" (PE={ev['current_pe']:.1f})"
+                    elif d["name"] == "earnings_proximity" and "days_until" in ev:
+                        detail = f" ({ev['days_until']}d until earnings)"
+                    elif d["name"] == "sentiment_reversal" and "avg_sentiment" in ev:
+                        detail = f" (sent={ev['avg_sentiment']:.2f}, neg={ev.get('negative_ratio',0):.0%})"
+                    elif d["name"] == "technical_breakdown":
+                        detail = f" (RSI={ev.get('rsi','?')}, vs_MA50={ev.get('current',0)/ev.get('ma50',1)-1:+.1%})" if ev.get("ma50") else ""
+                    active.append(f"{d['name']}={s:.0f}{detail}")
+            if active:
+                parts.append(f"Active signals: {', '.join(active)}")
+    except Exception:
+        pass
+
+    # Sector exposure check
+    sector = _get_sector_for_ticker(t_cfg, ticker)
+    if sector:
+        parts.append(f"Sector: {sector}")
+
+    return "\n".join(parts)
+
+
 def _llm_screen_candidates(eligible: list, t_cfg, regime_info: str, held: set) -> list:
-    """Haiku-basiertes Pre-Buy Screening: filtert schwache Kandidaten."""
-    from src.common.llm import call_haiku, is_configured
+    """Sonnet-basiertes Pre-Buy Screening mit vollem Kontext."""
+    from src.common.llm import call_sonnet, is_configured
     if not is_configured() or not eligible:
         return [item["ticker"] for item in eligible]
 
-    candidates_text = ""
-    for item in eligible:
-        candidates_text += (
-            f"- {item['ticker']}: composite={item['composite']:.1f}, "
-            f"confidence={item['confidence']}, momentum={item.get('momentum', 0):+.1%}, "
-            f"alert={item['alert']}, triggered={item['triggered']}\n"
-        )
+    candidates_block = "\n\n".join(_build_candidate_context(item, t_cfg) for item in eligible)
+    held_sectors = {}
+    for t in held:
+        s = _get_sector_for_ticker(t_cfg, t)
+        if s:
+            held_sectors[s] = held_sectors.get(s, 0) + 1
 
     system = (
-        "Du bist ein Quant-Screening-Filter. Du bekommst Buy-Kandidaten mit Risk-Scores.\n"
-        "Antworte NUR mit einem JSON-Array der Ticker die du empfiehlst.\n"
-        "Filtere Kandidaten die aktuell ein schlechtes Risk/Reward haben:\n"
-        "- Hoher composite + negatives momentum = schlecht\n"
-        "- Niedriger composite + positives momentum = gut\n"
-        "- Bei Unsicherheit: durchlassen (lieber kaufen als verpassen)\n"
-        'Format: {"approved": ["TICKER1", "TICKER2"]}'
+        "Du bist ein erfahrener Portfolio-Manager der Buy-Kandidaten fuer ein autonomes "
+        "Paper-Trading-System auf $100k bewertet. Dein Ziel: Sharpe-Ratio maximieren.\n\n"
+        "REGELN:\n"
+        "1. APPROVE Kandidaten mit: niedrigem Composite + positivem Momentum + solidem Fundamental-Profil\n"
+        "2. REJECT wenn: Earnings in <7 Tagen (Binary-Event-Risiko), negatives Sentiment + "
+        "negative Momentum (fallendes Messer), ueberbewertet (PE>50) + kein Momentum\n"
+        "3. REJECT wenn Sektor bereits uebergewichtet im Portfolio (>5 Positionen gleicher Sektor)\n"
+        "4. Bei Unsicherheit: APPROVE (Opportunity-Cost > Risk fuer Paper-Trading)\n"
+        "5. Begruende jede Rejection in 1 Satz\n\n"
+        "FORMAT (nur JSON, kein anderer Text):\n"
+        '{"approved": ["T1","T2"], "rejected": [{"ticker":"T3","reason":"..."}]}'
     )
     prompt = (
-        f"Regime: {regime_info}\n"
-        f"Bereits gehalten: {len(held)} Positionen\n\n"
-        f"Buy-Kandidaten:\n{candidates_text}\n"
-        f"Welche empfiehlst du?"
+        f"## Markt-Regime: {regime_info}\n"
+        f"## Portfolio: {len(held)} Positionen, Sektoren: {held_sectors}\n\n"
+        f"## Buy-Kandidaten\n\n{candidates_block}\n\n"
+        f"Bewerte jeden Kandidaten."
     )
 
-    result = call_haiku(
+    result = call_sonnet(
         system=system,
         prompt=prompt,
         job_source="llm_buy_screen",
         subject_type="batch",
-        input_summary=f"screen {len(eligible)} candidates",
-        max_tokens=256,
-        temperature=0.0,
-        estimated_cost_eur=0.005,
+        input_summary=f"screen {len(eligible)} candidates, regime={regime_info[:30]}",
+        max_tokens=512,
+        temperature=0.1,
+        estimated_cost_eur=0.02,
     )
 
     if not result.ok or not result.parsed_json:
         print(f"  llm-screen: fallback (error={result.error})")
         return [item["ticker"] for item in eligible]
 
-    approved = result.parsed_json.get("approved", [])
-    if not approved:
+    parsed = result.parsed_json
+    approved = parsed.get("approved", [])
+    rejected = parsed.get("rejected", [])
+
+    if not approved and not rejected:
         return [item["ticker"] for item in eligible]
 
-    rejected = [item["ticker"] for item in eligible if item["ticker"] not in approved]
-    if rejected:
-        print(f"  llm-screen: rejected {rejected}, cost {result.cost_eur:.4f}€")
+    for r in rejected:
+        print(f"  llm-screen REJECT {r.get('ticker','?')}: {r.get('reason','?')}")
+    if approved:
+        print(f"  llm-screen APPROVED: {approved} (cost {result.cost_eur:.4f}€)")
+
     return approved
 
 
