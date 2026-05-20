@@ -343,7 +343,10 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             decisions["skips"].append({"ticker": entry.ticker, "reason": decision.reason})
             continue
 
-        # Sizing
+        # Sizing — ETFs bekommen halbes target (Alpha kommt von Einzelaktien)
+        _SECTOR_ETFS = {"XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
+        if entry.ticker in _SECTOR_ETFS:
+            decision.target_eur = decision.target_eur * 0.5
         quote = broker.get_quote(entry.ticker)
         sz = size_position(decision, broker.get_account().cash_eur, quote.last, fx, t_cfg)
         if sz.skip:

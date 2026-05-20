@@ -184,6 +184,17 @@ class AlpacaPaperBroker(BrokerAdapter):
             timestamp=_dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
         )
 
+    @staticmethod
+    def _is_extended_hours() -> bool:
+        now = _dt.datetime.now(_dt.timezone.utc)
+        try:
+            from zoneinfo import ZoneInfo
+            et = now.astimezone(ZoneInfo("America/New_York"))
+        except ImportError:
+            et = now + _dt.timedelta(hours=-4)
+        mins = et.hour * 60 + et.minute
+        return mins < 9 * 60 + 30 or mins >= 16 * 60
+
     @api_retry(attempts=3, min_wait=2, max_wait=10)
     def place_order(
         self,
@@ -199,6 +210,7 @@ class AlpacaPaperBroker(BrokerAdapter):
         from alpaca.trading.enums import OrderSide, TimeInForce
 
         side_enum = OrderSide.BUY if side == "buy" else OrderSide.SELL
+        extended = self._is_extended_hours()
         if order_type == "market":
             req = MarketOrderRequest(
                 symbol=ticker,
@@ -218,6 +230,7 @@ class AlpacaPaperBroker(BrokerAdapter):
                 symbol=ticker, qty=qty, side=side_enum,
                 limit_price=limit_price,
                 time_in_force=TimeInForce.DAY,
+                extended_hours=extended,
                 client_order_id=client_id,
             )
         else:

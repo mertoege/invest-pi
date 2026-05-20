@@ -88,7 +88,12 @@ def is_market_open(now_utc: Optional[dt.datetime] = None,
     minutes = berlin.hour * 60 + berlin.minute
     open_h, open_m = (int(x) for x in open_cet.split(":"))
     close_h, close_m = (int(x) for x in close_cet.split(":"))
-    return (open_h * 60 + open_m) <= minutes < (close_h * 60 + close_m)
+    open_min = open_h * 60 + open_m
+    close_min = close_h * 60 + close_m
+    if close_min > open_min:
+        return open_min <= minutes < close_min
+    # Overnight wrap: e.g. 10:00 - 02:00
+    return minutes >= open_min or minutes < close_min
 
 
 # ────────────────────────────────────────────────────────────
