@@ -172,18 +172,14 @@ def _load_from_cache(ticker: str) -> Optional[pd.DataFrame]:
 
 
 def _save_to_cache(ticker: str, df: pd.DataFrame) -> None:
-    rows = [
-        (
-            ticker,
-            idx.strftime("%Y-%m-%d"),
-            float(row["open"])   if pd.notna(row["open"])   else None,
-            float(row["high"])   if pd.notna(row["high"])   else None,
-            float(row["low"])    if pd.notna(row["low"])    else None,
-            float(row["close"])  if pd.notna(row["close"])  else None,
-            int(row["volume"])   if pd.notna(row["volume"]) else None,
-        )
-        for idx, row in df.iterrows()
-    ]
+    dates = df.index.strftime("%Y-%m-%d")
+    tickers = [ticker] * len(df)
+    opens  = [float(v) if pd.notna(v) else None for v in df["open"].values]
+    highs  = [float(v) if pd.notna(v) else None for v in df["high"].values]
+    lows   = [float(v) if pd.notna(v) else None for v in df["low"].values]
+    closes = [float(v) if pd.notna(v) else None for v in df["close"].values]
+    vols   = [int(v)   if pd.notna(v) else None for v in df["volume"].values]
+    rows = list(zip(tickers, dates, opens, highs, lows, closes, vols))
     with connect(MARKET_DB) as conn:
         conn.executemany(
             "INSERT OR REPLACE INTO prices "

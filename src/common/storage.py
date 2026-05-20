@@ -138,6 +138,7 @@ CREATE TABLE IF NOT EXISTS predictions (
 CREATE INDEX IF NOT EXISTS idx_pred_job_date ON predictions(job_source, created_at);
 CREATE INDEX IF NOT EXISTS idx_pred_subject  ON predictions(subject_type, subject_id);
 CREATE INDEX IF NOT EXISTS idx_pred_outcome  ON predictions(outcome_correct);
+CREATE INDEX IF NOT EXISTS idx_pred_subject_date ON predictions(subject_id, created_at);
 
 CREATE TABLE IF NOT EXISTS feedback_reasons (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,

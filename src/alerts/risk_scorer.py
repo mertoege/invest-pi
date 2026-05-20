@@ -150,7 +150,7 @@ def score_technical_breakdown(prices: pd.DataFrame) -> DimensionScore:
     reasons = []
 
     # Signal 1: Kurs unter MA50
-    if current < ma50:
+    if ma50 > 0 and current < ma50:
         below_pct = (ma50 - current) / ma50
         sub = min(40.0, below_pct * 400)   # 0-40 Punkte
         score += sub
