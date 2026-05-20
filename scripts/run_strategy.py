@@ -132,36 +132,37 @@ def _update_position_after_buy(ticker: str, strategy_label: str, source: str, pr
 
 
 def take_profit_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
-    """Verkauft Positionen >= +take_profit_pct."""
+    """Partial take-profit (50% bei partial_pct) + full take-profit."""
     triggered = positions_to_take_profit(broker, t_cfg)
     if not triggered:
         return 0
     avg_prices = {p.ticker: p.avg_price for p in broker.get_positions() if p.avg_price > 0}
-    for ticker, qty, price in triggered:
+    for ticker, qty, price, tp_type in triggered:
         gain_pct = ((price / avg_prices.get(ticker, price)) - 1.0)
-        print(f"  TAKE-PROFIT {ticker}: +{gain_pct:.0%} reached, sell {qty} @ {price:.2f}")
+        label = "PARTIAL-TP" if tp_type == "partial" else "TAKE-PROFIT"
+        print(f"  {label} {ticker}: +{gain_pct:.0%} reached, sell {qty} @ {price:.2f}")
         if dry_run:
             continue
         result = broker.place_order(ticker=ticker, side="sell", qty=qty)
+        strategy = f"partial_tp-v1" if tp_type == "partial" else "take_profit-v1"
         _record_trade(
             decision_pred_id=None,
             ticker=ticker, side="sell", qty=qty,
             eur_value=qty * price * eur_per_usd(), price=price,
             status=result.status, order_id=result.order_id,
-            strategy_label="take_profit-v1", source=source,
-            notes=f"auto take-profit at +{t_cfg.take_profit_pct:.0%}",
+            strategy_label=strategy, source=source,
+            notes=f"{label} at +{gain_pct:.0%}",
         )
-        if result.status == "filled":
+        if result.status in ("filled", "pending_new", "accepted"):
             try:
-                from src.alerts import notifier
                 notifier.send_trade(
                     ticker=ticker, side="sell", qty=qty,
                     eur=qty * price * eur_per_usd(), price_usd=price,
-                    reason=f"TAKE-PROFIT at +{t_cfg.take_profit_pct:.0%}",
+                    reason=f"{label} at +{gain_pct:.0%}",
                     paper=broker.is_paper,
                 )
-            except Exception as e:
-                print(f"  notifier failed: {e}")
+            except Exception:
+                pass
     return len(triggered)
 
 
@@ -657,6 +658,124 @@ def regime_rebalance_pass(
     return sells
 
 
+WINNER_SCALE_MIN_GAIN = 0.10      # min +10% Gewinn
+WINNER_SCALE_MAX_PER_RUN = 3
+WINNER_SCALE_FACTOR = 0.5         # 50% der aktuellen Position dazukaufen
+
+
+def winner_scaling_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
+    """Stocke Gewinner auf: Positionen mit >10% Gain + positivem Momentum."""
+    from src.trading import get_active_profile
+    from src.trading.decision import latest_risk_score
+    from src.common.data_loader import get_prices
+
+    positions = broker.get_positions()
+    fx = eur_per_usd()
+    profile = get_active_profile(t_cfg) or {}
+    max_pos_eur = profile.get("max_position_eur", t_cfg.max_position_eur)
+    account = broker.get_account()
+    scaled = 0
+
+    candidates = []
+    for pos in positions:
+        if pos.avg_price <= 0:
+            continue
+        gain_pct = (pos.market_price / pos.avg_price) - 1.0
+        if gain_pct < WINNER_SCALE_MIN_GAIN:
+            continue
+        score = latest_risk_score(pos.ticker)
+        if not score or score["alert_level"] >= 2:
+            continue
+        try:
+            prices = get_prices(pos.ticker, period="1mo")
+            if prices is not None and len(prices) >= 5:
+                momentum = float(prices["close"].iloc[-1] / prices["close"].iloc[0] - 1)
+            else:
+                momentum = 0
+        except Exception:
+            momentum = 0
+        if momentum <= 0:
+            continue
+        current_eur = pos.market_price * pos.qty * fx
+        headroom = max_pos_eur - current_eur
+        if headroom < t_cfg.min_position_eur:
+            continue
+        add_eur = min(current_eur * WINNER_SCALE_FACTOR, headroom, account.cash_eur * 0.10)
+        if add_eur < t_cfg.min_position_eur:
+            continue
+        candidates.append({
+            "pos": pos, "gain": gain_pct, "momentum": momentum,
+            "add_eur": add_eur, "risk": score["composite"],
+        })
+
+    candidates.sort(key=lambda x: -x["momentum"])
+
+    for cand in candidates[:WINNER_SCALE_MAX_PER_RUN]:
+        pos = cand["pos"]
+        price_eur = pos.market_price * fx
+        qty = round(cand["add_eur"] / price_eur, 4)
+        print(f"  WINNER-SCALE {pos.ticker}: +{cand['gain']:.0%} gain, mom={cand['momentum']:+.1%}, "
+              f"+{qty} shares ({cand['add_eur']:.0f}€)")
+        if dry_run:
+            scaled += 1
+            continue
+        quote = broker.get_quote(pos.ticker)
+        limit_price = round(quote.ask * 1.001, 2) if quote.ask > 0 else round(quote.last * 1.002, 2)
+        result = broker.place_order(ticker=pos.ticker, side="buy", qty=qty,
+                                    order_type="limit", limit_price=limit_price)
+        _record_trade(
+            decision_pred_id=None,
+            ticker=pos.ticker, side="buy", qty=qty,
+            eur_value=cand["add_eur"], price=pos.market_price,
+            status=result.status, order_id=result.order_id,
+            strategy_label="winner_scale-v1", source=source,
+            notes=f"winner scaling: +{cand['gain']:.0%}, momentum={cand['momentum']:+.1%}",
+        )
+        if result.status in ("filled", "pending_new", "accepted"):
+            scaled += 1
+    return scaled
+
+
+def atr_stop_update(broker, t_cfg, source: str) -> int:
+    """Update stop_loss_price basierend auf 2x ATR statt fixem Prozentsatz."""
+    from src.common.data_loader import get_prices
+    import numpy as np
+
+    updated = 0
+    positions = broker.get_positions()
+    with connect(TRADING_DB) as conn:
+        for pos in positions:
+            try:
+                prices = get_prices(pos.ticker, period="3mo")
+                if prices is None or len(prices) < 20:
+                    continue
+                high = prices["high"].values[-20:]
+                low = prices["low"].values[-20:]
+                close = prices["close"].values[-21:-1]
+                tr = np.maximum(high - low, np.maximum(
+                    np.abs(high - close), np.abs(low - close)))
+                atr = float(np.mean(tr))
+                atr_stop = round(pos.market_price - 2.0 * atr, 2)
+                if atr_stop <= 0:
+                    continue
+                row = conn.execute(
+                    "SELECT stop_loss_price FROM positions WHERE ticker=? AND source=?",
+                    (pos.ticker, source),
+                ).fetchone()
+                if not row:
+                    continue
+                old_stop = row["stop_loss_price"] or 0
+                if atr_stop > old_stop:
+                    conn.execute(
+                        "UPDATE positions SET stop_loss_price=?, last_updated=datetime('now') WHERE ticker=? AND source=?",
+                        (atr_stop, pos.ticker, source),
+                    )
+                    updated += 1
+            except Exception:
+                continue
+    return updated
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true",
@@ -768,6 +887,23 @@ def main() -> None:
                 print(f"  top-ups: {len(topups)}")
         except Exception as e:
             print(f"  top-up skipped: {e}")
+
+    # Winner Scaling: Gewinner mit positivem Momentum aufstocken
+    if not args.skip_buys:
+        try:
+            n_scaled = winner_scaling_pass(broker, t_cfg, src, args.dry_run)
+            if n_scaled:
+                print(f"  winner-scaling: {n_scaled} positions scaled up")
+        except Exception as e:
+            print(f"  winner-scaling skipped: {e}")
+
+    # ATR-basierte Stop-Loss-Updates
+    try:
+        n_atr = atr_stop_update(broker, t_cfg, src)
+        if n_atr:
+            print(f"  atr-stops updated: {n_atr}")
+    except Exception as e:
+        print(f"  atr-stop update skipped: {e}")
 
     _take_equity_snapshot(broker, src, notes="run_strategy:end")
     final = broker.get_account()

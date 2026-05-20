@@ -315,7 +315,8 @@ settings:
 
     # Sell-Trigger
     stop_loss_pct:             0.10             # auto-sell bei -10 % (conservative: 0.15)
-    take_profit_pct:           0.25             # auto-sell bei +25 %
+    take_profit_pct:           0.25             # auto-sell bei +25 % (full)
+    partial_take_profit_pct:   0.15             # 50% verkaufen bei +15 % (lock in gains)
     trailing_stop_pct:         0.08             # ab +12% Profit: -8% vom High = sell (NEU)
     trailing_activation_pct:   0.12             # ab welchem Profit Trailing-Stop aktiv wird
 

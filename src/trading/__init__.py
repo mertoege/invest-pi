@@ -30,6 +30,7 @@ class TradingConfig:
     moderate_alert_max:         int
     stop_loss_pct:              float
     take_profit_pct:            float
+    partial_take_profit_pct:    float
     trailing_stop_pct:          float
     trailing_activation_pct:    float
     max_daily_loss_pct:         float
@@ -66,6 +67,7 @@ def load_trading_config(config_path: Optional[Path] = None) -> TradingConfig:
         moderate_alert_max=int(t.get("moderate_alert_max", 1)),
         stop_loss_pct=float(t.get("stop_loss_pct", 0.15)),
         take_profit_pct=float(t.get("take_profit_pct", 0.20)),
+        partial_take_profit_pct=float(t.get("partial_take_profit_pct", 0.15)),
         trailing_stop_pct=float(t.get("trailing_stop_pct", 0.08)),
         trailing_activation_pct=float(t.get("trailing_activation_pct", 0.12)),
         max_daily_loss_pct=float(t.get("max_daily_loss_pct", 0.05)),
