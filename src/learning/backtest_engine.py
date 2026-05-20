@@ -944,7 +944,7 @@ def run_backtest_v2(
         aligned = df.reindex(all_dates)
         if aligned["close"].notna().sum() < 60:
             continue
-        aligned = aligned.ffill()  # forward-fill gaps
+        aligned = aligned.ffill(limit=3)  # max 3 Tage ffill, danach NaN (kein Fake-Continuum)
         ticker_data[t] = {
             "closes": aligned["close"].values,
             "volumes": aligned["volume"].fillna(0).values,
@@ -957,7 +957,7 @@ def run_backtest_v2(
         if t == "SMH":
             continue
         df = history[t]
-        aligned = df.reindex(all_dates).ffill()
+        aligned = df.reindex(all_dates).ffill(limit=3)
         peer_closes_aligned[t] = aligned["close"].values
 
     # Portfolio state
@@ -1017,9 +1017,13 @@ def run_backtest_v2(
                 rets = np.diff(spy_win[-20:]) / spy_win[-20:-1]
                 vol = float(np.std(rets) * np.sqrt(252) * 100)
                 vix_synth = pd.DataFrame({"close": [vol]})
-                regime = _detect_regime_for_day(
-                    pd.DataFrame({"close": spy_win}), vix_synth
-                )
+                # Rule-based regime (kein HMM im Backtest → kein Look-Ahead-Bias)
+                if vol > 28 and float(np.mean(rets)) < -0.005:
+                    regime = "bear"
+                elif vol > 22:
+                    regime = "high_vol_mixed"
+                else:
+                    regime = "low_vol_bull" 
             else:
                 regime = "unknown"
             profile = _profile_for_regime(regime, regime_profiles)

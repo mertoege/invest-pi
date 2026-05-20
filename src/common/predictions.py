@@ -101,9 +101,12 @@ def log_prediction(
         prediction_id (für späteren record_outcome-Aufruf).
     """
     if subject_id is None and subject_type == "ticker":
-        # Soft-warn aber nicht crashen — manche Jobs (z.B. macro_regime) sind
-        # ticker-unabhängig.
-        subject_type = "global"
+        import logging as _log
+        _log.getLogger("invest_pi.predictions").warning(
+            f"subject_id=None bei subject_type='ticker' (job={job_source}) — "
+            "Outcome-Tracking wird nicht funktionieren! Caller muss subject_id setzen."
+        )
+        subject_type = "ticker_unknown"
 
     if prompt and prompt_hash is None:
         prompt_hash = hash_short(prompt)

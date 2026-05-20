@@ -1399,7 +1399,7 @@ def score_earnings_llm(ticker: str) -> DimensionScore:
 # ──────────────── 16. SIGNAL COHERENCE HEURISTIC ──────────
 _COHERENCE_GROUPS = {
     "technical":   {"technical_breakdown", "volume_divergence", "updown_volume", "gap_pattern", "hurst_regime"},
-    "fundamental": {"valuation_pct", "analyst_downgrades", "earnings_llm"},
+    "fundamental": {"valuation_percentile", "analyst_downgrades", "earnings_llm"},
     "sentiment":   {"sentiment_reversal", "short_interest", "si_trend", "options_skew"},
     "macro":       {"macro_regime", "cross_asset", "earnings_proximity"},
 }

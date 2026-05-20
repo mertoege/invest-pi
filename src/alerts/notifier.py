@@ -117,8 +117,8 @@ def _log_notification(
 _LEVEL_LABEL = {0: "Green", 1: "Watch", 2: "Caution", 3: "Red"}
 _LEVEL_EMOJI = {0: "🟢", 1: "🟡", 2: "🟠", 3: "🔴"}
 
-_ALERTS_ENABLED = False
-_TRADES_ENABLED = False
+_ALERTS_ENABLED = os.environ.get("ALERTS_ENABLED", "1").lower() in ("1", "true", "yes")
+_TRADES_ENABLED = os.environ.get("TRADES_ENABLED", "1").lower() in ("1", "true", "yes")
 
 
 def send_alert(

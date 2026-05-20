@@ -266,7 +266,7 @@ def risk_sell_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
                 )
             except Exception as e:
                 print(f"  notifier failed: {e}")
-        sells += 1
+            sells += 1
     return sells
 
 
@@ -424,6 +424,16 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             print(f"  post-trade analysis failed: {e}")
 
     return decisions
+
+
+def _llm_screen_candidates(eligible: list, t_cfg, regime_info: str, held: set) -> list:
+    """Stub: LLM-Screening nicht implementiert — alle Kandidaten passieren."""
+    return [item["ticker"] for item in eligible]
+
+
+def _llm_post_trade_analysis(trades_done: list, regime_info: str) -> None:
+    """Stub: Post-Trade-LLM-Analyse nicht implementiert."""
+    pass
 
 
 def _get_sector_for_ticker(t_cfg, ticker: str) -> str | None:
