@@ -121,7 +121,7 @@ def decide_action(
         )
 
     # Hard-Filter: zu viele offene Positionen? (Regime-Profile-aware)
-    profile = get_active_profile(config)
+    profile = get_active_profile(config) or {}
     max_positions = profile.get("max_open_positions", config.max_open_positions)
     if open_positions_count >= max_positions:
         return TradeDecision(
@@ -184,8 +184,6 @@ def decide_action(
     # daher kein separates Limit mehr noetig.
     triggered_ok = True
 
-    # Adaptive-Profile holen wenn mode=adaptive, sonst config-Werte
-    profile = get_active_profile(config)
     profile_buy_max = profile.get("score_buy_max", config.score_buy_max)
 
     try:

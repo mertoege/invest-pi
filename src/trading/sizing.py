@@ -194,6 +194,11 @@ def size_position(
             skip_reason=f"sized {target:.2f} EUR < min {config.min_position_eur:.2f}",
         )
 
+    if fx_eur_per_usd <= 0:
+        return SizingResult(
+            eur_amount=0.0, qty=0.0, skip=True,
+            skip_reason="invalid fx_rate",
+        )
     price_eur = quote_usd * fx_eur_per_usd
     if price_eur <= 0:
         return SizingResult(

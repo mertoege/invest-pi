@@ -173,6 +173,8 @@ class AlpacaPaperBroker(BrokerAdapter):
         # Fallback: yfinance-Cache (mit Freshness-Check)
         from ..common.data_loader import get_prices
         prices = get_prices(ticker, period="5d")
+        if prices is None or prices.empty:
+            raise ValueError(f"no price data for {ticker}")
         last = float(prices["close"].iloc[-1])
         return Quote(
             ticker=ticker,
