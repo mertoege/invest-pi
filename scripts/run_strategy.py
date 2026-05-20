@@ -450,13 +450,58 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
 
 
 def _llm_screen_candidates(eligible: list, t_cfg, regime_info: str, held: set) -> list:
-    """Stub: LLM-Screening nicht implementiert — alle Kandidaten passieren."""
-    return [item["ticker"] for item in eligible]
+    """Haiku-basiertes Pre-Buy Screening: filtert schwache Kandidaten."""
+    from src.common.llm import call_haiku, is_configured
+    if not is_configured() or not eligible:
+        return [item["ticker"] for item in eligible]
 
+    candidates_text = ""
+    for item in eligible:
+        candidates_text += (
+            f"- {item['ticker']}: composite={item['composite']:.1f}, "
+            f"confidence={item['confidence']}, momentum={item.get('momentum', 0):+.1%}, "
+            f"alert={item['alert']}, triggered={item['triggered']}\n"
+        )
 
-def _llm_post_trade_analysis(trades_done: list, regime_info: str) -> None:
-    """Stub: Post-Trade-LLM-Analyse nicht implementiert."""
-    pass
+    system = (
+        "Du bist ein Quant-Screening-Filter. Du bekommst Buy-Kandidaten mit Risk-Scores.\n"
+        "Antworte NUR mit einem JSON-Array der Ticker die du empfiehlst.\n"
+        "Filtere Kandidaten die aktuell ein schlechtes Risk/Reward haben:\n"
+        "- Hoher composite + negatives momentum = schlecht\n"
+        "- Niedriger composite + positives momentum = gut\n"
+        "- Bei Unsicherheit: durchlassen (lieber kaufen als verpassen)\n"
+        'Format: {"approved": ["TICKER1", "TICKER2"]}'
+    )
+    prompt = (
+        f"Regime: {regime_info}\n"
+        f"Bereits gehalten: {len(held)} Positionen\n\n"
+        f"Buy-Kandidaten:\n{candidates_text}\n"
+        f"Welche empfiehlst du?"
+    )
+
+    result = call_haiku(
+        system=system,
+        prompt=prompt,
+        job_source="llm_buy_screen",
+        subject_type="batch",
+        input_summary=f"screen {len(eligible)} candidates",
+        max_tokens=256,
+        temperature=0.0,
+        estimated_cost_eur=0.005,
+    )
+
+    if not result.ok or not result.parsed_json:
+        print(f"  llm-screen: fallback (error={result.error})")
+        return [item["ticker"] for item in eligible]
+
+    approved = result.parsed_json.get("approved", [])
+    if not approved:
+        return [item["ticker"] for item in eligible]
+
+    rejected = [item["ticker"] for item in eligible if item["ticker"] not in approved]
+    if rejected:
+        print(f"  llm-screen: rejected {rejected}, cost {result.cost_eur:.4f}€")
+    return approved
 
 
 def _get_sector_for_ticker(t_cfg, ticker: str) -> str | None:
