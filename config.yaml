@@ -310,7 +310,7 @@ settings:
 
     # Buy-Trigger (Conservative-Default in Klammern)
     score_buy_max:            45                # Buy nur wenn composite < dieser Wert (conservative: 25)
-    force_skip_alert_min:      2                # Bei alert_level >= 2 IMMER skippen
+    force_skip_alert_min:      3                # Bei alert_level >= 3 (RED) IMMER skippen
     moderate_alert_max:        1                # moderate-mode erlaubt alert_level<=1 (statt nur 0)
 
     # Sell-Trigger
@@ -321,7 +321,7 @@ settings:
     trailing_activation_pct:   0.12             # ab welchem Profit Trailing-Stop aktiv wird
 
     max_daily_loss_pct:        0.05             # Tages-Drawdown der Equity-Curve, Notbremse
-    max_trades_per_day:        5                # Hard-Cap (conservative: 3)
+    max_trades_per_day:       15                # Hard-Cap (conservative: 3)
     cash_floor_pct:            0.05             # min. 5% Cash-Reserve halten
     max_per_sector_pct:        0.35             # max. 35% Equity in einem Sektor
 

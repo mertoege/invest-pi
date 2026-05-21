@@ -34,8 +34,8 @@ from src.trading.decision import latest_risk_score
 
 # Rotation-Parameter
 MAX_SELLS_PER_WEEK = 3
-MAX_TOPUPS_PER_RUN = 5
-TOPUP_THRESHOLD_PCT = 0.40  # Position aufstocken wenn < 40% von target
+MAX_TOPUPS_PER_RUN = 8
+TOPUP_THRESHOLD_PCT = 0.60  # Position aufstocken wenn < 60% von target
 _SECTOR_ETFS = {"XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
 MAX_ETF_TOPUPS = 1  # max 1 ETF-Top-Up pro Run, Einzelaktien bevorzugt
 
@@ -198,7 +198,7 @@ def topup_pass(broker, t_cfg, profile, source, dry_run) -> list:
             if etf_topups >= MAX_ETF_TOPUPS:
                 continue
             etf_topups += 1
-        gap = min(item["gap_eur"], broker.get_account().cash_eur * 0.10)
+        gap = min(item["gap_eur"], broker.get_account().cash_eur * 0.15)
         if gap < t_cfg.min_position_eur:
             continue
         quote = broker.get_quote(p.ticker)
