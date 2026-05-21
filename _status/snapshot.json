@@ -13,13 +13,13 @@
   },
   "git": {
     "branch": "main",
-    "commit": "fafaa702",
+    "commit": "5bc9008a",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 64.45,
+    "cpu_temp_c": 65.0,
     "disk_pct": 34,
-    "load_1min": 0.17,
+    "load_1min": 0.31,
     "mem_pct": 45
   },
   "last_runs": {
@@ -31,7 +31,7 @@
   "predictions": {
     "correct": 11103,
     "incorrect": 1517,
-    "last_24h": 1048,
+    "last_24h": 1045,
     "last_7d": 6812,
     "pending": 7611,
     "total": 21571
@@ -44,5 +44,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-05-21T06:42:37"
+  "timestamp_utc": "2026-05-21T06:44:41"
 }
