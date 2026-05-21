@@ -355,15 +355,15 @@ settings:
         sector_preference:    []
         sector_avoid:         []
       high_vol_mixed:
-        score_buy_max:        50
-        max_open_positions:   25
+        score_buy_max:        55
+        max_open_positions:   35
         max_position_eur:     4000
-        max_trades_per_day:   5
+        max_trades_per_day:   10
         stop_loss_pct:        0.10
         take_profit_pct:      0.40
         trailing_activation:  0.10
         trailing_stop_pct:    0.10
-        target_invest_pct:    0.80
+        target_invest_pct:    0.90
         sector_preference:    []
         sector_avoid:         []
       bear:

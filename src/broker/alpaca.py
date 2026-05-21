@@ -186,6 +186,7 @@ class AlpacaPaperBroker(BrokerAdapter):
 
     @staticmethod
     def _is_extended_hours() -> bool:
+        import datetime as _dt
         now = _dt.datetime.now(_dt.timezone.utc)
         try:
             from zoneinfo import ZoneInfo
