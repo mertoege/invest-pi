@@ -241,8 +241,24 @@ def stop_loss_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
     return len(triggered)
 
 
+def _risk_sell_cooldown(ticker: str, hours: int = 24) -> bool:
+    """True wenn bereits ein CAUTION-Sell in den letzten N Stunden stattfand."""
+    try:
+        with connect(TRADING_DB) as conn:
+            row = conn.execute(
+                """SELECT 1 FROM trades
+                   WHERE ticker=? AND strategy_label LIKE 'risk_sell_caution%'
+                     AND created_at > datetime('now', ?)
+                   LIMIT 1""",
+                (ticker, f"-{hours} hours"),
+            ).fetchone()
+        return row is not None
+    except Exception:
+        return False
+
+
 def risk_sell_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry_run: bool) -> int:
-    """Verkauft Positionen basierend auf Risk-Score: RED=100%, CAUTION=50%."""
+    """Verkauft Positionen basierend auf Risk-Score: RED=100%, CAUTION=50% (24h Cooldown)."""
     from src.trading.decision import latest_risk_score
     positions = broker.get_positions()
     sells = 0
@@ -252,8 +268,12 @@ def risk_sell_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
             continue
         if score["alert_level"] >= 3:
             sell_pct, label = 1.0, "RED"
-        else:
+        elif score["composite"] >= 70:
+            if _risk_sell_cooldown(pos.ticker, hours=48):
+                continue
             sell_pct, label = 0.5, "CAUTION"
+        else:
+            continue
         sell_qty = round(pos.qty * sell_pct, 4)
         if sell_qty <= 0:
             continue
