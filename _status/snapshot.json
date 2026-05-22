@@ -13,14 +13,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "ffebbe77",
+    "commit": "7f8060b4",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 66.65,
+    "cpu_temp_c": 67.2,
     "disk_pct": 34,
-    "load_1min": 0.88,
-    "mem_pct": 54
+    "load_1min": 0.67,
+    "mem_pct": 55
   },
   "last_runs": {
     "run_strategy": null,
@@ -29,12 +29,12 @@
     "track_outcomes": null
   },
   "predictions": {
-    "correct": 11899,
+    "correct": 11942,
     "incorrect": 1540,
-    "last_24h": 1412,
-    "last_7d": 7263,
-    "pending": 7909,
-    "total": 22688
+    "last_24h": 1411,
+    "last_7d": 7267,
+    "pending": 7878,
+    "total": 22700
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "?",
     "sync": "active"
   },
-  "timestamp_utc": "2026-05-22T00:36:07"
+  "timestamp_utc": "2026-05-22T00:38:11"
 }
