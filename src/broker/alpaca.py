@@ -34,6 +34,17 @@ from .base import (
 
 _PAPER_BASE_URL = "https://paper-api.alpaca.markets"
 
+_TICKER_TO_ALPACA = {"BRK-B": "BRK.B"}
+_ALPACA_TO_TICKER = {v: k for k, v in _TICKER_TO_ALPACA.items()}
+
+
+def _to_alpaca(ticker: str) -> str:
+    return _TICKER_TO_ALPACA.get(ticker, ticker)
+
+
+def _from_alpaca(ticker: str) -> str:
+    return _ALPACA_TO_TICKER.get(ticker, ticker)
+
 
 def _eur_per_usd() -> float:
     from ..common.fx import eur_per_usd
