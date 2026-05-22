@@ -463,13 +463,6 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
                 print(f"  max_open_positions reached, stopping for today")
                 break
 
-    # Phase 4: Post-trade LLM analysis
-    if trades_done and not dry_run:
-        try:
-            _llm_post_trade_analysis(trades_done, regime_info)
-        except Exception as e:
-            print(f"  post-trade analysis failed: {e}")
-
     return decisions
 
 

@@ -128,7 +128,7 @@ class AlpacaPaperBroker(BrokerAdapter):
             mv_eur = last * qty * self._fx
             unreal_eur = (last - avg) * qty * self._fx
             result.append(BrokerPosition(
-                ticker=p.symbol,
+                ticker=_from_alpaca(p.symbol),
                 qty=qty,
                 avg_price=avg,
                 market_price=last,
@@ -145,6 +145,7 @@ class AlpacaPaperBroker(BrokerAdapter):
         Fallback auf yfinance-Cache wenn Alpaca fehlschlaegt.
         """
         import datetime as _dt
+        alpaca_sym = _to_alpaca(ticker)
         # Primaer: Alpaca Market Data API (Echtzeit-Kurse)
         try:
             from alpaca.data.historical import StockHistoricalDataClient
@@ -153,10 +154,10 @@ class AlpacaPaperBroker(BrokerAdapter):
                 api_key=self._api_key,
                 secret_key=self._api_secret,
             )
-            req = StockLatestQuoteRequest(symbol_or_symbols=ticker)
+            req = StockLatestQuoteRequest(symbol_or_symbols=alpaca_sym)
             quotes = data_client.get_stock_latest_quote(req)
-            if ticker in quotes:
-                q = quotes[ticker]
+            if alpaca_sym in quotes:
+                q = quotes[alpaca_sym]
                 bid = float(q.bid_price) if q.bid_price else 0.0
                 ask = float(q.ask_price) if q.ask_price else 0.0
                 last = (bid + ask) / 2.0 if bid and ask else bid or ask
@@ -210,11 +211,12 @@ class AlpacaPaperBroker(BrokerAdapter):
         from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
         from alpaca.trading.enums import OrderSide, TimeInForce
 
+        alpaca_sym = _to_alpaca(ticker)
         side_enum = OrderSide.BUY if side == "buy" else OrderSide.SELL
         extended = self._is_extended_hours()
         if order_type == "market":
             req = MarketOrderRequest(
-                symbol=ticker,
+                symbol=alpaca_sym,
                 qty=qty,
                 side=side_enum,
                 time_in_force=TimeInForce.DAY,
@@ -228,7 +230,7 @@ class AlpacaPaperBroker(BrokerAdapter):
                     error="limit order without limit_price",
                 )
             req = LimitOrderRequest(
-                symbol=ticker, qty=qty, side=side_enum,
+                symbol=alpaca_sym, qty=qty, side=side_enum,
                 limit_price=limit_price,
                 time_in_force=TimeInForce.DAY,
                 extended_hours=extended,
@@ -282,7 +284,7 @@ def _from_alpaca_order(order) -> OrderResult:
     return OrderResult(
         order_id=str(order.id),
         status=status_str,
-        ticker=order.symbol,
+        ticker=_from_alpaca(order.symbol),
         side=side_str,
         qty=float(order.qty) if order.qty else 0.0,
         filled_qty=filled_qty,
