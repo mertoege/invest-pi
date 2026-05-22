@@ -453,6 +453,12 @@
                         <div class="sub" id="dash-sub">Paper-Account · Alpaca</div>
                     </div>
                     <div class="actions">
+                        <div class="tf-group" id="tf-buttons-top">
+                            <button class="tf-btn" data-days="1" onclick="setChartRange(1)">1T</button>
+                            <button class="tf-btn" data-days="7" onclick="setChartRange(7)">7T</button>
+                            <button class="tf-btn" data-days="30" onclick="setChartRange(30)">30T</button>
+                            <button class="tf-btn active" data-days="0" onclick="setChartRange(0)">All</button>
+                        </div>
                         <div class="btn" onclick="loadAll()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
                             Refresh
@@ -470,13 +476,13 @@
                         <div class="h" id="hero-alloc">--</div>
                     </div>
                     <div class="stat">
-                        <span class="label">Tages-P&amp;L</span>
+                        <span class="label" id="stat-day-label">Tages-P&amp;L</span>
                         <div class="v num" id="stat-day-pl">--</div>
                         <div class="delta" id="stat-day-delta"></div>
                         <div class="h" id="stat-day-h"></div>
                     </div>
                     <div class="stat">
-                        <span class="label">Gesamt-P&amp;L</span>
+                        <span class="label" id="stat-total-label">Gesamt-P&amp;L</span>
                         <div class="v num" id="stat-total-pl">--</div>
                         <div class="delta" id="stat-total-delta"></div>
                         <div class="h" id="stat-total-h"></div>
@@ -507,15 +513,7 @@
                                 <h3>Portfolio vs. SPY</h3>
                                 <div class="meta" id="chart-meta">normalisiert auf %</div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:6px">
-                                <div class="meta num" id="chart-alpha" style="margin-right:8px"></div>
-                                <div class="tf-group" id="tf-buttons">
-                                    <button class="tf-btn" data-days="1" onclick="setChartRange(1)">1T</button>
-                                    <button class="tf-btn" data-days="7" onclick="setChartRange(7)">7T</button>
-                                    <button class="tf-btn" data-days="30" onclick="setChartRange(30)">30T</button>
-                                    <button class="tf-btn active" data-days="0" onclick="setChartRange(0)">All</button>
-                                </div>
-                            </div>
+                            <div class="meta num" id="chart-alpha"></div>
                         </div>
                         <div class="body">
                             <div class="chart-container"><canvas id="equity-chart"></canvas></div>
@@ -817,44 +815,19 @@
             if (d.error) throw new Error(d.error);
             dashboardData = d;
 
-            document.getElementById('hero-equity').textContent = fmtUsd(d.equity_usd);
-            const dayPl = d.day_pl_usd || 0;
-            const dayPct = d.day_pl_pct || 0;
-            document.getElementById('hero-delta').innerHTML = chipHtml(dayPct, `${plSign(dayPl)}${fmtUsd(dayPl)} heute`);
-            const investedPct = d.equity_usd ? (d.invested_usd / d.equity_usd * 100) : 0;
-            const cashPct = d.equity_usd ? (d.cash_usd / d.equity_usd * 100) : 0;
-            document.getElementById('hero-bar').style.width = fmt(investedPct, 0) + '%';
-            document.getElementById('hero-alloc').textContent = `${fmt(investedPct,1)}% allokiert · ${fmt(cashPct,1)}% Cash`;
-
-            const dpl = document.getElementById('stat-day-pl');
-            dpl.textContent = `${plSign(dayPl)}${fmtUsd(dayPl)}`;
-            dpl.className = `v num ${plCls(dayPl)}`;
-            document.getElementById('stat-day-delta').innerHTML = chipHtml(dayPct, 'vs. Eröffnung');
-
-            const totalPl = d.total_pl_usd || 0;
-            const totalPct = d.total_pl_pct || 0;
-            const tpl = document.getElementById('stat-total-pl');
-            tpl.textContent = `${plSign(totalPl)}${fmtUsd(totalPl)}`;
-            tpl.className = `v num ${plCls(totalPl)}`;
-            document.getElementById('stat-total-delta').innerHTML = chipHtml(totalPct, `seit Start`);
-
-            document.getElementById('stat-cash').textContent = fmtUsd(d.cash_usd);
-            document.getElementById('stat-cash-delta').innerHTML = `<span class="muted num">${fmt(cashPct,1)}% von Equity</span>`;
-
-            // KPIs
+            // Static KPIs (always current, not filtered)
             document.getElementById('kpi-invested').textContent = fmtUsd(d.invested_usd);
             document.getElementById('kpi-invested-h').textContent = `${d.positions_count || 0} Positionen`;
             const upl = document.getElementById('kpi-unreal');
             upl.textContent = `${plSign(d.unrealized_pl_eur || 0)}${fmtEur(d.unrealized_pl_eur)}`;
             upl.className = `v num ${plCls(d.unrealized_pl_eur)}`;
-            const tpct = document.getElementById('kpi-return');
-            tpct.textContent = `${plSign(totalPct)}${fmt(totalPct, 3)}%`;
-            tpct.className = `v num ${plCls(totalPct)}`;
-
             document.getElementById('kpi-positions').textContent = d.positions_count || 0;
             document.getElementById('nav-positions-count').textContent = d.positions_count || 0;
-
             document.getElementById('dash-sub').textContent = `Paper-Account · Alpaca · ${fmtEur(d.equity_eur)}`;
+
+            // Apply time filter to dynamic stats
+            updateHeroStats(currentChartDays);
+            updateKPIs(currentChartDays);
         } catch(e) { console.error('Dashboard:', e); }
     }
 
@@ -874,34 +847,172 @@
                 chg.textContent = `${plSign(d.spy_return_pct)}${fmt(d.spy_return_pct, 2)}%`;
                 chg.className = `num ${plCls(d.spy_return_pct)}`;
             }
-
-            // Alpha KPI
-            const alphaEl = document.getElementById('kpi-alpha');
-            if (d.alpha_pct != null) {
-                alphaEl.textContent = `${plSign(d.alpha_pct)}${fmt(d.alpha_pct, 2)}%`;
-                alphaEl.className = `v num ${plCls(d.alpha_pct)}`;
-                document.getElementById('kpi-alpha-h').textContent = `vs. SPY ${plSign(d.spy_return_pct)}${fmt(d.spy_return_pct, 2)}%`;
-            }
         } catch(e) { console.error('Benchmark:', e); }
     }
 
-    // ─── Equity Chart ───
+    // ─── Timeline Filter State ───
     let eqChart = null;
     let currentChartDays = 0;
+    let cachedAllSnapshots = [];
+    let cachedAllTrades = [];
+    const rangeLabels = { 0: 'All Time', 1: 'Heute', 7: '7 Tage', 30: '30 Tage' };
 
     function setChartRange(days) {
         currentChartDays = days;
         document.querySelectorAll('.tf-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.days) === days));
-        loadEquityChart(days);
+        applyTimeFilter(days);
     }
 
-    async function loadEquityChart(days) {
+    function getFilteredSnapshots(days) {
+        if (!days || !cachedAllSnapshots.length) return cachedAllSnapshots;
+        const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+        return cachedAllSnapshots.filter(s => s.timestamp >= cutoff.slice(0,10));
+    }
+
+    function getFilteredTrades(days) {
+        if (!days || !cachedAllTrades.length) return cachedAllTrades;
+        const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+        return cachedAllTrades.filter(t => t.timestamp && t.timestamp >= cutoff.slice(0,10));
+    }
+
+    function getFilteredSpy(days) {
+        if (!benchmarkData || !benchmarkData.spy_daily) return [];
+        if (!days) return benchmarkData.spy_daily;
+        const cutoff = new Date(Date.now() - days * 86400000).toISOString().slice(0,10);
+        return benchmarkData.spy_daily.filter(s => s.date >= cutoff);
+    }
+
+    function applyTimeFilter(days) {
+        updateHeroStats(days);
+        updateKPIs(days);
+        updateRecentTrades(days);
+        renderEquityChart(days);
+    }
+
+    function updateHeroStats(days) {
+        if (!dashboardData) return;
+        const d = dashboardData;
+        const snaps = getFilteredSnapshots(days);
+        const label = rangeLabels[days] || `${days}T`;
+
+        // Equity is always current
+        document.getElementById('hero-equity').textContent = fmtUsd(d.equity_usd);
+        const investedPct = d.equity_usd ? (d.invested_usd / d.equity_usd * 100) : 0;
+        const cashPct = d.equity_usd ? (d.cash_usd / d.equity_usd * 100) : 0;
+        document.getElementById('hero-bar').style.width = fmt(investedPct, 0) + '%';
+        document.getElementById('hero-alloc').textContent = `${fmt(investedPct,1)}% allokiert · ${fmt(cashPct,1)}% Cash`;
+        document.getElementById('stat-cash').textContent = fmtUsd(d.cash_usd);
+        document.getElementById('stat-cash-delta').innerHTML = `<span class="muted num">${fmt(cashPct,1)}% von Equity</span>`;
+
+        // Period P&L from snapshots
+        if (snaps.length >= 2) {
+            const startEquity = snaps[0].total_usd;
+            const endEquity = snaps[snaps.length - 1].total_usd;
+            const periodPl = endEquity - startEquity;
+            const periodPct = startEquity ? (periodPl / startEquity * 100) : 0;
+
+            // "Period P&L" card (was Tages-P&L)
+            document.getElementById('stat-day-label').textContent = days === 1 ? 'Tages-P&L' : days === 0 ? 'Tages-P&L' : `${label}-P&L`;
+            if (days === 0 || days === 1) {
+                const dayPl = d.day_pl_usd || 0;
+                const dayPct = d.day_pl_pct || 0;
+                const dpl = document.getElementById('stat-day-pl');
+                dpl.textContent = `${plSign(dayPl)}${fmtUsd(dayPl)}`;
+                dpl.className = `v num ${plCls(dayPl)}`;
+                document.getElementById('stat-day-delta').innerHTML = chipHtml(dayPct, 'vs. Eröffnung');
+            } else {
+                const dpl = document.getElementById('stat-day-pl');
+                dpl.textContent = `${plSign(periodPl)}${fmtUsd(periodPl)}`;
+                dpl.className = `v num ${plCls(periodPl)}`;
+                document.getElementById('stat-day-delta').innerHTML = chipHtml(periodPct, `${label}`);
+            }
+
+            // "Gesamt-P&L" card — always shows period-aware data
+            document.getElementById('stat-total-label').textContent = days === 0 ? 'Gesamt-P&L' : `Return (${label})`;
+            const tpl = document.getElementById('stat-total-pl');
+            tpl.textContent = `${plSign(periodPl)}${fmtUsd(periodPl)}`;
+            tpl.className = `v num ${plCls(periodPl)}`;
+            document.getElementById('stat-total-delta').innerHTML = chipHtml(periodPct, days === 0 ? 'seit Start' : label);
+            document.getElementById('hero-delta').innerHTML = chipHtml(periodPct, `${plSign(periodPl)}${fmtUsd(periodPl)} ${days === 0 ? 'gesamt' : label}`);
+        } else {
+            // Fallback to API data
+            const dayPl = d.day_pl_usd || 0;
+            const dayPct = d.day_pl_pct || 0;
+            document.getElementById('stat-day-label').textContent = 'Tages-P&L';
+            const dpl = document.getElementById('stat-day-pl');
+            dpl.textContent = `${plSign(dayPl)}${fmtUsd(dayPl)}`;
+            dpl.className = `v num ${plCls(dayPl)}`;
+            document.getElementById('stat-day-delta').innerHTML = chipHtml(dayPct, 'vs. Eröffnung');
+            document.getElementById('stat-total-label').textContent = 'Gesamt-P&L';
+            const totalPl = d.total_pl_usd || 0;
+            const totalPct = d.total_pl_pct || 0;
+            const tpl = document.getElementById('stat-total-pl');
+            tpl.textContent = `${plSign(totalPl)}${fmtUsd(totalPl)}`;
+            tpl.className = `v num ${plCls(totalPl)}`;
+            document.getElementById('stat-total-delta').innerHTML = chipHtml(totalPct, 'seit Start');
+            document.getElementById('hero-delta').innerHTML = chipHtml(totalPct, `${plSign(totalPl)}${fmtUsd(totalPl)} gesamt`);
+        }
+    }
+
+    function updateKPIs(days) {
+        if (!dashboardData) return;
+        const d = dashboardData;
+        const snaps = getFilteredSnapshots(days);
+        const trades = getFilteredTrades(days);
+        const spy = getFilteredSpy(days);
+        const label = rangeLabels[days] || `${days}T`;
+
+        // Return %
+        if (snaps.length >= 2) {
+            const retPct = (snaps[snaps.length-1].total_usd / snaps[0].total_usd - 1) * 100;
+            const tpct = document.getElementById('kpi-return');
+            tpct.textContent = `${plSign(retPct)}${fmt(retPct, 3)}%`;
+            tpct.className = `v num ${plCls(retPct)}`;
+        }
+
+        // Alpha vs SPY
+        if (snaps.length >= 2 && spy.length >= 2) {
+            const portRet = (snaps[snaps.length-1].total_usd / snaps[0].total_usd - 1) * 100;
+            const spyRet = (spy[spy.length-1].price / spy[0].price - 1) * 100;
+            const alpha = portRet - spyRet;
+            const alphaEl = document.getElementById('kpi-alpha');
+            alphaEl.textContent = `${plSign(alpha)}${fmt(alpha, 2)}%`;
+            alphaEl.className = `v num ${plCls(alpha)}`;
+            document.getElementById('kpi-alpha-h').textContent = `vs. SPY ${plSign(spyRet)}${fmt(spyRet, 2)}% (${label})`;
+        }
+
+        // Trades count for period
+        document.getElementById('kpi-trades').textContent = trades.length;
+        const buys = trades.filter(t => t.side === 'buy').length;
+        const sells = trades.filter(t => t.side === 'sell').length;
+        document.getElementById('kpi-trades-h').textContent = `${buys} buys · ${sells} sells${days > 0 ? ` (${label})` : ''}`;
+    }
+
+    function updateRecentTrades(days) {
+        const trades = getFilteredTrades(days);
+        const recent = trades.slice(0, 8);
+        const label = rangeLabels[days] || `${days}T`;
+        document.getElementById('recent-trades-meta').textContent = days > 0 ? `${recent.length} von ${trades.length} (${label})` : `${recent.length} von ${trades.length}`;
+        document.getElementById('recent-trades-body').innerHTML = recent.length ? recent.map(t => {
+            const dt = t.timestamp ? t.timestamp.slice(5,16).replace('T',' ').replace('-','.') : '--';
+            const side = t.side === 'buy' ? '<span class="badge badge-buy">Buy</span>' : '<span class="badge badge-sell">Sell</span>';
+            const st = t.status === 'filled' ? '<span class="badge badge-filled">Filled</span>' : `<span class="badge badge-pending">${t.status}</span>`;
+            return `<tr>
+                <td class="muted">${dt}</td>
+                <td class="tk">${t.ticker}</td>
+                <td>${side}</td>
+                <td class="r">${fmt(t.qty, t.qty < 1 ? 4 : 0)}</td>
+                <td class="r">${t.price ? fmtUsd(t.price) : '--'}</td>
+                <td>${t.strategy ? `<span class="strat">${t.strategy}</span>` : '--'}</td>
+                <td>${st}</td>
+            </tr>`;
+        }).join('') : '<tr><td colspan="7" class="loading" style="padding:16px">Keine Trades im Zeitraum</td></tr>';
+    }
+
+    function renderEquityChart(days) {
         if (days === undefined) days = currentChartDays;
         try {
-            const url = days > 0 ? `${BASE}/equity-history?days=${days}` : `${BASE}/equity-history`;
-            const r = await fetch(url);
-            const d = await r.json();
-            const snaps = d.snapshots || [];
+            const snaps = getFilteredSnapshots(days);
             if (!snaps.length) return;
 
             let daily;
@@ -922,7 +1033,7 @@
             const firstVal = values[0];
             const portfolioReturns = values.map(v => ((v / firstVal) - 1) * 100);
 
-            const rangeLabel = days === 1 ? 'Heute' : days === 7 ? '7 Tage' : days === 30 ? '30 Tage' : `${daily.length} Tage`;
+            const rangeLabel = rangeLabels[days] || `${daily.length} Tage`;
             document.getElementById('chart-meta').textContent = `${rangeLabel} · normalisiert auf %`;
 
             const datasets = [{
@@ -932,11 +1043,8 @@
                 borderWidth: 2.4, pointBackgroundColor: '#3b82f6',
             }];
             if (benchmarkData && benchmarkData.spy_daily && !intraday) {
-                const spyByDate = {};
-                benchmarkData.spy_daily.forEach(s => { spyByDate[s.date] = s.return_pct; });
                 const dayKeys = daily.map(s => s.timestamp.slice(0, 10));
-                const cutoffDate = days > 0 ? new Date(Date.now() - days * 86400000).toISOString().slice(0,10) : null;
-                const filteredSpy = benchmarkData.spy_daily.filter(s => !cutoffDate || s.date >= cutoffDate);
+                const filteredSpy = getFilteredSpy(days);
                 const spyFirst = filteredSpy.length ? filteredSpy[0].price : null;
                 if (spyFirst) {
                     const spyReturns = {};
@@ -946,18 +1054,13 @@
                         borderColor: '#f59e0b', borderWidth: 1.8, borderDash: [6, 4],
                         tension: 0.35, pointRadius: 0, fill: false,
                     });
-                    const lastSpyReturn = filteredSpy.length ? ((filteredSpy[filteredSpy.length-1].price / spyFirst) - 1) * 100 : 0;
+                    const lastSpyReturn = ((filteredSpy[filteredSpy.length-1].price / spyFirst) - 1) * 100;
                     const lastPortReturn = portfolioReturns[portfolioReturns.length - 1] || 0;
                     const alpha = lastPortReturn - lastSpyReturn;
                     const el = document.getElementById('chart-alpha');
                     el.textContent = `${plSign(alpha)}${fmt(alpha, 2)}% Alpha`;
                     el.className = `meta num ${plCls(alpha)}`;
                 }
-            } else if (benchmarkData && benchmarkData.alpha_pct != null && days === 0) {
-                const a = benchmarkData.alpha_pct;
-                const el = document.getElementById('chart-alpha');
-                el.textContent = `${plSign(a)}${fmt(a, 2)}% Alpha`;
-                el.className = `meta num ${plCls(a)}`;
             }
             const ctx = document.getElementById('equity-chart').getContext('2d');
             if (eqChart) eqChart.destroy();
@@ -973,6 +1076,15 @@
                     }
                 }
             });
+        } catch(e) { console.error('Chart:', e); }
+    }
+
+    async function loadEquityChart() {
+        try {
+            const r = await fetch(`${BASE}/equity-history`);
+            const d = await r.json();
+            cachedAllSnapshots = d.snapshots || [];
+            renderEquityChart(currentChartDays);
         } catch(e) { console.error('Chart:', e); }
     }
 
@@ -1081,6 +1193,7 @@
             const r = await fetch(`${BASE}/trades`);
             const d = await r.json();
             const trades = d.trades || [];
+            cachedAllTrades = trades;
             const tbody = document.getElementById('trades-body');
             const buys = trades.filter(t => t.side === 'buy').length;
             const sells = trades.filter(t => t.side === 'sell').length;
@@ -1096,27 +1209,11 @@
             document.getElementById('trades-table-meta').textContent = `${trades.length} Einträge · absteigend`;
             document.getElementById('nav-trades-count').textContent = trades.length;
 
-            document.getElementById('kpi-trades').textContent = trades.length;
+            // Dashboard recent trades (filtered by timeline)
+            updateRecentTrades(currentChartDays);
+            updateKPIs(currentChartDays);
 
-            // Recent trades on dashboard (top 8)
-            const recent = trades.slice(0, 8);
-            document.getElementById('recent-trades-meta').textContent = `${recent.length} von ${trades.length}`;
-            document.getElementById('recent-trades-body').innerHTML = recent.length ? recent.map(t => {
-                const dt = t.timestamp ? t.timestamp.slice(5,16).replace('T',' ').replace('-','.') : '--';
-                const side = t.side === 'buy' ? '<span class="badge badge-buy">Buy</span>' : '<span class="badge badge-sell">Sell</span>';
-                const st = t.status === 'filled' ? '<span class="badge badge-filled">Filled</span>' : `<span class="badge badge-pending">${t.status}</span>`;
-                return `<tr>
-                    <td class="muted">${dt}</td>
-                    <td class="tk">${t.ticker}</td>
-                    <td>${side}</td>
-                    <td class="r">${fmt(t.qty, t.qty < 1 ? 4 : 0)}</td>
-                    <td class="r">${t.price ? fmtUsd(t.price) : '--'}</td>
-                    <td>${t.strategy ? `<span class="strat">${t.strategy}</span>` : '--'}</td>
-                    <td>${st}</td>
-                </tr>`;
-            }).join('') : '<tr><td colspan="7" class="loading" style="padding:16px">Keine Trades</td></tr>';
-
-            // Full trades table
+            // Full trades table (always shows all)
             if (!trades.length) { tbody.innerHTML = '<tr><td colspan="7" class="loading" style="padding:16px">Keine Trades</td></tr>'; return; }
             tbody.innerHTML = trades.map(t => {
                 const dt = t.timestamp ? t.timestamp.slice(5,16).replace('T',' ').replace('-','.') : '--';
@@ -1144,7 +1241,6 @@
             document.getElementById('ts-vol').textContent = fmtEur(d.total_volume_eur);
             document.getElementById('ts-start').textContent = fmtUsd(d.start_equity);
             document.getElementById('ts-since').textContent = d.data_since || '--';
-            document.getElementById('kpi-trades-h').textContent = `${d.total_buys || 0} buys · ${d.total_sells || 0} sells`;
         } catch(e) { console.error('Performance:', e); }
     }
 
