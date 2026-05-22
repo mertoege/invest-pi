@@ -202,18 +202,23 @@ def trades():
 
 
 @app.get("/api/equity-history")
-def equity_history():
+def equity_history(days: int = 0):
     try:
         if not TRADING_DB.exists():
             return {"snapshots": []}
-        cutoff = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        where_clause = "source = 'paper' AND total_usd IS NOT NULL"
+        params: list = []
+        if days > 0:
+            cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+            where_clause += " AND timestamp >= ?"
+            params.append(cutoff)
         with db_connect(TRADING_DB) as conn:
             rows = conn.execute(
-                """SELECT timestamp, total_usd, total_eur, cash_usd, positions_value_usd
+                f"""SELECT timestamp, total_usd, total_eur, cash_usd, positions_value_usd
                    FROM equity_snapshots
-                   WHERE timestamp >= ? AND source = 'paper' AND total_usd IS NOT NULL
+                   WHERE {where_clause}
                    ORDER BY timestamp ASC""",
-                (cutoff,)
+                params,
             ).fetchall()
             result = [
                 {

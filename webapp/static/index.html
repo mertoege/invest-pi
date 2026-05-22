@@ -277,6 +277,16 @@
         .loading{color:var(--muted-2);font-size:12px}
         .error-msg{color:var(--neg);font-size:12px}
 
+        /* ============ Timeline Filter ============ */
+        .tf-group{display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:2px}
+        .tf-btn{
+            font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;
+            background:transparent;border:none;color:var(--muted);cursor:pointer;
+            font-family:inherit;letter-spacing:.02em;
+        }
+        .tf-btn:hover{color:var(--text);background:rgba(255,255,255,.04)}
+        .tf-btn.active{background:var(--primary);color:#fff}
+
         /* ============ Scrollbars ============ */
         ::-webkit-scrollbar{width:4px;height:4px}
         ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
@@ -497,7 +507,15 @@
                                 <h3>Portfolio vs. SPY</h3>
                                 <div class="meta" id="chart-meta">normalisiert auf %</div>
                             </div>
-                            <div class="meta num" id="chart-alpha"></div>
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <div class="meta num" id="chart-alpha" style="margin-right:8px"></div>
+                                <div class="tf-group" id="tf-buttons">
+                                    <button class="tf-btn" data-days="1" onclick="setChartRange(1)">1T</button>
+                                    <button class="tf-btn" data-days="7" onclick="setChartRange(7)">7T</button>
+                                    <button class="tf-btn" data-days="30" onclick="setChartRange(30)">30T</button>
+                                    <button class="tf-btn active" data-days="0" onclick="setChartRange(0)">All</button>
+                                </div>
+                            </div>
                         </div>
                         <div class="body">
                             <div class="chart-container"><canvas id="equity-chart"></canvas></div>
@@ -869,20 +887,43 @@
 
     // ─── Equity Chart ───
     let eqChart = null;
-    async function loadEquityChart() {
+    let currentChartDays = 0;
+
+    function setChartRange(days) {
+        currentChartDays = days;
+        document.querySelectorAll('.tf-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.days) === days));
+        loadEquityChart(days);
+    }
+
+    async function loadEquityChart(days) {
+        if (days === undefined) days = currentChartDays;
         try {
-            const r = await fetch(`${BASE}/equity-history`);
+            const url = days > 0 ? `${BASE}/equity-history?days=${days}` : `${BASE}/equity-history`;
+            const r = await fetch(url);
             const d = await r.json();
             const snaps = d.snapshots || [];
             if (!snaps.length) return;
-            const byDay = {}; snaps.forEach(s => { byDay[s.timestamp.slice(0,10)] = s; });
-            const daily = Object.values(byDay);
-            const labels = daily.map(s => new Date(s.timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' }));
+
+            let daily;
+            if (days === 1) {
+                daily = snaps;
+            } else {
+                const byDay = {}; snaps.forEach(s => { byDay[s.timestamp.slice(0,10)] = s; });
+                daily = Object.values(byDay);
+            }
+            const intraday = days === 1;
+            const labels = daily.map(s => {
+                const dt = new Date(s.timestamp);
+                if (intraday) return dt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                if (days > 0 && days <= 7) return dt.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit' });
+                return dt.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
+            });
             const values = daily.map(s => s.total_usd);
             const firstVal = values[0];
             const portfolioReturns = values.map(v => ((v / firstVal) - 1) * 100);
 
-            document.getElementById('chart-meta').textContent = `${daily.length} Tage · normalisiert auf %`;
+            const rangeLabel = days === 1 ? 'Heute' : days === 7 ? '7 Tage' : days === 30 ? '30 Tage' : `${daily.length} Tage`;
+            document.getElementById('chart-meta').textContent = `${rangeLabel} · normalisiert auf %`;
 
             const datasets = [{
                 label: 'Portfolio', data: portfolioReturns,
@@ -890,17 +931,29 @@
                 fill: true, tension: 0.35, pointRadius: values.length < 20 ? 3 : 0,
                 borderWidth: 2.4, pointBackgroundColor: '#3b82f6',
             }];
-            if (benchmarkData && benchmarkData.spy_daily) {
+            if (benchmarkData && benchmarkData.spy_daily && !intraday) {
                 const spyByDate = {};
                 benchmarkData.spy_daily.forEach(s => { spyByDate[s.date] = s.return_pct; });
-                const days = Object.keys(byDay);
-                datasets.push({
-                    label: 'SPY', data: days.map(day => spyByDate[day] ?? null),
-                    borderColor: '#f59e0b', borderWidth: 1.8, borderDash: [6, 4],
-                    tension: 0.35, pointRadius: 0, fill: false,
-                });
-            }
-            if (benchmarkData && benchmarkData.alpha_pct != null) {
+                const dayKeys = daily.map(s => s.timestamp.slice(0, 10));
+                const cutoffDate = days > 0 ? new Date(Date.now() - days * 86400000).toISOString().slice(0,10) : null;
+                const filteredSpy = benchmarkData.spy_daily.filter(s => !cutoffDate || s.date >= cutoffDate);
+                const spyFirst = filteredSpy.length ? filteredSpy[0].price : null;
+                if (spyFirst) {
+                    const spyReturns = {};
+                    filteredSpy.forEach(s => { spyReturns[s.date] = ((s.price / spyFirst) - 1) * 100; });
+                    datasets.push({
+                        label: 'SPY', data: dayKeys.map(day => spyReturns[day] ?? null),
+                        borderColor: '#f59e0b', borderWidth: 1.8, borderDash: [6, 4],
+                        tension: 0.35, pointRadius: 0, fill: false,
+                    });
+                    const lastSpyReturn = filteredSpy.length ? ((filteredSpy[filteredSpy.length-1].price / spyFirst) - 1) * 100 : 0;
+                    const lastPortReturn = portfolioReturns[portfolioReturns.length - 1] || 0;
+                    const alpha = lastPortReturn - lastSpyReturn;
+                    const el = document.getElementById('chart-alpha');
+                    el.textContent = `${plSign(alpha)}${fmt(alpha, 2)}% Alpha`;
+                    el.className = `meta num ${plCls(alpha)}`;
+                }
+            } else if (benchmarkData && benchmarkData.alpha_pct != null && days === 0) {
                 const a = benchmarkData.alpha_pct;
                 const el = document.getElementById('chart-alpha');
                 el.textContent = `${plSign(a)}${fmt(a, 2)}% Alpha`;
@@ -915,8 +968,8 @@
                     interaction: { intersect: false, mode: 'index' },
                     plugins: { legend: { display: true, labels: { color: '#9ca3af', font: { size: 10, weight: '600' }, boxWidth: 10, padding: 10, usePointStyle: true, pointStyle: 'circle' } } },
                     scales: {
-                        x: { grid: { color: 'rgba(42,45,58,0.5)' }, ticks: { color: '#6b7280', maxTicksLimit: 8, font: { size: 10 } } },
-                        y: { grid: { color: 'rgba(42,45,58,0.5)' }, ticks: { color: '#6b7280', callback: v => v.toFixed(1) + '%', font: { size: 10 } } }
+                        x: { grid: { color: 'rgba(42,45,58,0.5)' }, ticks: { color: '#6b7280', maxTicksLimit: intraday ? 12 : 8, font: { size: 10 } } },
+                        y: { grid: { color: 'rgba(42,45,58,0.5)' }, ticks: { color: '#6b7280', callback: v => v.toFixed(2) + '%', font: { size: 10 } } }
                     }
                 }
             });
