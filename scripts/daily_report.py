@@ -50,18 +50,40 @@ from src.common.storage import LEARNING_DB, TRADING_DB, connect
 def _gather_today() -> dict:
     """Sammelt alle heute-relevanten Daten."""
     out = {}
-    # Trades heute
+    # Trades heute (filled + accepted — rotation sells bleiben oft auf accepted)
     with connect(TRADING_DB) as conn:
         row = conn.execute(
             """
             SELECT COUNT(*) AS n, COALESCE(SUM(eur_value), 0) AS volume
               FROM trades
              WHERE date(created_at, 'localtime') = date('now', 'localtime')
-               AND status = 'filled'
+               AND status IN ('filled', 'accepted', 'partially_filled')
             """
         ).fetchone()
         out["trades_today"]   = int(row["n"])
         out["volume_today"]   = float(row["volume"])
+
+        # Buys vs Sells aufschluesseln
+        trade_rows = conn.execute(
+            """
+            SELECT side, COUNT(*) AS n, COALESCE(SUM(eur_value), 0) AS vol
+              FROM trades
+             WHERE date(created_at, 'localtime') = date('now', 'localtime')
+               AND status IN ('filled', 'accepted', 'partially_filled')
+             GROUP BY side
+            """
+        ).fetchall()
+        out["buys_today"] = 0
+        out["sells_today"] = 0
+        out["buy_vol"] = 0.0
+        out["sell_vol"] = 0.0
+        for r in trade_rows:
+            if r["side"] == "buy":
+                out["buys_today"] = int(r["n"])
+                out["buy_vol"] = float(r["vol"])
+            else:
+                out["sells_today"] = int(r["n"])
+                out["sell_vol"] = float(r["vol"])
 
         # Equity heute (latest) vs gestern (last before today)
         row_now = conn.execute(
@@ -130,15 +152,19 @@ def _build_daily_msg(data: dict) -> str:
 
     parts = ["🌙 <b>InvestPi — Tagesbericht</b>", ""]
 
-    # Portfolio-Wert + Tagesveränderung
+    # Portfolio-Wert + Tagesveränderung (USD primaer, da Portfolio USD-denominiert)
     if now:
         parts.append(f"💰 <b>{now['total_eur']:.0f} EUR</b>  ({now['total_usd'] or 0:.0f} USD)")
         if yest and yest.get("total_usd"):
             delta_usd = now["total_usd"] - yest["total_usd"]
             delta_eur = now["total_eur"] - yest["total_eur"]
-            sign = "+" if delta_eur >= 0 else ""
-            emoji = "📈" if delta_eur >= 0 else "📉"
-            parts.append(f"{emoji} Heute: <b>{sign}{delta_eur:.0f} EUR</b> ({sign}{delta_usd:.0f} USD)")
+            sign_usd = "+" if delta_usd >= 0 else ""
+            sign_eur = "+" if delta_eur >= 0 else ""
+            emoji = "📈" if delta_usd >= 0 else "📉"
+            parts.append(f"{emoji} Heute: <b>{sign_usd}{delta_usd:.0f} USD</b> ({sign_eur}{delta_eur:.0f} EUR)")
+            fx_impact = delta_eur - delta_usd * (now.get("fx_rate") or 0.86)
+            if abs(fx_impact) > 20 and abs(delta_usd) < abs(delta_eur) * 0.5:
+                parts.append(f"  ↳ FX-Effekt: ~{fx_impact:+.0f} EUR (EUR/USD-Kursänderung)")
 
     # Positionen kompakt
     if n_pos > 0:
@@ -148,9 +174,15 @@ def _build_daily_msg(data: dict) -> str:
     else:
         parts.append("\n📊 Keine Positionen")
 
-    # Trades heute
+    # Trades heute mit Buy/Sell-Aufschluesselung
     if data["trades_today"] > 0:
-        parts.append(f"🔄 {data['trades_today']} Trades heute ({data['volume_today']:.0f} EUR)")
+        trade_parts = []
+        if data.get("buys_today", 0) > 0:
+            trade_parts.append(f"{data['buys_today']} Buys ({data['buy_vol']:.0f} EUR)")
+        if data.get("sells_today", 0) > 0:
+            trade_parts.append(f"{data['sells_today']} Sells ({data['sell_vol']:.0f} EUR)")
+        detail = " · ".join(trade_parts) if trade_parts else f"{data['volume_today']:.0f} EUR"
+        parts.append(f"🔄 {data['trades_today']} Trades: {detail}")
 
     # Markt-Regime
     try:
