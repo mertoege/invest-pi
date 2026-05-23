@@ -13,14 +13,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "d98a4a3e",
+    "commit": "d19e113b",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 67.2,
+    "cpu_temp_c": 65.0,
     "disk_pct": 36,
-    "load_1min": 0.93,
-    "mem_pct": 51
+    "load_1min": 1.13,
+    "mem_pct": 50
   },
   "last_runs": {
     "run_strategy": null,
@@ -32,7 +32,7 @@
     "correct": 12789,
     "incorrect": 1540,
     "last_24h": 1107,
-    "last_7d": 7579,
+    "last_7d": 7571,
     "pending": 9018,
     "total": 24690
   },
@@ -44,5 +44,5 @@
     "strategy": "?",
     "sync": "active"
   },
-  "timestamp_utc": "2026-05-23T19:36:20"
+  "timestamp_utc": "2026-05-23T19:38:21"
 }
