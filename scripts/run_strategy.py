@@ -143,19 +143,20 @@ def _update_position_after_buy(ticker: str, strategy_label: str, source: str, pr
 
 
 def take_profit_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
-    """Partial take-profit (50% bei partial_pct) + full take-profit."""
+    """3-Tier gestaffeltes Profit-Taking + Full-TP."""
     triggered = positions_to_take_profit(broker, t_cfg)
     if not triggered:
         return 0
     avg_prices = {p.ticker: p.avg_price for p in broker.get_positions() if p.avg_price > 0}
     for ticker, qty, price, tp_type in triggered:
         gain_pct = ((price / avg_prices.get(ticker, price)) - 1.0)
-        label = "PARTIAL-TP" if tp_type == "partial" else "TAKE-PROFIT"
+        is_full = tp_type == "full"
+        label = "TAKE-PROFIT" if is_full else tp_type.upper().replace("_", "-")
         print(f"  {label} {ticker}: +{gain_pct:.0%} reached, sell {qty} @ {price:.2f}")
         if dry_run:
             continue
         result = _sell_with_limit(broker, ticker, qty, last=price)
-        strategy = f"partial_tp-v1" if tp_type == "partial" else "take_profit-v1"
+        strategy = "take_profit-v1" if is_full else f"{tp_type}-v1"
         _record_trade(
             decision_pred_id=None,
             ticker=ticker, side="sell", qty=qty,
@@ -824,6 +825,87 @@ def atr_stop_update(broker, t_cfg, source: str) -> int:
     return updated
 
 
+DIP_BUY_MIN_DROP = -0.03
+DIP_BUY_MAX_RISK = 35
+DIP_BUY_MAX_PER_RUN = 3
+DIP_BUY_SIZING_FACTOR = 0.8
+
+
+def dip_buying_pass(broker, cfg, t_cfg, source: str, dry_run: bool) -> int:
+    """Kauft Qualitaetsaktien die heute >3% gefallen sind (Mean-Reversion)."""
+    from src.trading.decision import latest_risk_score
+    from src.trading import get_active_profile
+    from src.common.data_loader import get_prices
+
+    held = {p.ticker for p in broker.get_positions()}
+    fx = eur_per_usd()
+    profile = get_active_profile(t_cfg) or {}
+    target_eur = profile.get("max_position_eur", t_cfg.max_position_eur)
+    account = broker.get_account()
+    bought = 0
+
+    candidates = []
+    for entry in cfg.universe:
+        if entry.ring not in t_cfg.tradeable_rings or entry.ticker in held:
+            continue
+        try:
+            prices = get_prices(entry.ticker, period="5d")
+            if prices is None or len(prices) < 2:
+                continue
+            today_ret = float(prices["close"].iloc[-1] / prices["close"].iloc[-2] - 1)
+            if today_ret > DIP_BUY_MIN_DROP:
+                continue
+            week_ret = float(prices["close"].iloc[-1] / prices["close"].iloc[0] - 1)
+            if week_ret < -0.10:
+                continue
+        except Exception:
+            continue
+        score = latest_risk_score(entry.ticker)
+        if not score or score["composite"] > DIP_BUY_MAX_RISK or score["alert_level"] >= 2:
+            continue
+        candidates.append({"entry": entry, "drop": today_ret, "risk": score["composite"]})
+
+    candidates.sort(key=lambda x: x["drop"])
+    for cand in candidates[:DIP_BUY_MAX_PER_RUN]:
+        entry = cand["entry"]
+        eur_amount = min(target_eur * DIP_BUY_SIZING_FACTOR, account.cash_eur * 0.12)
+        if eur_amount < t_cfg.min_position_eur:
+            continue
+        quote = broker.get_quote(entry.ticker)
+        price_eur = quote.last * fx
+        if price_eur <= 0:
+            continue
+        qty = round(eur_amount / price_eur, 4)
+        print(f"  DIP-BUY {entry.ticker}: {cand['drop']:+.1%} today, risk={cand['risk']:.0f}, "
+              f"{qty} @ ${quote.last:.2f} = {eur_amount:.0f}EUR")
+        if dry_run:
+            bought += 1
+            continue
+        if quote.bid > 0 and quote.ask > 0:
+            limit_price = round((quote.bid + quote.ask) / 2 * 1.001, 2)
+        else:
+            limit_price = round(quote.last * 1.002, 2)
+        result = broker.place_order(ticker=entry.ticker, side="buy", qty=qty,
+                                    order_type="limit", limit_price=limit_price)
+        _record_trade(
+            decision_pred_id=None, ticker=entry.ticker, side="buy", qty=qty,
+            eur_value=eur_amount, price=quote.last,
+            status=result.status, order_id=result.order_id,
+            strategy_label="dip_buy-v1", source=source,
+            notes=f"dip buy: {cand['drop']:+.1%} today, risk={cand['risk']:.0f}",
+        )
+        if result.status in ("filled", "pending_new", "accepted"):
+            bought += 1
+            try:
+                notifier.send_trade(ticker=entry.ticker, side="buy", qty=qty,
+                    eur=eur_amount, price_usd=quote.last,
+                    reason=f"DIP-BUY: {cand['drop']:+.1%} drop, risk={cand['risk']:.0f}",
+                    paper=broker.is_paper)
+            except Exception:
+                pass
+    return bought
+
+
 def _cancel_stale_orders(broker, source: str, max_age_hours: int = 4) -> int:
     """Cancelt unfilled Orders die aelter als max_age_hours sind."""
     cancelled = 0
@@ -981,6 +1063,15 @@ def main() -> None:
                 print(f"  winner-scaling: {n_scaled} positions scaled up")
         except Exception as e:
             print(f"  winner-scaling skipped: {e}")
+
+    # Dip-Buying: Qualitaetsaktien bei Tages-Dips kaufen
+    if not args.skip_buys:
+        try:
+            n_dips = dip_buying_pass(broker, cfg, t_cfg, src, args.dry_run)
+            if n_dips:
+                print(f"  dip-buys: {n_dips}")
+        except Exception as e:
+            print(f"  dip-buying skipped: {e}")
 
     # ATR-basierte Stop-Loss-Updates
     try:
