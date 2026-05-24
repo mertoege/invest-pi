@@ -409,12 +409,18 @@ def _position_strategy(broker, ticker: str, source: str = "paper") -> str:
         pass
     return "mid_term"
 
+_PROFIT_TIERS = [
+    {"pct": 0.05, "sell_frac": 0.25, "label": "tier1"},
+    {"pct": 0.08, "sell_frac": 0.25, "label": "tier2"},
+    {"pct": 0.12, "sell_frac": 0.25, "label": "tier3"},
+]
+
+
 def positions_to_take_profit(broker, config) -> list:
     """
     Returns [(ticker, qty, current_price, label), ...].
-    Partial profit: sell 50% at partial_take_profit_pct, 100% at full take_profit_pct.
+    3-Tier gestaffeltes Profit-Taking + Full-TP bei take_profit_pct.
     """
-    partial_pct = getattr(config, "partial_take_profit_pct", None)
     triggered = []
     for pos in broker.get_positions():
         if pos.avg_price <= 0 or pos.market_price <= 0:
@@ -424,13 +430,27 @@ def positions_to_take_profit(broker, config) -> list:
         thr = _strategy_thresholds(config, label)
         if gain_pct >= thr["take_profit_pct"]:
             triggered.append((pos.ticker, pos.qty, pos.market_price, "full"))
-        elif partial_pct and gain_pct >= partial_pct:
-            already_partial = _has_partial_take_profit(pos.ticker)
-            if not already_partial:
-                sell_qty = round(pos.qty * 0.5, 4)
-                if sell_qty > 0:
-                    triggered.append((pos.ticker, sell_qty, pos.market_price, "partial"))
+            continue
+        for tier in _PROFIT_TIERS:
+            if gain_pct >= tier["pct"]:
+                if not _has_profit_tier(pos.ticker, tier["label"]):
+                    sell_qty = round(pos.qty * tier["sell_frac"], 4)
+                    if sell_qty > 0:
+                        triggered.append((pos.ticker, sell_qty, pos.market_price, f"partial_{tier['label']}"))
+                    break
     return triggered
+
+
+def _has_profit_tier(ticker: str, tier_label: str) -> bool:
+    try:
+        with connect(TRADING_DB) as conn:
+            row = conn.execute(
+                "SELECT 1 FROM trades WHERE ticker=? AND strategy_label LIKE ? LIMIT 1",
+                (ticker, f"%{tier_label}%"),
+            ).fetchone()
+        return row is not None
+    except Exception:
+        return False
 
 
 def _has_partial_take_profit(ticker: str) -> bool:
