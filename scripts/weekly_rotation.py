@@ -34,7 +34,7 @@ from src.trading.decision import latest_risk_score
 
 # Rotation-Parameter
 MAX_SELLS_PER_WEEK = 3
-MAX_TOPUPS_PER_RUN = 8
+MAX_TOPUPS_PER_RUN = 4
 TOPUP_THRESHOLD_PCT = 0.60  # Position aufstocken wenn < 60% von target
 _SECTOR_ETFS = {"XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
 MAX_ETF_TOPUPS = 1  # max 1 ETF-Top-Up pro Run, Einzelaktien bevorzugt
@@ -156,7 +156,13 @@ def rotation_pass(broker, cfg, t_cfg, profile, source, dry_run) -> dict:
         if dry_run:
             buys.append({"ticker": entry.ticker, "risk": cand["risk"], "dry_run": True})
             continue
-        limit_price = round(quote.ask * 1.001, 2) if quote.ask > 0 else round(quote.last * 1.002, 2)
+        if quote.bid > 0 and quote.ask > 0:
+            mid = (quote.bid + quote.ask) / 2
+            limit_price = round(mid * 1.001, 2)
+        elif quote.ask > 0:
+            limit_price = round(quote.ask * 1.001, 2)
+        else:
+            limit_price = round(quote.last * 1.002, 2)
         result = broker.place_order(ticker=entry.ticker, side="buy", qty=qty,
                                     order_type="limit", limit_price=limit_price)
         _record_trade(
@@ -215,7 +221,13 @@ def topup_pass(broker, t_cfg, profile, source, dry_run) -> list:
         if dry_run:
             topups.append({"ticker": p.ticker, "gap_eur": gap, "dry_run": True})
             continue
-        limit_price = round(quote.ask * 1.001, 2) if quote.ask > 0 else round(quote.last * 1.002, 2)
+        if quote.bid > 0 and quote.ask > 0:
+            mid = (quote.bid + quote.ask) / 2
+            limit_price = round(mid * 1.001, 2)
+        elif quote.ask > 0:
+            limit_price = round(quote.ask * 1.001, 2)
+        else:
+            limit_price = round(quote.last * 1.002, 2)
         result = broker.place_order(ticker=p.ticker, side="buy", qty=qty,
                                     order_type="limit", limit_price=limit_price)
         _record_trade(

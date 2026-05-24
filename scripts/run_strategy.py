@@ -253,17 +253,26 @@ def stop_loss_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
 
 
 def _risk_sell_cooldown(ticker: str, hours: int = 24) -> bool:
-    """True wenn bereits ein CAUTION-Sell in den letzten N Stunden stattfand."""
+    """True wenn bereits ein Risk-Sell (CAUTION oder RED) heute stattfand."""
     try:
         with connect(TRADING_DB) as conn:
             row = conn.execute(
+                """SELECT 1 FROM trades
+                   WHERE ticker=? AND strategy_label LIKE 'risk_sell_%'
+                     AND date(created_at)=date('now')
+                   LIMIT 1""",
+                (ticker,),
+            ).fetchone()
+            if row:
+                return True
+            row2 = conn.execute(
                 """SELECT 1 FROM trades
                    WHERE ticker=? AND strategy_label LIKE 'risk_sell_caution%'
                      AND created_at > datetime('now', ?)
                    LIMIT 1""",
                 (ticker, f"-{hours} hours"),
             ).fetchone()
-        return row is not None
+        return row2 is not None
     except Exception:
         return False
 
@@ -277,11 +286,11 @@ def risk_sell_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
         score = latest_risk_score(pos.ticker)
         if not score or score["alert_level"] < 2:
             continue
+        if _risk_sell_cooldown(pos.ticker, hours=48):
+            continue
         if score["alert_level"] >= 3:
             sell_pct, label = 1.0, "RED"
         elif score["composite"] >= 70:
-            if _risk_sell_cooldown(pos.ticker, hours=48):
-                continue
             sell_pct, label = 0.5, "CAUTION"
         else:
             continue
@@ -448,7 +457,13 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             decisions["buys"].append({"ticker": ticker, "qty": sz.qty, "dry_run": True})
             continue
 
-        limit_price = round(quote.ask * 1.001, 2) if quote.ask > 0 else round(quote.last * 1.002, 2)
+        if quote.bid > 0 and quote.ask > 0:
+            mid = (quote.bid + quote.ask) / 2
+            limit_price = round(mid * 1.001, 2)
+        elif quote.ask > 0:
+            limit_price = round(quote.ask * 1.001, 2)
+        else:
+            limit_price = round(quote.last * 1.002, 2)
         result = broker.place_order(
             ticker=ticker, side="buy", qty=sz.qty,
             order_type="limit", limit_price=limit_price,
@@ -747,7 +762,13 @@ def winner_scaling_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
             scaled += 1
             continue
         quote = broker.get_quote(pos.ticker)
-        limit_price = round(quote.ask * 1.001, 2) if quote.ask > 0 else round(quote.last * 1.002, 2)
+        if quote.bid > 0 and quote.ask > 0:
+            mid = (quote.bid + quote.ask) / 2
+            limit_price = round(mid * 1.001, 2)
+        elif quote.ask > 0:
+            limit_price = round(quote.ask * 1.001, 2)
+        else:
+            limit_price = round(quote.last * 1.002, 2)
         result = broker.place_order(ticker=pos.ticker, side="buy", qty=qty,
                                     order_type="limit", limit_price=limit_price)
         _record_trade(
