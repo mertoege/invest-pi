@@ -92,6 +92,7 @@ DIMENSION_WEIGHTS = {
     "earnings_llm":            1.2,
     "si_trend":                0.9,
     "cross_asset":             1.0,
+    "google_trends":           0.9,
 }
 
 
@@ -1404,11 +1405,90 @@ def score_earnings_llm(ticker: str) -> DimensionScore:
                               weight=DIMENSION_WEIGHTS["earnings_llm"])
 
 
+# ──────────────── 20. GOOGLE TRENDS ──────────────────────
+_TRENDS_CACHE: dict[str, tuple[float, float]] = {}  # ticker -> (timestamp, score)
+_TRENDS_CACHE_TTL = 3600 * 6  # 6h cache
+
+
+def score_google_trends(ticker: str) -> DimensionScore:
+    """
+    Misst oeffentliches Suchinteresse via Google Trends.
+    Spike im Suchvolumen + fallender Kurs = Retail-Panik-Signal.
+    """
+    import time as _time
+    cached = _TRENDS_CACHE.get(ticker)
+    if cached and (_time.time() - cached[0]) < _TRENDS_CACHE_TTL:
+        score_val = cached[1]
+        return DimensionScore(
+            "google_trends", score_val, score_val >= 35,
+            f"cached trend score={score_val:.0f}",
+            {"cached": True},
+            weight=DIMENSION_WEIGHTS["google_trends"],
+        )
+
+    try:
+        from pytrends.request import TrendReq
+        pytrends = TrendReq(hl="en-US", tz=360, timeout=(5, 10))
+        kw = [f"{ticker} stock"]
+        pytrends.build_payload(kw, cat=0, timeframe="now 7-d", geo="US")
+        df = pytrends.interest_over_time()
+
+        if df is None or df.empty or f"{ticker} stock" not in df.columns:
+            _TRENDS_CACHE[ticker] = (_time.time(), 0.0)
+            return DimensionScore("google_trends", 0, False,
+                                  "keine Trends-Daten", {"available": False},
+                                  weight=DIMENSION_WEIGHTS["google_trends"])
+
+        vals = df[f"{ticker} stock"].values
+        if len(vals) < 10:
+            _TRENDS_CACHE[ticker] = (_time.time(), 0.0)
+            return DimensionScore("google_trends", 0, False,
+                                  "zu wenig Datenpunkte", {"n_points": len(vals)},
+                                  weight=DIMENSION_WEIGHTS["google_trends"])
+
+        recent = float(np.mean(vals[-12:]))
+        baseline = float(np.mean(vals[:-12])) if len(vals) > 12 else float(np.mean(vals))
+        peak = float(np.max(vals))
+        ratio = recent / baseline if baseline > 0 else 1.0
+
+        prices = get_prices(ticker, period="5d")
+        price_falling = False
+        if prices is not None and len(prices) >= 2:
+            ret_5d = (prices["close"].iloc[-1] / prices["close"].iloc[0]) - 1
+            price_falling = ret_5d < -0.02
+
+        if ratio >= 2.0 and price_falling:
+            score_val = min(85.0, 40 + (ratio - 1) * 20)
+        elif ratio >= 1.5 and price_falling:
+            score_val = min(60.0, 25 + (ratio - 1) * 15)
+        elif ratio >= 2.0:
+            score_val = min(40.0, 15 + (ratio - 1) * 10)
+        else:
+            score_val = max(0.0, (ratio - 1) * 15)
+
+        triggered = score_val >= 35
+        _TRENDS_CACHE[ticker] = (_time.time(), score_val)
+
+        return DimensionScore(
+            "google_trends", round(score_val, 1), triggered,
+            f"trend ratio={ratio:.1f}x, recent={recent:.0f}, base={baseline:.0f}, "
+            f"{'Kurs faellt' if price_falling else 'Kurs stabil'}",
+            {"ratio": round(ratio, 2), "recent": round(recent, 1),
+             "baseline": round(baseline, 1), "peak": round(peak, 1),
+             "price_falling": price_falling},
+            weight=DIMENSION_WEIGHTS["google_trends"],
+        )
+    except Exception as e:
+        _TRENDS_CACHE[ticker] = (_time.time(), 0.0)
+        return DimensionScore("google_trends", 0, False, f"error: {e}", {},
+                              weight=DIMENSION_WEIGHTS["google_trends"])
+
+
 # ──────────────── 16. SIGNAL COHERENCE HEURISTIC ──────────
 _COHERENCE_GROUPS = {
     "technical":   {"technical_breakdown", "volume_divergence", "updown_volume", "gap_pattern", "hurst_regime"},
     "fundamental": {"valuation_percentile", "analyst_downgrades", "earnings_llm"},
-    "sentiment":   {"sentiment_reversal", "short_interest", "si_trend", "options_skew"},
+    "sentiment":   {"sentiment_reversal", "short_interest", "si_trend", "options_skew", "google_trends"},
     "macro":       {"macro_regime", "cross_asset", "earnings_proximity"},
 }
 
@@ -1501,6 +1581,7 @@ def score_ticker(
     dimensions.append(score_cross_asset(ticker))
     dimensions.append(score_si_trend(ticker))
     dimensions.append(score_earnings_llm(ticker))
+    dimensions.append(score_google_trends(ticker))
 
     # LLM Context Analysis: Meta-Layer ueber alle anderen Dimensionen (last)
     dimensions.append(score_llm_context(ticker, dimensions))
