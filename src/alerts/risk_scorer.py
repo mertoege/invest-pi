@@ -346,21 +346,29 @@ def score_insider_selling(ticker: str, finnhub_key: Optional[str] = None) -> Dim
 
         cutoff_30 = (dt.datetime.now() - dt.timedelta(days=30)).strftime("%Y-%m-%d")
 
-        recent_sells = [t for t in data
-                        if t.get("transactionType") in ("S - Sale", "S - Sale+OE")
-                        and (t.get("filingDate", "") >= cutoff_30)]
-        recent_buys = [t for t in data
-                       if t.get("transactionType") in ("P - Purchase",)
-                       and (t.get("filingDate", "") >= cutoff_30)]
+        def _is_sell(t):
+            return t.get("transactionCode") in ("S",) or t.get("transactionType", "") in ("S - Sale", "S - Sale+OE")
+
+        def _is_buy(t):
+            return t.get("transactionCode") in ("P",) or t.get("transactionType", "") in ("P - Purchase",)
+
+        recent_sells = [t for t in data if _is_sell(t) and (t.get("filingDate", "") >= cutoff_30)]
+        recent_buys = [t for t in data if _is_buy(t) and (t.get("filingDate", "") >= cutoff_30)]
 
         unique_sellers = len(set(t.get("name", "") for t in recent_sells))
         unique_buyers = len(set(t.get("name", "") for t in recent_buys))
 
-        sell_dollar = sum(abs(t.get("share", 0)) * abs(t.get("transactionPrice", 0))
+        def _tx_shares(t):
+            c = t.get("change")
+            if c is not None and c != 0:
+                return abs(c)
+            return abs(t.get("share", 0))
+
+        sell_dollar = sum(_tx_shares(t) * abs(t.get("transactionPrice", 0))
                          for t in recent_sells)
-        buy_dollar = sum(abs(t.get("share", 0)) * abs(t.get("transactionPrice", 0))
+        buy_dollar = sum(_tx_shares(t) * abs(t.get("transactionPrice", 0))
                         for t in recent_buys)
-        total_shares_sold = sum(abs(t.get("share", 0)) for t in recent_sells)
+        total_shares_sold = sum(_tx_shares(t) for t in recent_sells)
 
         sell_buy_ratio = sell_dollar / buy_dollar if buy_dollar > 0 else (999.0 if sell_dollar > 0 else 0.0)
 
