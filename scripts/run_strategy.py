@@ -46,6 +46,19 @@ from src.trading.decision import decide_action, log_decision
 from src.trading.sizing import size_position
 
 
+def _sell_with_limit(broker, ticker, qty, bid=0, last=0, **kw):
+    if bid > 0:
+        limit_price = round(bid * 0.999, 2)
+    elif last > 0:
+        limit_price = round(last * 0.998, 2)
+    else:
+        return broker.place_order(ticker=ticker, side="sell", qty=qty, **kw)
+    return broker.place_order(
+        ticker=ticker, side="sell", qty=qty,
+        order_type="limit", limit_price=limit_price, **kw,
+    )
+
+
 def _record_trade(
     *,
     decision_pred_id: int | None,
@@ -143,7 +156,7 @@ def take_profit_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
         print(f"  {label} {ticker}: +{gain_pct:.0%} reached, sell {qty} @ {price:.2f}")
         if dry_run:
             continue
-        result = broker.place_order(ticker=ticker, side="sell", qty=qty)
+        result = _sell_with_limit(broker, ticker, qty, last=price)
         strategy = f"partial_tp-v1" if tp_type == "partial" else "take_profit-v1"
         _record_trade(
             decision_pred_id=None,
@@ -187,7 +200,7 @@ def trailing_stop_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
         print(f"  TRAILING-STOP {ticker}: {drawdown:+.0%} from peak {peak:.2f}, sell {qty} @ {price:.2f}")
         if dry_run:
             continue
-        result = broker.place_order(ticker=ticker, side="sell", qty=qty)
+        result = _sell_with_limit(broker, ticker, qty, last=price)
         _record_trade(
             decision_pred_id=None,
             ticker=ticker, side="sell", qty=qty,
@@ -219,7 +232,7 @@ def stop_loss_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
         print(f"  STOP-LOSS {ticker}: -{t_cfg.stop_loss_pct:.0%} reached, sell {qty} @ {price:.2f}")
         if dry_run:
             continue
-        result = broker.place_order(ticker=ticker, side="sell", qty=qty)
+        result = _sell_with_limit(broker, ticker, qty, last=price)
         _record_trade(
             decision_pred_id=None,
             ticker=ticker, side="sell", qty=qty,
@@ -283,7 +296,7 @@ def risk_sell_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
         if dry_run:
             sells += 1
             continue
-        result = broker.place_order(ticker=pos.ticker, side="sell", qty=sell_qty)
+        result = _sell_with_limit(broker, pos.ticker, sell_qty, last=pos.market_price)
         _record_trade(
             decision_pred_id=None,
             ticker=pos.ticker, side="sell", qty=sell_qty,
@@ -623,7 +636,7 @@ def regime_rebalance_pass(
                 if dry_run:
                     sells += 1
                     continue
-                result = broker.place_order(ticker=p.ticker, side="sell", qty=p.qty)
+                result = _sell_with_limit(broker, p.ticker, p.qty, last=p.market_price)
                 _record_trade(
                     decision_pred_id=None,
                     ticker=p.ticker, side="sell", qty=p.qty,
@@ -659,7 +672,7 @@ def regime_rebalance_pass(
                 excess -= p.market_value_eur
                 sells += 1
                 continue
-            result = broker.place_order(ticker=p.ticker, side="sell", qty=p.qty)
+            result = _sell_with_limit(broker, p.ticker, p.qty, last=p.market_price)
             _record_trade(
                 decision_pred_id=None,
                 ticker=p.ticker, side="sell", qty=p.qty,

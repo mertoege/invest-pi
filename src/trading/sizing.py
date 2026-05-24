@@ -21,15 +21,60 @@ from .decision import TradeDecision
 
 CONF_FACTOR_DEFAULT = {"high": 1.00, "medium": 0.60, "low": 0.30}
 
-# Minimale Anzahl gemessener Outcomes pro Konfidenz-Level bevor wir
-# den empirischen Faktor statt des Defaults nehmen.
 _MIN_SAMPLES_FOR_CALIBRATION = 10
 
-# Vol-Targeting: ziel-Annual-Vola der Position. Bei niedrigerer Vola groessere
-# Position, bei hoeherer kleinere. Cap bei 1.0 (nie ueber max_position_eur).
-TARGET_VOL_ANNUAL = 0.18   # ~25% (NVDA-aehnliche Vola gilt als baseline)
-MIN_SCALING       = 0.30   # bei extrem-Vola nicht unter 30% des Max gehen
+TARGET_VOL_ANNUAL = 0.18
+MIN_SCALING       = 0.30
 MAX_SCALING       = 1.00
+
+_KELLY_MIN_TRADES    = 20
+_KELLY_FRACTION      = 0.25
+_KELLY_MAX_MULT      = 1.5
+_KELLY_MIN_MULT      = 0.40
+
+
+def _kelly_multiplier(confidence: str = "medium") -> float:
+    from ..common.storage import TRADING_DB, connect
+    try:
+        with connect(TRADING_DB) as conn:
+            sells = conn.execute(
+                "SELECT ticker, fill_price, price FROM trades "
+                "WHERE side = 'sell' AND status = 'filled' "
+                "AND fill_price IS NOT NULL "
+                "AND created_at >= datetime('now', '-90 days')"
+            ).fetchall()
+            buys = conn.execute(
+                "SELECT ticker, AVG(price) AS avg_buy FROM trades "
+                "WHERE side = 'buy' AND status IN ('filled', 'accepted') "
+                "AND created_at >= datetime('now', '-90 days') GROUP BY ticker"
+            ).fetchall()
+        if len(sells) < _KELLY_MIN_TRADES:
+            return 1.0
+        avg_buys = {r["ticker"]: float(r["avg_buy"]) for r in buys}
+        wins, losses = [], []
+        for r in sells:
+            fill = float(r["fill_price"])
+            buy_price = avg_buys.get(r["ticker"], float(r["price"]))
+            if buy_price <= 0:
+                continue
+            pnl_pct = (fill - buy_price) / buy_price
+            if pnl_pct >= 0:
+                wins.append(pnl_pct)
+            else:
+                losses.append(abs(pnl_pct))
+        if not wins or not losses:
+            return 1.0
+        win_rate = len(wins) / (len(wins) + len(losses))
+        payoff_ratio = (sum(wins) / len(wins)) / (sum(losses) / len(losses))
+        kelly_pct = win_rate - (1 - win_rate) / payoff_ratio
+        if kelly_pct <= 0:
+            return _KELLY_MIN_MULT
+        mult = 1.0 + (kelly_pct * _KELLY_FRACTION)
+        conf_scale = {"high": 1.0, "medium": 0.7, "low": 0.4}.get(confidence, 0.7)
+        mult = 1.0 + (mult - 1.0) * conf_scale
+        return max(_KELLY_MIN_MULT, min(_KELLY_MAX_MULT, mult))
+    except Exception:
+        return 1.0
 
 
 def _calibrated_confidence_factors(days: int = 60) -> dict[str, float]:
@@ -176,8 +221,12 @@ def size_position(
     decision.extras["asset_vol_annual"] = asset_vol
     decision.extras["vol_scaling"]      = vol_factor
 
-    target = min(decision.target_eur * factor * vol_factor, config.max_position_eur)
-    target = min(target, cash_eur * 0.95)  # nicht 100% aufbrauchen
+    kelly_mult = _kelly_multiplier(decision.confidence)
+    decision.extras["kelly_multiplier"] = kelly_mult
+
+    target = min(decision.target_eur * factor * vol_factor * kelly_mult,
+                 config.max_position_eur * _KELLY_MAX_MULT)
+    target = min(target, cash_eur * 0.95)
 
     # VaR-basiertes Position-Limit: max 2% Portfolio-VaR pro Position
     var_limit = _var_position_limit(decision.ticker, cash_eur)
