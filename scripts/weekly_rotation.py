@@ -100,7 +100,12 @@ def rotation_pass(broker, cfg, t_cfg, profile, source, dry_run) -> dict:
         if dry_run:
             sells.append({"ticker": p.ticker, "score": item["score"], "dry_run": True})
             continue
-        result = broker.place_order(ticker=p.ticker, side="sell", qty=p.qty)
+        if p.market_price > 0:
+            lp = round(p.market_price * 0.998, 2)
+            result = broker.place_order(ticker=p.ticker, side="sell", qty=p.qty,
+                                        order_type="limit", limit_price=lp)
+        else:
+            result = broker.place_order(ticker=p.ticker, side="sell", qty=p.qty)
         _record_trade(
             ticker=p.ticker, side="sell", qty=p.qty,
             eur_value=p.market_value_eur, price=p.market_price,
