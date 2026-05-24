@@ -826,16 +826,23 @@ def score_valuation_percentile(ticker: str) -> DimensionScore:
 
         score = 0.0
         reasons = []
-        if percentile > 0.90:
-            score = (percentile - 0.90) * 500  # 0-50 Punkte
-            score += 20  # Grund-Malus
+        if percentile > 0.95:
+            score = (percentile - 0.95) * 800  # 0-40 Punkte
+            score += 25
             reasons.append(f"Kurs im {percentile:.0%}. Perzentil der 5-J-Historie")
-        elif percentile > 0.80:
-            score = (percentile - 0.80) * 200
+        elif percentile > 0.90:
+            score = (percentile - 0.90) * 200
             reasons.append(f"Kurs im {percentile:.0%}. Perzentil")
 
+        if current_pe > 50:
+            score += 15
+            reasons.append(f"PE={current_pe:.0f} (hoch)")
+        elif current_pe > 35:
+            score += 5
+            reasons.append(f"PE={current_pe:.0f}")
+
         score = min(100.0, score)
-        triggered = score >= 40
+        triggered = score >= 45
         return DimensionScore(
             "valuation_percentile", score, triggered,
             "; ".join(reasons) if reasons else f"Perzentil {percentile:.0%} ok",

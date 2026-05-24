@@ -824,6 +824,35 @@ def atr_stop_update(broker, t_cfg, source: str) -> int:
     return updated
 
 
+def _cancel_stale_orders(broker, source: str, max_age_hours: int = 4) -> int:
+    """Cancelt unfilled Orders die aelter als max_age_hours sind."""
+    cancelled = 0
+    with connect(TRADING_DB) as conn:
+        stale = conn.execute(
+            """SELECT broker_order_id, ticker, side, qty, price, strategy_label
+               FROM trades
+               WHERE source=? AND status IN ('accepted','pending_new','new')
+                 AND created_at < datetime('now', ?)""",
+            (source, f"-{max_age_hours} hours"),
+        ).fetchall()
+    for order in stale:
+        oid = order["broker_order_id"]
+        if not oid:
+            continue
+        try:
+            broker.cancel_order(oid)
+            with connect(TRADING_DB) as conn:
+                conn.execute(
+                    "UPDATE trades SET status='canceled', notes=notes||' [stale-cancel]' WHERE broker_order_id=?",
+                    (oid,),
+                )
+            print(f"  CANCEL stale {order['side']} {order['ticker']} (order {oid[:8]}..)")
+            cancelled += 1
+        except Exception:
+            pass
+    return cancelled
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true",
@@ -889,6 +918,14 @@ def main() -> None:
             print(f"  order-sync: {sync['synced']} Orders aktualisiert")
     except Exception as e:
         print(f"  order-sync skipped: {e}")
+
+    # Cancel stale orders (>4h old, not filled)
+    try:
+        n_cancelled = _cancel_stale_orders(broker, src, max_age_hours=4)
+        if n_cancelled:
+            print(f"  stale-orders cancelled: {n_cancelled}")
+    except Exception as e:
+        print(f"  stale-order cleanup skipped: {e}")
 
     # Initial snapshot + Peak-Price-Update
     _take_equity_snapshot(broker, src, notes="run_strategy:start")
