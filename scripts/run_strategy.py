@@ -936,6 +936,78 @@ def main() -> None:
     final = broker.get_account()
     print(f"\n  Final equity: {final.equity_eur:.2f} EUR  (cash {final.cash_eur:.2f})")
 
+    # Post-Trade Turbo-Learning
+    try:
+        _post_trade_learning(broker, src)
+    except Exception as e:
+        print(f"  post-trade-learning skipped: {e}")
+
+
+def _post_trade_learning(broker, source: str) -> None:
+    """
+    Sofortiges Feedback nach jedem Strategy-Run:
+    - Welche Dimensionen haben die heutigen Trades getriggert?
+    - Wie performen die Positionen seit Kauf?
+    - Equity-Delta seit letztem Run?
+    Speichert Insights in learning DB fuer den Weight-Optimizer.
+    """
+    import json
+    from src.common.storage import TRADING_DB, LEARNING_DB, connect
+
+    with connect(TRADING_DB) as conn:
+        today_trades = conn.execute(
+            """SELECT ticker, side, strategy_label, notes, price, qty, eur_value
+               FROM trades WHERE source=? AND date(created_at)=date('now')
+               ORDER BY created_at DESC""",
+            (source,),
+        ).fetchall()
+
+    if not today_trades:
+        return
+
+    # Sammle Performance-Daten fuer gehaltene Positionen
+    positions = broker.get_positions()
+    perf_data = {}
+    for p in positions:
+        if p.avg_price > 0:
+            perf_data[p.ticker] = {
+                "pnl_pct": round((p.market_price / p.avg_price - 1) * 100, 2),
+                "value_eur": round(p.market_value_eur, 2),
+            }
+
+    # Equity-Delta
+    with connect(TRADING_DB) as conn:
+        snaps = conn.execute(
+            """SELECT total_usd, timestamp FROM equity_snapshots
+               WHERE source=? ORDER BY timestamp DESC LIMIT 2""",
+            (source,),
+        ).fetchall()
+    equity_delta = None
+    if len(snaps) == 2 and snaps[0]["total_usd"] and snaps[1]["total_usd"]:
+        equity_delta = round(snaps[0]["total_usd"] - snaps[1]["total_usd"], 2)
+
+    # Speichere aggregierte Insights
+    insight = {
+        "trades_today": len(today_trades),
+        "buys": sum(1 for t in today_trades if t["side"] == "buy"),
+        "sells": sum(1 for t in today_trades if t["side"] == "sell"),
+        "equity_delta_usd": equity_delta,
+        "positions_performance": perf_data,
+        "strategies_used": list(set(t["strategy_label"] for t in today_trades if t["strategy_label"])),
+    }
+
+    with connect(LEARNING_DB) as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO kv_store (key, value, updated_at)
+               VALUES ('post_trade_insight_latest', ?, datetime('now'))""",
+            (json.dumps(insight),),
+        )
+
+    winners = sum(1 for v in perf_data.values() if v["pnl_pct"] > 0)
+    losers = sum(1 for v in perf_data.values() if v["pnl_pct"] < 0)
+    delta_str = f", equity Δ${equity_delta:+.0f}" if equity_delta else ""
+    print(f"  post-trade: {len(today_trades)} trades, {winners}W/{losers}L positions{delta_str}")
+
 
 if __name__ == "__main__":
     main()

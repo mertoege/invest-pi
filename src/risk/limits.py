@@ -189,11 +189,39 @@ def pre_trade_check(
 # ────────────────────────────────────────────────────────────
 # STOP LOSS — berechnet, sells werden vom Caller ausgefuehrt
 # ────────────────────────────────────────────────────────────
+_VOL_BASELINE = 0.18  # 18% annualized = "normal" market vol
+
+
+def _adaptive_stop_loss_pct(ticker: str, base_pct: float) -> float:
+    """
+    Skaliert stop_loss_pct basierend auf 20-Tage realisierter Volatilitaet.
+    Hohe Vola → weiterer Stop (verhindert Rauschen-Exits).
+    Niedrige Vola → engerer Stop (schuetzt Gewinne schneller).
+    """
+    try:
+        from ..common.data_loader import get_prices
+        import numpy as np
+        prices = get_prices(ticker, period="3mo")
+        if prices is None or len(prices) < 25:
+            return base_pct
+        returns = prices["close"].pct_change().dropna().values[-20:]
+        if len(returns) < 15:
+            return base_pct
+        daily_vol = float(np.std(returns))
+        annual_vol = daily_vol * (252 ** 0.5)
+        ratio = annual_vol / _VOL_BASELINE
+        adapted = base_pct * max(0.6, min(1.8, ratio))
+        return adapted
+    except Exception:
+        return base_pct
+
+
 def positions_to_stop_loss(broker: BrokerAdapter,
                            config: TradingConfig) -> list[Tuple[str, float, float]]:
     """
     Returns [(ticker, qty, current_price), ...] fuer Positionen die unter
     der strategy-spezifischen stop_loss_pct sind.
+    Nutzt adaptive Vola-Skalierung fuer den Schwellwert.
     """
     triggered = []
     for pos in broker.get_positions():
@@ -202,7 +230,8 @@ def positions_to_stop_loss(broker: BrokerAdapter,
         unrealized_pct = (pos.market_price / pos.avg_price) - 1.0
         label = _position_strategy(broker, pos.ticker)
         thr = _strategy_thresholds(config, label)
-        if unrealized_pct <= -thr["stop_loss_pct"]:
+        adaptive_sl = _adaptive_stop_loss_pct(pos.ticker, thr["stop_loss_pct"])
+        if unrealized_pct <= -adaptive_sl:
             triggered.append((pos.ticker, pos.qty, pos.market_price))
     return triggered
 
