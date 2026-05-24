@@ -189,6 +189,27 @@ def _var_position_limit(ticker: str, portfolio_eur: float) -> float | None:
         return None
 
 
+
+_MARGIN_MAX_LEVERAGE = 1.3
+_MARGIN_MIN_LEVERAGE = 0.8
+_MARGIN_DEFAULT = 1.0
+
+
+def _regime_leverage() -> float:
+    try:
+        from ..learning.regime import current_regime
+        regime = current_regime()
+        if regime.label == "low_vol_bull" and regime.probability >= 0.65:
+            return _MARGIN_MAX_LEVERAGE
+        elif regime.label == "bear" and regime.probability >= 0.60:
+            return _MARGIN_MIN_LEVERAGE
+        elif regime.label == "high_vol_mixed":
+            return 1.0
+        return _MARGIN_DEFAULT
+    except Exception:
+        return _MARGIN_DEFAULT
+
+
 def size_position(
     decision:     TradeDecision,
     cash_eur:     float,
@@ -221,7 +242,10 @@ def size_position(
 
     target = min(decision.target_eur * factor * vol_factor * kelly_mult,
                  config.max_position_eur * _KELLY_MAX_MULT)
-    target = min(target, cash_eur * 0.95)
+    leverage = _regime_leverage()
+    decision.extras["leverage"] = leverage
+    target = target * leverage
+    target = min(target, cash_eur * 0.95 * leverage)
 
     # VaR-basiertes Position-Limit: max 2% Portfolio-VaR pro Position
     var_limit = _var_position_limit(decision.ticker, cash_eur)
