@@ -69,7 +69,6 @@ def _us_market_holidays(year: int) -> set:
     d = date(year, 1, 1)
     mon_count = 0
     while mon_count < 3:
-        d = d.replace(day=d.day + 1) if d.day < 31 else d
         if d.weekday() == 0: mon_count += 1
         if mon_count < 3: d += dt.timedelta(days=1)
     holidays.add(d)
