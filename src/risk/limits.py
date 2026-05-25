@@ -56,6 +56,78 @@ def deactivate_kill_switch() -> None:
 # ────────────────────────────────────────────────────────────
 # MARKET HOURS (CET)
 # ────────────────────────────────────────────────────────────
+
+def _us_market_holidays(year: int) -> set:
+    """NYSE/NASDAQ Feiertage fuer ein gegebenes Jahr."""
+    from datetime import date
+    holidays = set()
+    # New Years Day (1. Jan, oder Mo wenn So)
+    nyd = date(year, 1, 1)
+    if nyd.weekday() == 6: nyd = date(year, 1, 2)
+    holidays.add(nyd)
+    # MLK Day (3. Montag im Januar)
+    d = date(year, 1, 1)
+    mon_count = 0
+    while mon_count < 3:
+        d = d.replace(day=d.day + 1) if d.day < 31 else d
+        if d.weekday() == 0: mon_count += 1
+        if mon_count < 3: d += dt.timedelta(days=1)
+    holidays.add(d)
+    # Presidents Day (3. Montag im Februar)
+    d = date(year, 2, 1)
+    mon_count = 0
+    while mon_count < 3:
+        if d.weekday() == 0: mon_count += 1
+        if mon_count < 3: d += dt.timedelta(days=1)
+    holidays.add(d)
+    # Good Friday (2 Tage vor Ostersonntag)
+    # Easter algorithm (Anonymous Gregorian)
+    a = year % 19
+    b, c = divmod(year, 100)
+    d2, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d2 - g + 15) % 30
+    i, k = divmod(c, 4)
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    easter = date(year, month, day)
+    holidays.add(easter - dt.timedelta(days=2))  # Good Friday
+    # Memorial Day (letzter Montag im Mai)
+    d = date(year, 5, 31)
+    while d.weekday() != 0: d -= dt.timedelta(days=1)
+    holidays.add(d)
+    # Juneteenth (19. Juni)
+    jt = date(year, 6, 19)
+    if jt.weekday() == 5: jt = date(year, 6, 18)
+    elif jt.weekday() == 6: jt = date(year, 6, 20)
+    holidays.add(jt)
+    # Independence Day (4. Juli)
+    id4 = date(year, 7, 4)
+    if id4.weekday() == 5: id4 = date(year, 7, 3)
+    elif id4.weekday() == 6: id4 = date(year, 7, 5)
+    holidays.add(id4)
+    # Labor Day (1. Montag im September)
+    d = date(year, 9, 1)
+    while d.weekday() != 0: d += dt.timedelta(days=1)
+    holidays.add(d)
+    # Thanksgiving (4. Donnerstag im November)
+    d = date(year, 11, 1)
+    thu_count = 0
+    while thu_count < 4:
+        if d.weekday() == 3: thu_count += 1
+        if thu_count < 4: d += dt.timedelta(days=1)
+    holidays.add(d)
+    # Christmas (25. Dez)
+    xmas = date(year, 12, 25)
+    if xmas.weekday() == 5: xmas = date(year, 12, 24)
+    elif xmas.weekday() == 6: xmas = date(year, 12, 26)
+    holidays.add(xmas)
+    return holidays
+
+
 def is_market_open(now_utc: Optional[dt.datetime] = None,
                    open_cet: str = "15:30",
                    close_cet: str = "22:00") -> bool:
@@ -67,6 +139,8 @@ def is_market_open(now_utc: Optional[dt.datetime] = None,
     now_utc = now_utc or dt.datetime.now(dt.timezone.utc)
     weekday = now_utc.weekday()  # Mon=0 ... Sun=6
     if weekday >= 5:
+        return False
+    if now_utc.date() in _us_market_holidays(now_utc.year):
         return False
     try:
         from zoneinfo import ZoneInfo
