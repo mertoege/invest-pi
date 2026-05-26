@@ -128,25 +128,31 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         "Du bist ein Quant-Analyst der wöchentlich ein Self-Learning-Investment-System reviewt. "
         "Du bekommst 7-Tage-Daten + deine eigenen Prior-Reviews und deren Patches.\n\n"
         "WICHTIG:\n"
-        "1. JSON-Format:\n"
+        "1. Antworte NUR mit einem JSON-Objekt, kein anderer Text.\n"
+        "2. Format:\n"
         "{\n"
-        '  "summary_md": "<1-2 Absaetze>",\n'
-        '  "action_plan": {"prio_1": [...], "prio_2": [...]},\n'
-        '  "config_patches": [{...}]\n'
+        '  "summary_md": "1-2 Absaetze Zusammenfassung",\n'
+        '  "action_plan": {"prio_1": ["..."], "prio_2": ["..."]},\n'
+        '  "config_patches": [\n'
+        '    {"path": "regime.high_vol_mixed.stop_loss_pct", "old_value": 0.12, "new_value": 0.09, "reason": "..."},\n'
+        '    {"path": "regime.high_vol_mixed.sector_preference", "old_value": [], "new_value": ["healthcare", "technology"], "reason": "..."}\n'
+        "  ]\n"
         "}\n\n"
-        "2. Wenn du Prior-Reviews siehst: bewerte ob deine letzten Empfehlungen gewirkt haben.\n"
-        "3. Erlaubte config_patches Pfade:\n"
-        "   trading.* (stop_loss_pct, take_profit_pct, score_buy_max, max_open_positions, etc.)\n"
-        "   regime.<label>.<param> (score_buy_max, target_invest_pct, sector_avoid, sector_preference, etc.)\n"
-        "   Nur patchen wenn 7d-Daten das klar rechtfertigen.\n"
-        "4. Max 5 Patches pro Weekly-Review.\n"
-        "5. Fokus: welche Ticker performen schlecht? Drift? Regime-Wechsel?\n"
-        "6. SEKTOR-EMPFEHLUNGEN PFLICHT: Basierend auf aktueller Marktlage, setze\n"
-        "   regime.<aktuelles_regime>.sector_preference und regime.<aktuelles_regime>.sector_avoid\n"
-        "   als config_patches. Gueltige Sektoren: technology, software, consumer_disc,\n"
-        "   consumer_staples, healthcare, financials, communication, utilities, energy,\n"
-        "   industrials, materials, real_estate. Ohne deine Empfehlung sind sector_preference\n"
-        "   und sector_avoid leer — das System kauft dann ohne Sektor-Praeferenz."
+        "3. config_patches MUESSEN immer konkrete Werte haben. NIEMALS null/None als new_value!\n"
+        "   Erlaubte Pfade:\n"
+        "   - trading.stop_loss_pct (float, 0.03-0.25)\n"
+        "   - trading.take_profit_pct (float, 0.05-0.50)\n"
+        "   - trading.score_buy_max (int, 20-80)\n"
+        "   - trading.max_open_positions (int, 3-30)\n"
+        "   - regime.<label>.<param> wobei label = low_vol_bull|high_vol_mixed|bear|unknown\n"
+        "   - Regime-Params: score_buy_max, target_invest_pct, stop_loss_pct, take_profit_pct,\n"
+        "     trailing_activation, trailing_stop_pct, sector_preference (list), sector_avoid (list)\n"
+        "   - Gueltige Sektoren: technology, software, consumer_disc, consumer_staples,\n"
+        "     healthcare, financials, communication, utilities, energy, industrials, materials, real_estate\n"
+        "4. Max 5 Patches. Nur patchen wenn die 7d-Daten es klar rechtfertigen.\n"
+        "5. SEKTOR-EMPFEHLUNGEN PFLICHT: Setze sector_preference und sector_avoid fuer das aktuelle Regime.\n"
+        "6. Wenn du Prior-Reviews siehst: bewerte ob deine letzten Empfehlungen gewirkt haben.\n"
+        "7. Fokus: welche Ticker performen schlecht? Drift? Regime-Wechsel?"
     )
 
     prior_block = ""
