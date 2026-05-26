@@ -322,7 +322,7 @@ settings:
 
     max_daily_loss_pct:        0.05             # Tages-Drawdown der Equity-Curve, Notbremse
     max_trades_per_day:       15                # Hard-Cap (conservative: 3)
-    cash_floor_pct:            0.05             # min. 5% Cash-Reserve halten
+    cash_floor_pct:            0.03             # min. 5% Cash-Reserve halten
     max_per_sector_pct:        0.35             # max. 35% Equity in einem Sektor
 
     # Marktöffnung (CET) — keine Orders außerhalb
@@ -343,27 +343,27 @@ settings:
     # gesetzt via config_patches. Hier nur strukturelle Defaults.
     regime_profiles:
       low_vol_bull:
-        score_buy_max:        55
+        score_buy_max:        60
         max_open_positions:   30
-        max_position_eur:     6000
-        max_trades_per_day:   10
-        stop_loss_pct:        0.12
-        take_profit_pct:      0.25
-        trailing_activation:  0.10
-        trailing_stop_pct:    0.08
-        target_invest_pct:    0.90
+        max_position_eur:     8000
+        max_trades_per_day:   12
+        stop_loss_pct:        0.15
+        take_profit_pct:      0.50
+        trailing_activation:  0.15
+        trailing_stop_pct:    0.10
+        target_invest_pct:    0.95
         sector_preference:    []
         sector_avoid:         []
       high_vol_mixed:
         score_buy_max:        55
         max_open_positions:   35
-        max_position_eur:     4000
-        max_trades_per_day:   10
-        stop_loss_pct:        0.10
-        take_profit_pct:      0.40
-        trailing_activation:  0.10
+        max_position_eur:     6000
+        max_trades_per_day:   12
+        stop_loss_pct:        0.12
+        take_profit_pct:      0.50
+        trailing_activation:  0.12
         trailing_stop_pct:    0.10
-        target_invest_pct:    0.90
+        target_invest_pct:    0.95
         sector_preference:    []
         sector_avoid:         []
       bear:

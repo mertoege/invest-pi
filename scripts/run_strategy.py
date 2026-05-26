@@ -727,9 +727,9 @@ def regime_rebalance_pass(
     return sells
 
 
-WINNER_SCALE_MIN_GAIN = 0.10      # min +10% Gewinn
-WINNER_SCALE_MAX_PER_RUN = 3
-WINNER_SCALE_FACTOR = 0.5         # 50% der aktuellen Position dazukaufen
+WINNER_SCALE_MIN_GAIN = 0.05      # min +5% Gewinn
+WINNER_SCALE_MAX_PER_RUN = 5
+WINNER_SCALE_FACTOR = 0.75        # 75% der aktuellen Position dazukaufen
 
 
 def winner_scaling_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
@@ -769,7 +769,7 @@ def winner_scaling_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
         headroom = max_pos_eur - current_eur
         if headroom < t_cfg.min_position_eur:
             continue
-        add_eur = min(current_eur * WINNER_SCALE_FACTOR, headroom, account.cash_eur * 0.10)
+        add_eur = min(current_eur * WINNER_SCALE_FACTOR, headroom, account.cash_eur * 0.15)
         if add_eur < t_cfg.min_position_eur:
             continue
         candidates.append({
@@ -851,10 +851,10 @@ def atr_stop_update(broker, t_cfg, source: str) -> int:
     return updated
 
 
-DIP_BUY_MIN_DROP = -0.03
-DIP_BUY_MAX_RISK = 35
-DIP_BUY_MAX_PER_RUN = 3
-DIP_BUY_SIZING_FACTOR = 0.8
+DIP_BUY_MIN_DROP = -0.02
+DIP_BUY_MAX_RISK = 45
+DIP_BUY_MAX_PER_RUN = 5
+DIP_BUY_SIZING_FACTOR = 1.0
 
 
 def dip_buying_pass(broker, cfg, t_cfg, source: str, dry_run: bool) -> int:

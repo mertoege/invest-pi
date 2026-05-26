@@ -483,9 +483,9 @@ def _position_strategy(broker, ticker: str, source: str = "paper") -> str:
     return "mid_term"
 
 _PROFIT_TIERS = [
-    {"pct": 0.05, "sell_frac": 0.25, "label": "tier1"},
-    {"pct": 0.08, "sell_frac": 0.25, "label": "tier2"},
-    {"pct": 0.12, "sell_frac": 0.25, "label": "tier3"},
+    {"pct": 0.12, "sell_frac": 0.20, "label": "tier1"},
+    {"pct": 0.20, "sell_frac": 0.20, "label": "tier2"},
+    {"pct": 0.35, "sell_frac": 0.20, "label": "tier3"},
 ]
 
 

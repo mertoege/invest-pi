@@ -190,8 +190,8 @@ def _var_position_limit(ticker: str, portfolio_eur: float) -> float | None:
 
 
 
-_MARGIN_MAX_LEVERAGE = 1.3
-_MARGIN_MIN_LEVERAGE = 0.8
+_MARGIN_MAX_LEVERAGE = 1.5
+_MARGIN_MIN_LEVERAGE = 0.7
 _MARGIN_DEFAULT = 1.0
 
 
