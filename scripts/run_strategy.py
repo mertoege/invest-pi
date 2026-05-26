@@ -644,11 +644,11 @@ def _llm_screen_candidates(eligible: list, t_cfg, regime_info: str, held: set) -
 
     system = (
         "Du bist ein erfahrener Portfolio-Manager der Buy-Kandidaten fuer ein autonomes "
-        "Paper-Trading-System auf $100k bewertet. Dein Ziel: Sharpe-Ratio maximieren.\n\n"
+        "Paper-Trading-System auf $100k bewertet. Dein Ziel: maximale jaehrliche Rendite bei kontrolliertem Risiko. Bevorzuge Momentum-Aktien in starken Sektoren.\n\n"
         "REGELN:\n"
-        "1. APPROVE Kandidaten mit: niedrigem Composite + positivem Momentum + solidem Fundamental-Profil\n"
+        "1. APPROVE Kandidaten mit: starkem Momentum (>3% 20d) + niedrigem Composite + Wachstumspotenzial\n"
         "2. REJECT wenn: Earnings in <7 Tagen (Binary-Event-Risiko), negatives Sentiment + "
-        "negative Momentum (fallendes Messer), ueberbewertet (PE>50) + kein Momentum\n"
+        "negative Momentum (fallendes Messer), ueberbewertet (PE>80) + negatives Momentum + kein Wachstum\n"
         "3. REJECT wenn Sektor bereits uebergewichtet im Portfolio (>5 Positionen gleicher Sektor)\n"
         "4. Bei Unsicherheit: APPROVE (Opportunity-Cost > Risk fuer Paper-Trading)\n"
         "5. Begruende jede Rejection in 1 Satz\n\n"
@@ -820,7 +820,9 @@ def winner_scaling_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
         headroom = max_pos_eur - current_eur
         if headroom < t_cfg.min_position_eur:
             continue
-        add_eur = min(current_eur * WINNER_SCALE_FACTOR, headroom, account.cash_eur * 0.15)
+        from src.trading.sizing import conviction_multiplier
+        _conv = conviction_multiplier(momentum, score["composite"])
+        add_eur = min(current_eur * WINNER_SCALE_FACTOR * _conv, headroom, account.cash_eur * 0.15)
         if add_eur < t_cfg.min_position_eur:
             continue
         candidates.append({
