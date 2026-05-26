@@ -986,6 +986,54 @@ def dip_buying_pass(broker, cfg, t_cfg, source: str, dry_run: bool) -> int:
 
 
 
+
+RING3_LIQUIDATION_MAX_PER_RUN = 5
+
+def ring3_liquidation_pass(broker, cfg, t_cfg, source: str, dry_run: bool) -> int:
+    """Verkauft Positionen die nicht mehr in tradeable_rings sind."""
+    positions = broker.get_positions()
+    fx = eur_per_usd()
+    tradeable_tickers = {e.ticker for e in cfg.universe if e.ring in t_cfg.tradeable_rings}
+    
+    non_tradeable = []
+    for pos in positions:
+        if pos.ticker in tradeable_tickers or pos.qty <= 0:
+            continue
+        pnl_pct = (pos.market_price / pos.avg_price - 1.0) if pos.avg_price > 0 else 0
+        non_tradeable.append({"pos": pos, "pnl": pnl_pct})
+    
+    non_tradeable.sort(key=lambda x: x["pnl"])
+    sold = 0
+    
+    for item in non_tradeable[:RING3_LIQUIDATION_MAX_PER_RUN]:
+        pos = item["pos"]
+        print(f"  RING3-EXIT {pos.ticker}: PnL={item['pnl']:+.1%}, "
+              f"value={pos.market_value_eur:.0f}EUR — not in tradeable_rings")
+        if dry_run:
+            sold += 1
+            continue
+        result = _sell_with_limit(broker, pos.ticker, pos.qty, last=pos.market_price)
+        _record_trade(
+            decision_pred_id=None,
+            ticker=pos.ticker, side="sell", qty=pos.qty,
+            eur_value=pos.market_value_eur, price=pos.market_price,
+            status=result.status, order_id=result.order_id,
+            strategy_label="ring3_exit-v1", source=source,
+            notes=f"ring3 liquidation: not in tradeable_rings",
+        )
+        if result.status in ("filled", "pending_new", "accepted"):
+            sold += 1
+            try:
+                notifier.send_trade(
+                    ticker=pos.ticker, side="sell", qty=pos.qty,
+                    eur=pos.market_value_eur, price_usd=pos.market_price,
+                    reason=f"Ring3-Exit: PnL={item['pnl']:+.1%}",
+                    paper=broker.is_paper,
+                )
+            except Exception:
+                pass
+    return sold
+
 MOMENTUM_EXIT_MIN_HOLD_DAYS = 14
 MOMENTUM_EXIT_MAX_PER_RUN = 4
 _SECTOR_ETFS = {"XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
@@ -1217,6 +1265,15 @@ def _run_strategy_locked(args):
                 print(f"  momentum-exit: {n_mom} sells")
         except Exception as e:
             print(f"  momentum-exit skipped: {e}")
+
+    # Ring-3-Liquidation: Positionen verkaufen die nicht mehr tradeable sind
+    if not args.skip_stop_loss:
+        try:
+            n_r3 = ring3_liquidation_pass(broker, cfg, t_cfg, src, args.dry_run)
+            if n_r3:
+                print(f"  ring3-liquidation: {n_r3} sells")
+        except Exception as e:
+            print(f"  ring3-liquidation skipped: {e}")
 
     # Regime-Rebalancing bei Wechsel
     if transition:
