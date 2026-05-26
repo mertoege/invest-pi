@@ -375,17 +375,17 @@ settings:
         sector_preference:    []
         sector_avoid:         []
       high_vol_mixed:
-        score_buy_max:        55
-        max_open_positions:   35
-        max_position_eur:     6000
-        max_trades_per_day:   12
-        stop_loss_pct:        0.12
-        take_profit_pct:      0.50
-        trailing_activation:  0.12
-        trailing_stop_pct:    0.10
-        target_invest_pct:    0.90
-        sector_preference:    [healthcare, consumer_staples, technology]
-        sector_avoid:         [real_estate, materials]
+        score_buy_max:        50
+        max_open_positions:   30
+        max_position_eur:     5000
+        max_trades_per_day:   10
+        stop_loss_pct:        0.09
+        take_profit_pct:      0.40
+        trailing_activation:  0.10
+        trailing_stop_pct:    0.08
+        target_invest_pct:    0.80
+        sector_preference:    [healthcare, consumer_staples, technology, utilities]
+        sector_avoid:         [real_estate, materials, consumer_disc]
       bear:
         score_buy_max:        40
         max_open_positions:   12
