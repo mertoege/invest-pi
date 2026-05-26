@@ -383,9 +383,9 @@ settings:
         take_profit_pct:      0.50
         trailing_activation:  0.12
         trailing_stop_pct:    0.10
-        target_invest_pct:    0.95
-        sector_preference:    []
-        sector_avoid:         []
+        target_invest_pct:    0.90
+        sector_preference:    [healthcare, consumer_staples, technology]
+        sector_avoid:         [real_estate, materials]
       bear:
         score_buy_max:        40
         max_open_positions:   12
