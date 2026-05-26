@@ -43,7 +43,7 @@ universe:
   #  Das System lernt welche Sektoren in welchem Regime performen.
   # ══════════════════════════════════════════════════════════
 
-  ring_3_sector_etfs:
+  ring_1_sector_etfs:
     - ticker: XLK
       name: "Technology Select Sector SPDR"
       note: "Tech-Sektor · MSFT, AAPL, NVDA"
@@ -350,7 +350,7 @@ settings:
     market_close_cet:         "22:00"
 
     # Universe-Filter: nur diese Rings dürfen tactical traded werden
-    tradeable_rings:           [1, 2]
+    tradeable_rings:           [1, 2, 3]
     # ETF-Fallback wenn kein Titel überzeugt (bleibt fix)
     dca_fallback_ticker:      "SMH"
 

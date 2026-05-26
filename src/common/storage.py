@@ -337,7 +337,6 @@ def _migrate_equity_snapshots() -> None:
         ("positions_value_usd", "REAL"),
         ("total_usd",           "REAL"),
         ("fx_rate",             "REAL"),
-        ("spy_close",           "REAL"),
     ]
     if not TRADING_DB.exists():
         return
