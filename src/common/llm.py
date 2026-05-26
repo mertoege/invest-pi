@@ -56,16 +56,16 @@ class LLMResult:
 
 
 MODEL_MAP = {
-    "claude-sonnet-4-6": "sonnet",
-    "claude-opus-4-6":   "opus",
-    "claude-haiku-4-5":  "haiku",
+    "claude-sonnet-4-6": "claude-opus-4-6",
+    "claude-opus-4-6":   "claude-opus-4-6",
+    "claude-haiku-4-5":  "claude-opus-4-6",
 }
 
 
 def _raw_call(model: str, system: str, prompt: str,
               max_tokens: int, temperature: float) -> dict:
     """Ruft Claude Code CLI auf. Returns parsed JSON response."""
-    cli_model = MODEL_MAP.get(model, "sonnet")
+    cli_model = MODEL_MAP.get(model, "claude-opus-4-6")
 
     full_prompt = f"{system}\n\n---\n\n{prompt}"
 
