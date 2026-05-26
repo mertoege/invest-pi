@@ -37,7 +37,7 @@ MAX_SELLS_PER_WEEK = 3
 MAX_TOPUPS_PER_RUN = 4
 TOPUP_THRESHOLD_PCT = 0.60  # Position aufstocken wenn < 60% von target
 _SECTOR_ETFS = {"XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
-MAX_ETF_TOPUPS = 1  # max 1 ETF-Top-Up pro Run, Einzelaktien bevorzugt
+MAX_ETF_TOPUPS = 0  # keine ETF-Top-Ups — Kapital in Einzelaktien lenken
 
 
 def _record_trade(*, ticker, side, qty, eur_value, price, status, order_id, strategy_label, source, notes=""):
@@ -66,7 +66,7 @@ def score_position(ticker: str, pct_change: float) -> float:
     risk_composite = risk["composite"] if risk else 50.0
     perf_penalty = max(0, -pct_change * 2)  # -5% → +10 Punkte
     perf_bonus = max(0, pct_change * 0.5)  # +10% → -5 Punkte
-    etf_malus = 8.0 if ticker in _SECTOR_ETFS else 0.0
+    etf_malus = 15.0 if ticker in _SECTOR_ETFS else 0.0
     return risk_composite + perf_penalty - perf_bonus + etf_malus
 
 
