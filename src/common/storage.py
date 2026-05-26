@@ -226,6 +226,12 @@ CREATE TABLE IF NOT EXISTS config_patch_log (
     source         TEXT NOT NULL DEFAULT 'meta_review'
 );
 CREATE INDEX IF NOT EXISTS idx_cpatch_pending ON config_patch_log(accepted, applied_at);
+
+CREATE TABLE IF NOT EXISTS kv_store (
+    key        TEXT PRIMARY KEY,
+    value      TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 
