@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import fcntl
 import sys
 from pathlib import Path
 
@@ -1105,6 +1106,25 @@ def main() -> None:
     parser.add_argument("--skip-buys", action="store_true")
     args = parser.parse_args()
 
+    lock_path = Path("/tmp/invest-pi-strategy.lock")
+    lock_fp = open(lock_path, "w")
+    try:
+        fcntl.flock(lock_fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print("Another run_strategy.py is already running — exiting.")
+        lock_fp.close()
+        return
+    lock_fp.write(str(dt.datetime.now()))
+    lock_fp.flush()
+
+    try:
+        _run_strategy_locked(args)
+    finally:
+        fcntl.flock(lock_fp, fcntl.LOCK_UN)
+        lock_fp.close()
+
+
+def _run_strategy_locked(args):
     init_all()
 
     try:
