@@ -32,6 +32,20 @@ _KELLY_FRACTION      = 0.25
 _KELLY_MAX_MULT      = 1.5
 _KELLY_MIN_MULT      = 0.40
 
+# ── Conviction-Based Sizing ──
+# Momentum + Risk → dynamische Positionsgroesse
+# Starke Ueberzeugung (hohes Momentum, niedriges Risiko) = groessere Position
+CONVICTION_MIN = 0.5
+CONVICTION_MAX = 1.8
+
+
+def conviction_multiplier(momentum_20d: float, composite: float) -> float:
+    mom_factor = max(0.5, min(1.5, 1.0 + momentum_20d * 5))
+    risk_factor = max(0.6, min(1.3, 1.5 - composite / 60))
+    raw = mom_factor * risk_factor
+    return round(max(CONVICTION_MIN, min(CONVICTION_MAX, raw)), 3)
+
+
 
 def _kelly_multiplier(confidence="medium"):
     from ..common.storage import TRADING_DB, connect
@@ -240,8 +254,14 @@ def size_position(
     kelly_mult = _kelly_multiplier(decision.confidence)
     decision.extras["kelly_multiplier"] = kelly_mult
 
-    target = min(decision.target_eur * factor * vol_factor * kelly_mult,
-                 config.max_position_eur * _KELLY_MAX_MULT)
+    conv_mult = conviction_multiplier(
+        decision.extras.get("momentum_20d", 0.0),
+        decision.extras.get("risk_composite", 50.0),
+    )
+    decision.extras["conviction_multiplier"] = conv_mult
+
+    target = min(decision.target_eur * factor * vol_factor * kelly_mult * conv_mult,
+                 config.max_position_eur * _KELLY_MAX_MULT * CONVICTION_MAX)
     leverage = _regime_leverage()
     decision.extras["leverage"] = leverage
     target = target * leverage

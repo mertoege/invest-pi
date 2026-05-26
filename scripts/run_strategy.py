@@ -414,6 +414,18 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
         _SECTOR_ETFS = {"XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
         if entry.ticker in _SECTOR_ETFS:
             decision.target_eur = decision.target_eur * 0.5
+        # Conviction-Daten fuer dynamisches Sizing
+        _pre_momentum = 0.0
+        try:
+            from src.common.data_loader import get_prices as _gp
+            _pp = _gp(entry.ticker, period="1mo")
+            if _pp is not None and len(_pp) >= 5:
+                _pre_momentum = float(_pp["close"].iloc[-1] / _pp["close"].iloc[0] - 1)
+        except Exception:
+            pass
+        _pre_score = latest_risk_score(entry.ticker)
+        decision.extras["momentum_20d"] = _pre_momentum
+        decision.extras["risk_composite"] = _pre_score["composite"] if _pre_score else 50.0
         quote = broker.get_quote(entry.ticker)
         sz = size_position(decision, broker.get_account().cash_eur, quote.last, fx, t_cfg)
         if sz.skip:
@@ -454,8 +466,8 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             "momentum": momentum,
         })
 
-    # Rank: niedrigster Composite + höchstes Momentum = bester Kandidat
-    eligible.sort(key=lambda x: x["composite"] - x["momentum"] * 30)
+    # Rank: Conviction-First — hoechstes Momentum + niedrigstes Risiko
+    eligible.sort(key=lambda x: -(x["momentum"] * 100) + x["composite"])
 
     # Phase 2: LLM screening
     if eligible and not dry_run:
