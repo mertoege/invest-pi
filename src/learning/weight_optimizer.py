@@ -52,7 +52,7 @@ DEFAULT_WEIGHTS = {
 }
 
 # Sicherheits-Grenzen
-MIN_WEIGHT = 0.3
+MIN_WEIGHT = 0.0
 MAX_WEIGHT = 2.0
 BLEND_EMPIRICAL = 0.7   # 70% empirisch, 30% default
 MIN_SAMPLES_PER_DIM = 15  # Mindest-Samples bevor empirisch genutzt wird
@@ -87,24 +87,28 @@ def compute_optimal_weights(
     sep_max = max(sep_values)
 
     if sep_max <= 0:
-        # ALLE Dimensionen kontraer — starke Reduktion aller Gewichte
-        empirical = {name: MIN_WEIGHT + 0.1 for name in separations}
+        # ALLE Dimensionen kontraer — auf Minimum setzen
+        empirical = {name: 0.05 for name in separations}
     else:
         empirical = {}
         for name, sep in separations.items():
             if sep <= 0:
-                # Kontraer: je negativer, desto naeher an MIN_WEIGHT
-                empirical[name] = max(MIN_WEIGHT, MIN_WEIGHT + 0.15 * max(0, 1 + sep / 10))
+                # Kontraer: stark negative → 0, leicht negative → 0.1-0.2
+                empirical[name] = max(0.0, 0.2 * max(0, 1 + sep / 5))
             else:
                 # Praediktiv: skaliert von 0.8 bis MAX_WEIGHT
                 empirical[name] = min(MAX_WEIGHT, 0.8 + 1.2 * (sep / sep_max))
 
 
-    # Blend mit Defaults
+    # Blend mit Defaults — stark kontraere Dimensionen ohne Default-Blend
     result = {}
     for name, default_w in DEFAULT_WEIGHTS.items():
         if name in empirical:
-            blended = BLEND_EMPIRICAL * empirical[name] + (1 - BLEND_EMPIRICAL) * default_w
+            sep = separations.get(name, 0)
+            if sep < -3:
+                blended = empirical[name]
+            else:
+                blended = BLEND_EMPIRICAL * empirical[name] + (1 - BLEND_EMPIRICAL) * default_w
         else:
             blended = default_w
         result[name] = round(max(MIN_WEIGHT, min(MAX_WEIGHT, blended)), 3)

@@ -86,18 +86,26 @@ def _take_equity_snapshot(broker: BrokerAdapter, source: str, notes: str = "") -
     positions = broker.get_positions()
     pos_val_eur = sum(p.market_value_eur for p in positions)
     pos_val_usd = pos_val_eur / acc.fx_rate if acc.fx_rate else 0
+    spy_close = None
+    try:
+        from src.common.data_loader import get_prices
+        spy = get_prices("SPY", period="5d")
+        if spy is not None and len(spy) > 0:
+            spy_close = float(spy["close"].iloc[-1])
+    except Exception:
+        pass
     with connect(TRADING_DB) as conn:
         conn.execute(
             """
             INSERT INTO equity_snapshots
                 (cash_eur, positions_value_eur, total_eur,
                  cash_usd, positions_value_usd, total_usd,
-                 fx_rate, source, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 fx_rate, source, notes, spy_close)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (acc.cash_eur, pos_val_eur, acc.equity_eur,
              acc.cash_usd, pos_val_usd, acc.equity_usd,
-             acc.fx_rate, source, notes),
+             acc.fx_rate, source, notes, spy_close),
         )
 
 
@@ -978,7 +986,7 @@ def dip_buying_pass(broker, cfg, t_cfg, source: str, dry_run: bool) -> int:
 
 
 MOMENTUM_EXIT_MIN_HOLD_DAYS = 14
-MOMENTUM_EXIT_MAX_PER_RUN = 2
+MOMENTUM_EXIT_MAX_PER_RUN = 4
 _SECTOR_ETFS = {"XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
 
 
@@ -1004,9 +1012,14 @@ def momentum_exit_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
             ret_10d = float(prices["close"].iloc[-1] / prices["close"].iloc[-min(10, len(prices)):].iloc[0] - 1)
         except Exception:
             continue
-        # Nur verkaufen wenn BEIDE Zeitrahmen negativ (nicht nur kurzfristiger Dip)
-        if ret_20d >= 0 or ret_10d >= -0.01:
-            continue
+        # Stocks: nur verkaufen wenn BEIDE Zeitrahmen negativ
+        # ETFs: aggressiver — Kapital in Stocks umleiten
+        if is_etf:
+            if ret_20d >= 0.02:
+                continue
+        else:
+            if ret_20d >= 0 or ret_10d >= -0.01:
+                continue
         # Nicht verkaufen wenn Risk-Score niedrig (Position ist fundamental ok, nur Momentum schwach)
         score = latest_risk_score(pos.ticker)
         if score and score["composite"] < 20 and not is_etf:
