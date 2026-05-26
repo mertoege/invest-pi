@@ -3,9 +3,10 @@
 > Kontext-Datei für Claude Code. Wird automatisch gelesen wenn du in dieses Verzeichnis wechselst.
 
 ## Mission
-Autonomes Self-Learning-Investment-System auf Raspberry Pi 5.
-Ziel: Sharpe-Ratio-Maximierung mit kontrollierten Drawdowns.
-Aktuell Paper-Trading via Alpaca, 50€/Monat DCA-Simulation.
+Autonomes, 100% KI-gesteuertes Investment-System auf Raspberry Pi 5.
+Ziel: Maximale jaehrliche Rendite bei stabilem System. Kein ETF-Ersatz (6-7%),
+sondern aktive Alpha-Generierung. Alle Entscheidungen trifft die KI autonom.
+Aktuell Paper-Trading via Alpaca, perspektivisch Echtgeld-Nebeneinkommen.
 
 ## Owner
 Mert Oege · mert.oege@gmail.com · GitHub: mertoege/invest-pi
