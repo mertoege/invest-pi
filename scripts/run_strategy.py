@@ -727,7 +727,7 @@ def regime_rebalance_pass(
     return sells
 
 
-WINNER_SCALE_MIN_GAIN = 0.05      # min +5% Gewinn
+WINNER_SCALE_MIN_GAIN = 0.07      # min +7% Gewinn (>5% = echtes Signal, kein Rauschen)
 WINNER_SCALE_MAX_PER_RUN = 5
 WINNER_SCALE_FACTOR = 0.75        # 75% der aktuellen Position dazukaufen
 
@@ -851,10 +851,10 @@ def atr_stop_update(broker, t_cfg, source: str) -> int:
     return updated
 
 
-DIP_BUY_MIN_DROP = -0.02
-DIP_BUY_MAX_RISK = 45
-DIP_BUY_MAX_PER_RUN = 5
-DIP_BUY_SIZING_FACTOR = 1.0
+DIP_BUY_MIN_DROP = -0.025
+DIP_BUY_MAX_RISK = 40
+DIP_BUY_MAX_PER_RUN = 4
+DIP_BUY_SIZING_FACTOR = 0.9
 
 
 def dip_buying_pass(broker, cfg, t_cfg, source: str, dry_run: bool) -> int:
