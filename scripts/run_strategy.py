@@ -1209,14 +1209,20 @@ def main() -> None:
         if decisions['errors']:
             print(f"  errors: {len(decisions['errors'])}")
 
-        # Top-Up untergewichtete Positionen (laeuft auch neben neuen Buys)
+        # Top-Up nur 1x pro Tag (nicht bei jedem Strategy-Run)
         try:
-            from scripts.weekly_rotation import topup_pass
-            from src.trading import get_active_profile
-            profile = get_active_profile(t_cfg)
-            topups = topup_pass(broker, t_cfg, profile, src, args.dry_run)
-            if topups:
-                print(f"  top-ups: {len(topups)}")
+            from src.common.storage import TRADING_DB, connect as _tc
+            with _tc(TRADING_DB) as _conn:
+                _today_topups = _conn.execute(
+                    "SELECT count(*) as n FROM trades WHERE strategy_label='topup-v1' AND date(created_at)=date('now')"
+                ).fetchone()["n"]
+            if _today_topups == 0:
+                from scripts.weekly_rotation import topup_pass
+                from src.trading import get_active_profile
+                profile = get_active_profile(t_cfg)
+                topups = topup_pass(broker, t_cfg, profile, src, args.dry_run)
+                if topups:
+                    print(f"  top-ups: {len(topups)}")
         except Exception as e:
             print(f"  top-up skipped: {e}")
 

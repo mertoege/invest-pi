@@ -34,7 +34,7 @@ from src.trading.decision import latest_risk_score
 
 # Rotation-Parameter
 MAX_SELLS_PER_WEEK = 3
-MAX_TOPUPS_PER_RUN = 4
+MAX_TOPUPS_PER_RUN = 2
 TOPUP_THRESHOLD_PCT = 0.60  # Position aufstocken wenn < 60% von target
 _SECTOR_ETFS = {"XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
 MAX_ETF_TOPUPS = 0  # keine ETF-Top-Ups — Kapital in Einzelaktien lenken
@@ -195,7 +195,16 @@ def topup_pass(broker, t_cfg, profile, source, dry_run) -> list:
         gap_eur = target_eur * 0.6 - p.market_value_eur  # Top up to 60% of target
         if gap_eur < t_cfg.min_position_eur:
             continue
-        underweight.append({"pos": p, "gap_eur": gap_eur, "risk": risk["composite"]})
+        # Nur aufstocken wenn Momentum positiv (nicht in fallende Messer nachkaufen)
+        try:
+            from src.common.data_loader import get_prices
+            _prices = get_prices(p.ticker, period="1mo")
+            _mom = float(_prices["close"].iloc[-1] / _prices["close"].iloc[0] - 1) if _prices is not None and len(_prices) >= 5 else 0
+        except Exception:
+            _mom = 0
+        if _mom < -0.02:
+            continue
+        underweight.append({"pos": p, "gap_eur": gap_eur, "risk": risk["composite"], "momentum": _mom})
 
     underweight.sort(key=lambda x: (x["pos"].ticker in _SECTOR_ETFS, x["risk"]))
     topups = []
