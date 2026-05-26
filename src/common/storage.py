@@ -176,6 +176,21 @@ CREATE TABLE IF NOT EXISTS meta_reviews (
     FOREIGN KEY (prediction_id) REFERENCES predictions(id)
 );
 
+CREATE TABLE IF NOT EXISTS strategic_recommendations (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    meta_review_id   INTEGER,
+    category         TEXT,
+    title            TEXT NOT NULL,
+    description      TEXT,
+    effort           TEXT,
+    expected_impact  TEXT,
+    status           TEXT NOT NULL DEFAULT 'open',
+    implemented_at   TEXT,
+    FOREIGN KEY (meta_review_id) REFERENCES meta_reviews(id)
+);
+CREATE INDEX IF NOT EXISTS idx_strat_rec_status ON strategic_recommendations(status);
+
 CREATE TABLE IF NOT EXISTS reflections (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at     TEXT NOT NULL DEFAULT (datetime('now')),
