@@ -88,6 +88,7 @@ def _raw_call(model: str, system: str, prompt: str,
         "--model", cli_model,
         "--output-format", "json",
         "--max-turns", "1",
+        "--tools", "",
     ]
 
     result = subprocess.run(
