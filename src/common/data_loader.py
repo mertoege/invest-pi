@@ -72,6 +72,21 @@ def _rate_limited_fetch(ticker: str, period: str) -> pd.DataFrame:
 # ────────────────────────────────────────────────────────────
 # PRICES
 # ────────────────────────────────────────────────────────────
+
+_PERIOD_TO_DAYS = {
+    "1d": 1, "5d": 5, "1wk": 7, "1mo": 30, "3mo": 90,
+    "6mo": 180, "1y": 365, "2y": 730, "5y": 1825, "10y": 3650, "max": 99999,
+}
+
+
+def _trim_to_period(df: "pd.DataFrame", period: str) -> "pd.DataFrame":
+    days = _PERIOD_TO_DAYS.get(period, 99999)
+    if days >= 99999 or df.empty:
+        return df
+    cutoff = df.index[-1] - pd.Timedelta(days=int(days * 1.5))
+    trimmed = df[df.index >= cutoff]
+    return trimmed if len(trimmed) >= 2 else df
+
 def get_prices(
     ticker: str,
     period: str = "10y",
@@ -94,12 +109,12 @@ def get_prices(
         cached = _load_from_cache(ticker)
         if cached is not None and len(cached) > 100:
             if not _is_cache_stale(cached, max_cache_age_hours):
-                return cached
+                return _trim_to_period(cached, period)
             # Cache ist stale → inkrementelles Update versuchen
             try:
                 fresh = _incremental_update(ticker, cached)
                 if fresh is not None:
-                    return fresh
+                    return _trim_to_period(fresh, period)
             except Exception as e:
                 log.warning(f"incremental update failed for {ticker}: {e}")
                 # Fallback: vollstaendigen Refresh versuchen
@@ -112,14 +127,14 @@ def get_prices(
         cached = _load_from_cache(ticker)
         if cached is not None and len(cached) > 0:
             log.warning(f"yfinance failed for {ticker}, using stale cache: {e}")
-            return cached
+            return _trim_to_period(cached, period)
         raise ValueError(f"Keine Daten für {ticker} erhalten: {e}")
 
     if raw.empty:
         cached = _load_from_cache(ticker)
         if cached is not None and len(cached) > 0:
             log.warning(f"yfinance returned empty for {ticker}, using stale cache")
-            return cached
+            return _trim_to_period(cached, period)
         raise ValueError(f"Keine Daten für {ticker} erhalten")
 
     # Normalisieren
@@ -128,7 +143,7 @@ def get_prices(
     df.index.name = "date"
 
     _save_to_cache(ticker, df)
-    return df
+    return _trim_to_period(df, period)
 
 
 def _incremental_update(ticker: str, cached: pd.DataFrame) -> Optional[pd.DataFrame]:
