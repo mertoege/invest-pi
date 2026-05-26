@@ -169,12 +169,8 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         '    "prio_3": ["<aktion>", ...]\n'
         "  },\n"
         '  "config_patches": [\n'
-        "    {\n"
-        '      "path": "<config.pfad>",\n'
-        '      "old_value": <aktueller_wert>,\n'
-        '      "new_value": <neuer_wert>,\n'
-        '      "reason": "<warum>"\n'
-        "    }\n"
+        '    {"path": "regime.high_vol_mixed.stop_loss_pct", "old_value": 0.12, "new_value": 0.09, "reason": "Stops zu breit"},\n'
+        '    {"path": "regime.high_vol_mixed.sector_preference", "old_value": [], "new_value": ["healthcare", "technology"], "reason": "Defensive Sektoren"}\n'
         "  ],\n"
         '  "code_changes": [\n'
         "    {\n"
