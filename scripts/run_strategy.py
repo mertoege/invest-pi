@@ -932,6 +932,83 @@ def dip_buying_pass(broker, cfg, t_cfg, source: str, dry_run: bool) -> int:
     return bought
 
 
+
+MOMENTUM_EXIT_MIN_HOLD_DAYS = 14
+MOMENTUM_EXIT_MAX_PER_RUN = 2
+_SECTOR_ETFS = {"XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
+
+
+def momentum_exit_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
+    """Verkauft Positionen mit negativem Momentum seit 2+ Wochen — totes Kapital befreien."""
+    from src.common.data_loader import get_prices
+    from src.trading.decision import latest_risk_score
+
+    positions = broker.get_positions()
+    fx = eur_per_usd()
+    candidates = []
+
+    for pos in positions:
+        if pos.avg_price <= 0:
+            continue
+        # ETFs bevorzugt rauswerfen
+        is_etf = pos.ticker in _SECTOR_ETFS
+        try:
+            prices = get_prices(pos.ticker, period="1mo")
+            if prices is None or len(prices) < 10:
+                continue
+            ret_20d = float(prices["close"].iloc[-1] / prices["close"].iloc[0] - 1)
+            ret_10d = float(prices["close"].iloc[-1] / prices["close"].iloc[-min(10, len(prices)):].iloc[0] - 1)
+        except Exception:
+            continue
+        # Nur verkaufen wenn BEIDE Zeitrahmen negativ (nicht nur kurzfristiger Dip)
+        if ret_20d >= 0 or ret_10d >= -0.01:
+            continue
+        # Nicht verkaufen wenn Risk-Score niedrig (Position ist fundamental ok, nur Momentum schwach)
+        score = latest_risk_score(pos.ticker)
+        if score and score["composite"] < 20 and not is_etf:
+            continue
+        pnl_pct = (pos.market_price / pos.avg_price) - 1.0
+        candidates.append({
+            "pos": pos, "ret_20d": ret_20d, "ret_10d": ret_10d,
+            "pnl": pnl_pct, "is_etf": is_etf,
+            "composite": score["composite"] if score else 50,
+        })
+
+    # ETFs zuerst, dann nach schlechtestem Momentum
+    candidates.sort(key=lambda x: (not x["is_etf"], x["ret_20d"]))
+    sold = 0
+
+    for cand in candidates[:MOMENTUM_EXIT_MAX_PER_RUN]:
+        pos = cand["pos"]
+        print(f"  MOMENTUM-EXIT {pos.ticker}: 20d={cand['ret_20d']:+.1%}, "
+              f"10d={cand['ret_10d']:+.1%}, PnL={cand['pnl']:+.1%}, "
+              f"{'ETF' if cand['is_etf'] else 'Stock'}")
+        if dry_run:
+            sold += 1
+            continue
+        result = _sell_with_limit(broker, pos.ticker, pos.qty, last=pos.market_price)
+        _record_trade(
+            decision_pred_id=None,
+            ticker=pos.ticker, side="sell", qty=pos.qty,
+            eur_value=pos.market_value_eur, price=pos.market_price,
+            status=result.status, order_id=result.order_id,
+            strategy_label="momentum_exit-v1", source=source,
+            notes=f"dead momentum: 20d={cand['ret_20d']:+.1%}, 10d={cand['ret_10d']:+.1%}",
+        )
+        if result.status in ("filled", "pending_new", "accepted"):
+            sold += 1
+            try:
+                notifier.send_trade(
+                    ticker=pos.ticker, side="sell", qty=pos.qty,
+                    eur=pos.market_value_eur, price_usd=pos.market_price,
+                    reason=f"Momentum-Exit: 20d={cand['ret_20d']:+.1%}",
+                    paper=broker.is_paper,
+                )
+            except Exception:
+                pass
+    return sold
+
+
 def _cancel_stale_orders(broker, source: str, max_age_hours: int = 4) -> int:
     """Cancelt unfilled Orders die aelter als max_age_hours sind."""
     cancelled = 0
@@ -1054,6 +1131,15 @@ def main() -> None:
         n_risk = risk_sell_pass(broker, t_cfg, src, args.dry_run)
         if n_risk:
             print(f"  risk-sell pass: {n_risk} sells")
+
+    # Momentum-Exit: totes Kapital befreien
+    if not args.skip_stop_loss:
+        try:
+            n_mom = momentum_exit_pass(broker, t_cfg, src, args.dry_run)
+            if n_mom:
+                print(f"  momentum-exit: {n_mom} sells")
+        except Exception as e:
+            print(f"  momentum-exit skipped: {e}")
 
     # Regime-Rebalancing bei Wechsel
     if transition:

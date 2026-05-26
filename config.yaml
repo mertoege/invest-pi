@@ -248,6 +248,26 @@ universe:
       name: "CrowdStrike"
       note: "Endpoint-Security · Cloud-Native · starkes Momentum"
 
+    - ticker: ARM
+      name: "ARM Holdings"
+      note: "CPU-IP-Lizenzierung · AI-Edge · Smartphone/Data-Center"
+
+    - ticker: COIN
+      name: "Coinbase"
+      note: "Crypto-Exchange · profitiert von Bitcoin-Zyklen"
+
+    - ticker: ANET
+      name: "Arista Networks"
+      note: "AI-Datacenter-Networking · Hyper-Scaler-Zulieferer"
+
+    - ticker: UBER
+      name: "Uber Technologies"
+      note: "Mobility+Delivery-Plattform · erstmals profitabel"
+
+    - ticker: APP
+      name: "AppLovin"
+      note: "AI-Ad-Tech · AXON-Engine · extremes Wachstum"
+
   # ── BENCHMARK-ETFs (für Scoring + Backtesting, nicht getradet) ──
   etfs:
     - ticker: SMH

@@ -703,6 +703,11 @@ PEER_MAP = {
     "XLRE":  ["XLU", "XLF", "SPY"],
     "XLC":   ["XLK", "XLY", "SPY"],
     "XLB":   ["XLE", "XLI", "SPY"],
+    "ARM":   ["NVDA", "AVGO", "MRVL"],
+    "COIN":  ["MSTR", "SQ", "PYPL"],
+    "ANET":  ["AVGO", "MRVL", "CSCO"],
+    "UBER":  ["LYFT", "DASH", "AMZN"],
+    "APP":   ["META", "GOOGL", "TTD"],
 }
 
 
