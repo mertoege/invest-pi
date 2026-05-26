@@ -344,6 +344,36 @@ def risk_sell_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
     return sells
 
 
+
+# ETF-Proxies fuer Sektor-Momentum
+_SECTOR_ETF_MAP = {
+    "technology": "XLK", "financials": "XLF", "energy": "XLE",
+    "healthcare": "XLV", "industrials": "XLI", "consumer_staples": "XLP",
+    "consumer_disc": "XLY", "utilities": "XLU", "real_estate": "XLRE",
+    "communication": "XLC", "materials": "XLB", "software": "XLK",
+    "etfs": None,
+}
+
+def _sector_momentum_map() -> dict[str, float]:
+    """Berechnet 20d-Momentum pro Sektor via ETF-Proxy. Cached pro Run."""
+    from src.common.data_loader import get_prices
+    result = {}
+    for sector, etf in _SECTOR_ETF_MAP.items():
+        if not etf or sector in result:
+            continue
+        try:
+            prices = get_prices(etf, period="1mo")
+            if prices is not None and len(prices) >= 5:
+                result[sector] = float(prices["close"].iloc[-1] / prices["close"].iloc[0] - 1)
+            else:
+                result[sector] = 0.0
+        except Exception:
+            result[sector] = 0.0
+    result["software"] = result.get("technology", 0.0)
+    result["etfs"] = 0.0
+    return result
+
+
 def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_run: bool, regime_info: str = "") -> dict:
     """Pruefe alle tradeable Tickers, treffe Decision, fuehre Buys aus."""
     from src.trading import get_active_profile
@@ -369,6 +399,12 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
         preferred = [e for e in candidates if _get_sector_for_ticker(t_cfg, e.ticker) in sector_pref]
         others = [e for e in candidates if _get_sector_for_ticker(t_cfg, e.ticker) not in sector_pref]
         candidates = preferred + others
+
+    # Sector-Momentum-Cache fuer Ranking-Bonus
+    try:
+        _sec_mom_cache = _sector_momentum_map()
+    except Exception:
+        _sec_mom_cache = {}
 
     # Cash-Ziel: nicht mehr investieren als target_invest_pct vom Equity
     account = broker.get_account()
@@ -457,6 +493,8 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
                 momentum = float(prices["close"].iloc[-1] / prices["close"].iloc[0] - 1)
         except Exception:
             pass
+        _sector = _get_sector_for_ticker(t_cfg, entry.ticker) or ""
+        _sec_mom = _sec_mom_cache.get(_sector, 0.0)
         eligible.append({
             "ticker": entry.ticker, "decision": decision, "quote": quote, "sz": sz,
             "composite": score["composite"] if score else 0,
@@ -464,10 +502,11 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             "alert": score["alert_level"] if score else 0,
             "triggered": score["triggered_n"] if score else 0,
             "momentum": momentum,
+            "sector_momentum": _sec_mom,
         })
 
-    # Rank: Conviction-First — hoechstes Momentum + niedrigstes Risiko
-    eligible.sort(key=lambda x: -(x["momentum"] * 100) + x["composite"])
+    # Rank: Conviction-First — Momentum + Sektor-Momentum + niedriges Risiko
+    eligible.sort(key=lambda x: -(x["momentum"] * 100 + x.get("sector_momentum", 0) * 30) + x["composite"])
 
     # Phase 2: LLM screening
     if eligible and not dry_run:
