@@ -213,6 +213,30 @@ def get_prediction(prediction_id: int) -> Optional[PredictionRecord]:
     return PredictionRecord(**dict(row)) if row else None
 
 
+def _dedup_predictions(job_source: Optional[str] = None) -> int:
+    """Mark redundant predictions as superseded (keep only latest per ticker+day)."""
+    base = """
+        UPDATE predictions
+        SET outcome_json = '{"superseded": true}',
+            outcome_measured_at = datetime('now')
+        WHERE id NOT IN (
+            SELECT MAX(id) FROM predictions
+            WHERE outcome_correct IS NULL AND outcome_json IS NULL
+    """
+    params: list[Any] = []
+    if job_source:
+        base += " AND job_source = ?"
+        params.append(job_source)
+    base += " GROUP BY subject_id, date(created_at))"
+    base += " AND outcome_correct IS NULL AND outcome_json IS NULL"
+    if job_source:
+        base += " AND job_source = ?"
+        params.append(job_source)
+    with connect(LEARNING_DB) as conn:
+        result = conn.execute(base, params)
+        return result.rowcount
+
+
 def pending_outcomes(
     job_source: Optional[str] = None,
     older_than_days: int = 7,
@@ -220,28 +244,30 @@ def pending_outcomes(
 ) -> list[PredictionRecord]:
     """
     Liefert Predictions, deren Outcome noch nicht gemessen wurde.
-    Wird vom outcome_tracker täglich gepollt.
-
-    Args:
-        job_source:       Filter auf bestimmte Quelle ('daily_score' etc.) oder None.
-        older_than_days:  Mindest-Alter; bei daily_score normal 7d.
-        limit:            Sicherheitsgrenze.
+    Dedupliziert automatisch: nur die letzte Prediction pro Ticker+Tag wird gemessen.
     """
+    n_deduped = _dedup_predictions(job_source)
+    if n_deduped > 0:
+        import logging
+        logging.getLogger("invest_pi.predictions").info(
+            f"Deduped {n_deduped} redundant predictions"
+        )
+
     sql = """
         SELECT * FROM predictions
          WHERE outcome_correct IS NULL
            AND outcome_json IS NULL
            AND date(created_at) <= date('now', ?)
     """
-    params: list[Any] = [f"-{older_than_days} day"]
+    params2: list[Any] = [f"-{older_than_days} day"]
     if job_source:
         sql += " AND job_source = ?"
-        params.append(job_source)
+        params2.append(job_source)
     sql += " ORDER BY created_at LIMIT ?"
-    params.append(limit)
+    params2.append(limit)
 
     with connect(LEARNING_DB) as conn:
-        rows = conn.execute(sql, params).fetchall()
+        rows = conn.execute(sql, params2).fetchall()
     return [PredictionRecord(**dict(r)) for r in rows]
 
 
