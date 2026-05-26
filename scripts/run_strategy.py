@@ -253,27 +253,18 @@ def stop_loss_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
     return len(triggered)
 
 
-def _risk_sell_cooldown(ticker: str, hours: int = 24) -> bool:
-    """True wenn bereits ein Risk-Sell (CAUTION oder RED) heute stattfand."""
+def _risk_sell_cooldown(ticker: str, hours: int = 12) -> bool:
+    """True wenn in den letzten N Stunden bereits ein Risk-Sell stattfand."""
     try:
         with connect(TRADING_DB) as conn:
             row = conn.execute(
                 """SELECT 1 FROM trades
                    WHERE ticker=? AND strategy_label LIKE 'risk_sell_%'
-                     AND date(created_at)=date('now')
-                   LIMIT 1""",
-                (ticker,),
-            ).fetchone()
-            if row:
-                return True
-            row2 = conn.execute(
-                """SELECT 1 FROM trades
-                   WHERE ticker=? AND strategy_label LIKE 'risk_sell_caution%'
                      AND created_at > datetime('now', ?)
                    LIMIT 1""",
                 (ticker, f"-{hours} hours"),
             ).fetchone()
-        return row2 is not None
+        return row is not None
     except Exception:
         return False
 
