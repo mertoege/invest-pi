@@ -48,6 +48,7 @@ DEFAULT_WEIGHTS = {
     "cross_asset":              1.0,
     "si_trend":                 0.9,
     "earnings_llm":             1.2,
+    "google_trends":            0.9,
 }
 
 # Sicherheits-Grenzen
@@ -79,24 +80,25 @@ def compute_optimal_weights(
 
     # Separation → relative Gewichte
     # Positive Separation = Dimension ist praediktiv → hoeheres Gewicht
-    # Negative Separation = Dimension erzeugt Noise → niedrigeres Gewicht
+    # Negative Separation = Dimension ist kontraer → niedrigeres Gewicht
     separations = {a["name"]: a["separation"] for a in valid}
 
-    # Normalisiere: shift so dass min=0.5, max=2.0
     sep_values = list(separations.values())
-    sep_min = min(sep_values)
     sep_max = max(sep_values)
-    sep_range = sep_max - sep_min
 
-    if sep_range < 1.0:
-        # Alle Dimensionen performen aehnlich → Default behalten
-        return DEFAULT_WEIGHTS.copy()
+    if sep_max <= 0:
+        # ALLE Dimensionen kontraer — starke Reduktion aller Gewichte
+        empirical = {name: MIN_WEIGHT + 0.1 for name in separations}
+    else:
+        empirical = {}
+        for name, sep in separations.items():
+            if sep <= 0:
+                # Kontraer: je negativer, desto naeher an MIN_WEIGHT
+                empirical[name] = max(MIN_WEIGHT, MIN_WEIGHT + 0.15 * max(0, 1 + sep / 10))
+            else:
+                # Praediktiv: skaliert von 0.8 bis MAX_WEIGHT
+                empirical[name] = min(MAX_WEIGHT, 0.8 + 1.2 * (sep / sep_max))
 
-    empirical = {}
-    for name, sep in separations.items():
-        # Linear mapping: worst separation → 0.5, best → 2.0
-        normalized = 0.5 + 1.5 * (sep - sep_min) / sep_range
-        empirical[name] = normalized
 
     # Blend mit Defaults
     result = {}

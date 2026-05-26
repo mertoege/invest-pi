@@ -282,11 +282,12 @@ def risk_sell_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
     """Verkauft Positionen basierend auf Risk-Score. Regime-aware: im Bull weniger aggressiv."""
     from src.trading.decision import latest_risk_score
     # Regime-aware Schwellen: im Bull-Markt weniger verkaufen
-    bull_regime = False
+    regime_label = "unknown"
     try:
         from src.learning.regime import current_regime
         regime = current_regime()
-        bull_regime = regime.label == "low_vol_bull" and regime.probability >= 0.60
+        if regime.probability >= 0.55:
+            regime_label = regime.label
     except Exception:
         pass
 
@@ -298,18 +299,25 @@ def risk_sell_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry
             continue
         if _risk_sell_cooldown(pos.ticker, hours=48):
             continue
-        # Im Bull-Regime: nur bei extremen Scores verkaufen
-        if bull_regime:
+        # Regime-aware Schwellen: Attribution zeigt dass Risk-Signale
+        # in Bull/Mixed-Maerkten kontraer wirken → konservativer verkaufen
+        if regime_label == "low_vol_bull":
+            if score["alert_level"] >= 3 and score["composite"] >= 85:
+                sell_pct, label = 0.30, "RED"
+            else:
+                continue
+        elif regime_label == "high_vol_mixed":
             if score["alert_level"] >= 3 and score["composite"] >= 80:
-                sell_pct, label = 0.5, "RED"  # nur 50% statt 100%
-            elif score["composite"] >= 80 and score["triggered_n"] >= 5:
+                sell_pct, label = 0.50, "RED"
+            elif score["composite"] >= 75 and score["triggered_n"] >= 6:
                 sell_pct, label = 0.25, "CAUTION"
             else:
                 continue
         else:
+            # Bear oder unbekannt: aggressiver Risk-Management
             if score["alert_level"] >= 3:
                 sell_pct, label = 1.0, "RED"
-            elif score["composite"] >= 70:
+            elif score["composite"] >= 65:
                 sell_pct, label = 0.5, "CAUTION"
             else:
                 continue

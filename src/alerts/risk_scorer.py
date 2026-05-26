@@ -1608,6 +1608,19 @@ def score_ticker(
         all_weight = sum(d.weight for d in dimensions)
         all_sum = sum(d.score * d.weight for d in dimensions)
         composite = (all_sum / all_weight * 0.25) if all_weight > 0 else 0
+    # Regime-aware Dampening: im Bull-Market sind Risk-Scores systematisch
+    # ueberhoeht weil die meisten Dimensionen kontraer wirken
+    try:
+        from ..learning.regime import current_regime
+        _regime = current_regime()
+        if _regime.label == "low_vol_bull" and _regime.probability >= 0.60:
+            composite *= 0.70
+        elif _regime.label == "bear" and _regime.probability >= 0.55:
+            composite *= 1.15
+            composite = min(100.0, composite)
+    except Exception:
+        pass
+
     alert_level = _alert_level_from_score(composite)
     alert_label = {0: "Green", 1: "Watch", 2: "Caution", 3: "Red"}[alert_level]
 
