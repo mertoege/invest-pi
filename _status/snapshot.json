@@ -13,13 +13,13 @@
   },
   "git": {
     "branch": "main",
-    "commit": "769322b3",
+    "commit": "dccadfc1",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 66.1,
+    "cpu_temp_c": 63.9,
     "disk_pct": 36,
-    "load_1min": 0.25,
+    "load_1min": 0.26,
     "mem_pct": 55
   },
   "last_runs": {
@@ -31,10 +31,10 @@
   "predictions": {
     "correct": 14392,
     "incorrect": 2248,
-    "last_24h": 1133,
-    "last_7d": 7949,
-    "pending": 703,
-    "total": 28256
+    "last_24h": 1131,
+    "last_7d": 7958,
+    "pending": 712,
+    "total": 28265
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "?",
     "sync": "active"
   },
-  "timestamp_utc": "2026-05-27T00:38:20"
+  "timestamp_utc": "2026-05-27T00:40:27"
 }
