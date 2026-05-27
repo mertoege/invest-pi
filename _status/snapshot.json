@@ -13,14 +13,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "cabe219a",
+    "commit": "37f8ce3b",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 67.2,
+    "cpu_temp_c": 69.4,
     "disk_pct": 36,
-    "load_1min": 0.45,
-    "mem_pct": 54
+    "load_1min": 0.78,
+    "mem_pct": 55
   },
   "last_runs": {
     "run_strategy": null,
@@ -32,9 +32,9 @@
     "correct": 14392,
     "incorrect": 2248,
     "last_24h": 1234,
-    "last_7d": 8179,
-    "pending": 1101,
-    "total": 29164
+    "last_7d": 8176,
+    "pending": 1115,
+    "total": 29178
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "?",
     "sync": "active"
   },
-  "timestamp_utc": "2026-05-27T18:32:07"
+  "timestamp_utc": "2026-05-27T18:34:16"
 }
