@@ -536,6 +536,10 @@ html, body {
                 <span class="dot idle"></span>
                 <span class="sname">instapi <span class="sub">InstaPi</span></span>
             </div>
+            <div class="session tmux-link" data-tmux="assistpi">
+                <span class="dot idle"></span>
+                <span class="sname">assistpi <span class="sub">Personal AI</span></span>
+            </div>
             <div class="session tmux-link" data-tmux="webterminal">
                 <span class="dot idle"></span>
                 <span class="sname">webterminal <span class="sub">Web Terminal</span></span>
@@ -1434,7 +1438,7 @@ function renderMobileSessions() {
     const list = document.getElementById('m-session-list');
     if (!list) return;
     list.innerHTML = '';
-    const tmuxNames = ['investpi', 'pokepi', 'bookpi', 'instapi'];
+    const tmuxNames = ['investpi', 'pokepi', 'bookpi', 'instapi', 'assistpi'];
     tmuxNames.forEach(name => {
         const idx = sessions.findIndex(s => s && s.tmuxName === name);
         const div = document.createElement('div');
@@ -1646,7 +1650,7 @@ termContainer.addEventListener('drop', (e) => {
 });
 
 // Init — tmux Sessions als Default-Tabs
-const defaultSessions = ['investpi', 'pokepi', 'bookpi', 'instapi'];
+const defaultSessions = ['investpi', 'pokepi', 'bookpi', 'instapi', 'assistpi'];
 defaultSessions.forEach((name, i) => {
     addSession('tmux attach -t ' + name);
 });
