@@ -447,6 +447,32 @@ html, body {
     .palette { width: calc(100vw - 24px) !important; max-width: 520px; }
     .scrim { padding-top: 10vh; }
 }
+
+#select-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    flex-direction: column; background: var(--bg);
+}
+#select-overlay .so-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+    font-size: 13px; font-weight: 600; flex-shrink: 0;
+}
+#select-overlay .so-bar button {
+    background: var(--primary); color: #fff; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+#select-overlay .so-text {
+    flex: 1; overflow-y: scroll; -webkit-overflow-scrolling: touch;
+    padding: 14px; margin: 0;
+    font-family: var(--mono); font-size: 11px; line-height: 1.4;
+    color: var(--text); white-space: pre; overflow-x: auto;
+    -webkit-user-select: text; user-select: text;
+}
+#select-overlay .so-copy {
+    background: var(--pos); color: #000; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+    margin-left: 8px;
+}
 </style>
 </head>
 <body>
@@ -502,13 +528,17 @@ html, body {
                 <span class="dot idle"></span>
                 <span class="sname">pokepi <span class="sub">PokéPi App</span></span>
             </div>
-            <div class="session tmux-link" data-tmux="autopi">
+            <div class="session tmux-link" data-tmux="bookpi">
                 <span class="dot idle"></span>
-                <span class="sname">autopi <span class="sub">AutoPi</span></span>
+                <span class="sname">bookpi <span class="sub">BookPi KDP</span></span>
             </div>
             <div class="session tmux-link" data-tmux="instapi">
                 <span class="dot idle"></span>
                 <span class="sname">instapi <span class="sub">InstaPi</span></span>
+            </div>
+            <div class="session tmux-link" data-tmux="webterminal">
+                <span class="dot idle"></span>
+                <span class="sname">webterminal <span class="sub">Web Terminal</span></span>
             </div>
         </div>
 
@@ -794,8 +824,9 @@ class TermSession {
         this.term.onSelectionChange(() => {
             const sel = this.term.getSelection();
             if (sel) {
-                navigator.clipboard.writeText(sel).then(() => {
-                    showCopyToast(sel.length);
+                const trimmed = sel.split('\n').map(l => l.replace(/\s+$/, '')).join('\n');
+                navigator.clipboard.writeText(trimmed).then(() => {
+                    showCopyToast(trimmed.length);
                 }).catch(() => {});
             }
         });
@@ -809,6 +840,7 @@ class TermSession {
     open() {
         this.term.open(this.el);
         attachPasteHandler(this.term);
+        attachScrollHandler(this, this.el);
         this._idleTimer = null;
         this._renderThrottle = null;
         this._ready = false;
@@ -863,8 +895,11 @@ class TermSession {
 
         this.ws.onclose = () => {
             this.connected = false;
-            this.term.write('\r\n\x1b[31m[Verbindung geschlossen]\x1b[0m\r\n');
             updateConnStatus();
+            if (!this._destroyed) {
+                this.term.write('\r\n\x1b[33m[Verbindung verloren – Reconnect...]\x1b[0m\r\n');
+                setTimeout(() => this._reconnect(), 1500);
+            }
         };
 
         this.term.onData((data) => {
@@ -887,7 +922,43 @@ class TermSession {
 
     hide() { this.el.style.display = 'none'; }
 
+    _reconnect() {
+        if (this._destroyed || this.connected) return;
+        this.term.write('\x1b[33m[Verbinde...]\x1b[0m\r\n');
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const token = document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('terminal_session='))?.split('=')[1] || '';
+        const base = location.pathname.replace(/\/$/, '');
+        this.ws = new WebSocket(`${proto}//${location.host}${base}/ws/terminal?token=${encodeURIComponent(token)}`);
+        this.ws.binaryType = 'arraybuffer';
+
+        this.ws.onopen = () => {
+            this.connected = true;
+            updateConnStatus();
+            const { cols, rows } = this.term;
+            this.ws.send(JSON.stringify({ cols, rows }));
+            this.term.write('\x1b[32m[Verbunden]\x1b[0m\r\n');
+            if (this.tmuxName) {
+                setTimeout(() => {
+                    this.ws.send(new TextEncoder().encode('tmux set -g mouse off; tmux attach -t ' + this.tmuxName + '\n'));
+                }, 300);
+            }
+        };
+        this.ws.onmessage = (e) => {
+            if (e.data instanceof ArrayBuffer) this.term.write(new Uint8Array(e.data));
+            else this.term.write(e.data);
+        };
+        this.ws.onclose = () => {
+            this.connected = false;
+            updateConnStatus();
+            if (!this._destroyed) {
+                this.term.write('\r\n\x1b[33m[Reconnect in 3s...]\x1b[0m\r\n');
+                setTimeout(() => this._reconnect(), 3000);
+            }
+        };
+    }
+
     destroy() {
+        this._destroyed = true;
         if (this.ws) this.ws.close();
         this.term.dispose();
         this.el.remove();
@@ -924,6 +995,16 @@ function addSession(initCmd) {
     renderSessions();
     document.getElementById('session-count').textContent = sessions.filter(s => s).length;
 }
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        sessions.forEach(s => {
+            if (s && !s._destroyed && (!s.ws || s.ws.readyState > WebSocket.OPEN)) {
+                s._reconnect();
+            }
+        });
+    }
+});
 
 document.querySelectorAll('.tmux-link').forEach(el => {
     el.style.cursor = 'pointer';
@@ -1262,6 +1343,8 @@ function initKeyBar() {
         { k: '~', label: '~' },
         { k: '/', label: '/' },
         { k: '-', label: '-' },
+        { k: null, label: 'Select', action: 'select' },
+        { k: null, label: 'Paste', action: 'paste' },
     ];
     let ctrlMode = false;
     keys.forEach(k => {
@@ -1270,6 +1353,11 @@ function initKeyBar() {
         btn.addEventListener('click', () => {
             const s = sessions[activeSession];
             if (!s || !s.ws || s.ws.readyState !== WebSocket.OPEN) return;
+            if (k.action === 'select') { openSelectOverlay(s); return; }
+            if (k.action === 'paste') {
+                navigator.clipboard.readText().then(t => { if (t) s.term.paste(t); }).catch(() => {});
+                return;
+            }
             if (k.label === 'ctrl') {
                 ctrlMode = !ctrlMode;
                 btn.style.background = ctrlMode ? 'var(--primary-glow)' : '';
@@ -1307,11 +1395,46 @@ document.getElementById('m-cmd-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); sendMobileCmd(); }
 });
 
+function openSelectOverlay(s) {
+    const buf = s.term.buffer.active;
+    let text = '';
+    for (let i = 0; i < buf.length; i++) {
+        const line = buf.getLine(i);
+        if (line) text += line.translateToString(true) + '\n';
+    }
+    text = text.replace(/\n{4,}/g, '\n\n\n').trimEnd();
+    let overlay = document.getElementById('select-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'select-overlay';
+        overlay.innerHTML = `<div class="so-bar"><span>Text kopieren</span><div><button class="so-copy" onclick="copyAllTermText()">Alles</button><button onclick="closeSelectOverlay()">✕</button></div></div><pre class="so-text"></pre>`;
+        document.body.appendChild(overlay);
+    }
+    overlay.querySelector('.so-text').textContent = text;
+    overlay.style.display = 'flex';
+}
+function copyAllTermText() {
+    const pre = document.querySelector('#select-overlay .so-text');
+    if (pre) {
+        navigator.clipboard.writeText(pre.textContent).then(() => {
+            const btn = document.querySelector('.so-copy');
+            btn.textContent = 'Kopiert!';
+            setTimeout(() => btn.textContent = 'Alles', 1500);
+        }).catch(() => {});
+    }
+}
+function closeSelectOverlay() {
+    const o = document.getElementById('select-overlay');
+    if (o) o.style.display = 'none';
+    const s = sessions[activeSession];
+    if (s) s.term.focus();
+}
+
 function renderMobileSessions() {
     const list = document.getElementById('m-session-list');
     if (!list) return;
     list.innerHTML = '';
-    const tmuxNames = ['investpi', 'pokepi', 'autopi', 'instapi'];
+    const tmuxNames = ['investpi', 'pokepi', 'bookpi', 'instapi'];
     tmuxNames.forEach(name => {
         const idx = sessions.findIndex(s => s && s.tmuxName === name);
         const div = document.createElement('div');
@@ -1360,6 +1483,77 @@ function showCopyToast(charCount) {
 
 
 // Clipboard Paste (images) — use Clipboard API directly on Ctrl+V
+function attachScrollHandler(session, el) {
+    session._scrollState = { inCopyMode: false, exitTimer: null };
+}
+
+(function() {
+    document.addEventListener('wheel', (e) => {
+        const xtermEl = e.target.closest('.xterm');
+        if (!xtermEl) return;
+        const termEl = xtermEl.closest('[style]');
+        if (!termEl) return;
+        const s = sessions.find(s => s && s.el && s.el.contains(xtermEl));
+        if (!s || !s.ws || s.ws.readyState !== WebSocket.OPEN) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const state = s._scrollState || (s._scrollState = { inCopyMode: false, exitTimer: null });
+        const lines = Math.max(1, Math.round(Math.abs(e.deltaY) / 40));
+        function raw(keys) { s.ws.send(new TextEncoder().encode(keys)); }
+        if (e.deltaY < 0) {
+            if (!state.inCopyMode) {
+                raw('\x02[');
+                state.inCopyMode = true;
+                setTimeout(() => { for (let i = 0; i < lines; i++) raw('\x1b[A'); }, 150);
+            } else {
+                for (let i = 0; i < lines; i++) raw('\x1b[A');
+            }
+        } else {
+            if (state.inCopyMode) {
+                for (let i = 0; i < lines; i++) raw('\x1b[B');
+            }
+        }
+        clearTimeout(state.exitTimer);
+        state.exitTimer = setTimeout(() => {
+            if (state.inCopyMode) { raw('q'); state.inCopyMode = false; }
+        }, 30000);
+    }, { capture: true, passive: false });
+
+    let touchSession = null, touchStartY = null, touchAccum = 0;
+    document.addEventListener('touchstart', (e) => {
+        const xt = e.target.closest('.xterm');
+        if (!xt || e.touches.length !== 1) return;
+        touchSession = sessions.find(s => s && s.el && s.el.contains(xt));
+        if (!touchSession) return;
+        touchStartY = e.touches[0].clientY;
+        touchAccum = 0;
+    }, { passive: true });
+    document.addEventListener('touchmove', (e) => {
+        if (!touchSession || touchStartY === null || e.touches.length !== 1) return;
+        if (!touchSession.ws || touchSession.ws.readyState !== WebSocket.OPEN) return;
+        e.preventDefault();
+        const state = touchSession._scrollState || (touchSession._scrollState = { inCopyMode: false, exitTimer: null });
+        const dy = touchStartY - e.touches[0].clientY;
+        touchStartY = e.touches[0].clientY;
+        touchAccum += dy;
+        const threshold = 20;
+        function raw(keys) { touchSession.ws.send(new TextEncoder().encode(keys)); }
+        while (Math.abs(touchAccum) >= threshold) {
+            const dir = touchAccum > 0 ? -1 : 1;
+            if (dir < 0) {
+                if (!state.inCopyMode) { raw('\x02['); state.inCopyMode = true; setTimeout(() => raw('\x1b[A'), 150); }
+                else raw('\x1b[A');
+            } else {
+                if (state.inCopyMode) raw('\x1b[B');
+            }
+            touchAccum -= (touchAccum > 0 ? threshold : -threshold);
+            clearTimeout(state.exitTimer);
+            state.exitTimer = setTimeout(() => { if (state.inCopyMode) { raw('q'); state.inCopyMode = false; } }, 30000);
+        }
+    }, { passive: false });
+    document.addEventListener('touchend', () => { touchSession = null; touchStartY = null; }, { passive: true });
+})();
+
 function attachPasteHandler(term) {
     term.attachCustomKeyEventHandler((ev) => {
         if ((ev.ctrlKey || ev.metaKey) && ev.key === 'v' && ev.type === 'keydown') {
@@ -1452,7 +1646,7 @@ termContainer.addEventListener('drop', (e) => {
 });
 
 // Init — tmux Sessions als Default-Tabs
-const defaultSessions = ['investpi', 'pokepi', 'autopi', 'instapi'];
+const defaultSessions = ['investpi', 'pokepi', 'bookpi', 'instapi'];
 defaultSessions.forEach((name, i) => {
     addSession('tmux attach -t ' + name);
 });
