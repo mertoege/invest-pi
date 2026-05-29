@@ -109,6 +109,14 @@ def _calibrated_confidence_factors(days: int = 60) -> dict[str, float]:
     result = CONF_FACTOR_DEFAULT.copy()
     overall_rate = rates["overall"].get("hit_rate")
 
+    # Diskriminanz-Schutz: nur kalibrieren wenn das Confidence-Signal ueberhaupt
+    # trennscharf ist (high mind. so treffsicher wie low). Ist es invertiert,
+    # fittet die Kalibrierung nur Rauschen -> Defaults behalten.
+    _hi = rates["high"].get("hit_rate")
+    _lo = rates["low"].get("hit_rate")
+    if _hi is not None and _lo is not None and _hi < _lo:
+        return CONF_FACTOR_DEFAULT.copy()
+
     for level in ("high", "medium", "low"):
         stats = rates[level]
         if stats["measured"] < _MIN_SAMPLES_FOR_CALIBRATION:

@@ -99,11 +99,38 @@ def check_accuracy() -> dict:
             "SELECT count(*) FROM predictions "
             "WHERE outcome_correct IS NULL AND outcome_json IS NULL"
         ).fetchone()[0]
+        # EHRLICHE Metrik: nach Alert-Level getrennt. Die aggregierte Accuracy
+        # ist ~Basisrate ('Aktie crasht meistens nicht'). Aussagekraeftig ist die
+        # Trefferquote der WARNUNGEN (alert_level>=2) vs. Green (alert_level=0).
+        warn_acc = warn_n = green_acc = green_n = None
+        try:
+            strat = conn.execute("""
+                SELECT CASE
+                         WHEN CAST(json_extract(output_json,'$.alert_level') AS INT) >= 2 THEN 'warn'
+                         WHEN CAST(json_extract(output_json,'$.alert_level') AS INT) = 0 THEN 'green'
+                         ELSE 'watch' END AS grp,
+                       avg(outcome_correct) AS acc, count(*) AS n
+                  FROM predictions
+                 WHERE outcome_correct IS NOT NULL
+                   AND outcome_measured_at > datetime('now','-30 days')
+                 GROUP BY grp
+            """).fetchall()
+            by = {r["grp"]: r for r in strat}
+            if by.get("warn"):
+                warn_n = by["warn"]["n"]
+                warn_acc = round(by["warn"]["acc"] * 100, 1) if by["warn"]["acc"] is not None else None
+            if by.get("green"):
+                green_n = by["green"]["n"]
+                green_acc = round(by["green"]["acc"] * 100, 1) if by["green"]["acc"] is not None else None
+        except Exception:
+            pass
         return {
             "accuracy_7d": round(acc_7d["acc"] * 100, 1) if acc_7d["acc"] else None,
             "accuracy_30d": round(acc_30d["acc"] * 100, 1) if acc_30d["acc"] else None,
             "measured_7d": acc_7d["n"],
             "unmeasured": unmeasured,
+            "warn_acc": warn_acc, "warn_n": warn_n,
+            "green_acc": green_acc, "green_n": green_n,
         }
 
 
@@ -217,6 +244,8 @@ def build_telegram_message(checks: dict, fixes: dict) -> str:
 
     if acc["accuracy_7d"]:
         lines.append(f"Accuracy: {acc['accuracy_7d']}% (7d), {acc['unmeasured']} pending")
+    if acc.get("warn_n"):
+        lines.append(f"Warn-Treffer: {acc.get('warn_acc')}% ({acc['warn_n']}) · Green: {acc.get('green_acc')}% ({acc.get('green_n')})")
 
     if fixes.get("deduped", 0) > 0:
         lines.append(f"Dedup: {fixes['deduped']} redundante Predictions bereinigt")
