@@ -783,6 +783,37 @@ WINNER_SCALE_MAX_PER_RUN = 5
 WINNER_SCALE_FACTOR = 0.75        # 75% der aktuellen Position dazukaufen
 
 
+MAX_PORTFOLIO_LEVERAGE = 1.5  # Gross-Exposure / Equity Obergrenze (Sicherheitsnetz)
+
+
+def _buy_gate(broker, t_cfg, ticker: str, eur_amount: float):
+    """Globales Pre-Buy-Gate fuer ALLE Buy-Pfade (nicht nur buy_pass):
+    Kill-Switch, Market-Hours, Trade-Cap, Daily-Loss, Cash-Floor, Sector-Cap,
+    Correlation UND portfolioweiter Leverage-Deckel. Gibt (ok, reason) zurueck.
+    Fail-CLOSED: bei Datenfehler im Leverage-Check wird blockiert, nicht erlaubt."""
+    check = pre_trade_check(broker, t_cfg)
+    if not check.ok:
+        return False, check.reason
+    cash_ok, cash_reason = cash_floor_check(broker, t_cfg)
+    if not cash_ok:
+        return False, f"cash-floor: {cash_reason}"
+    sector_ok, sector_reason = sector_concentration_check(broker, t_cfg, ticker, eur_amount)
+    if not sector_ok:
+        return False, f"sector-cap: {sector_reason}"
+    corr_ok, corr_reason = correlation_check(broker, ticker)
+    if not corr_ok:
+        return False, f"correlation: {corr_reason}"
+    try:
+        acc = broker.get_account()
+        gross_eur = sum(p.market_value_eur for p in broker.get_positions()) + eur_amount
+        lev = gross_eur / acc.equity_eur if acc.equity_eur > 0 else 0
+        if lev > MAX_PORTFOLIO_LEVERAGE:
+            return False, f"leverage {lev:.2f}x > {MAX_PORTFOLIO_LEVERAGE}x"
+    except Exception:
+        return False, "leverage: account/positions nicht lesbar"
+    return True, "ok"
+
+
 def winner_scaling_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
     """Stocke Gewinner auf: Positionen mit >10% Gain + positivem Momentum."""
     from src.trading import get_active_profile
@@ -840,6 +871,10 @@ def winner_scaling_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
               f"+{qty} shares ({cand['add_eur']:.0f}€)")
         if dry_run:
             scaled += 1
+            continue
+        _gate_ok, _gate_reason = _buy_gate(broker, t_cfg, pos.ticker, cand["add_eur"])
+        if not _gate_ok:
+            print(f"  WINNER-SCALE {pos.ticker} blockiert: {_gate_reason}")
             continue
         quote = broker.get_quote(pos.ticker)
         if quote.bid > 0 and quote.ask > 0:
@@ -959,6 +994,10 @@ def dip_buying_pass(broker, cfg, t_cfg, source: str, dry_run: bool) -> int:
               f"{qty} @ ${quote.last:.2f} = {eur_amount:.0f}EUR")
         if dry_run:
             bought += 1
+            continue
+        _gate_ok, _gate_reason = _buy_gate(broker, t_cfg, entry.ticker, eur_amount)
+        if not _gate_ok:
+            print(f"  DIP-BUY {entry.ticker} blockiert: {_gate_reason}")
             continue
         if quote.bid > 0 and quote.ask > 0:
             limit_price = round((quote.bid + quote.ask) / 2 * 1.001, 2)
