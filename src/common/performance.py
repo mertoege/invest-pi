@@ -8,6 +8,8 @@ Berechnet aus zeitlich geordneten Snapshots:
   - max_drawdown: groesste Drop vom running peak
   - calmar_ratio: annualized return / max_drawdown
   - cagr: compound annual growth rate
+  - alpha vs SPY: Portfolio-Return minus SPY-Return ueber das Fenster in dem
+    SPY-Daten vorliegen (ehrlich: nur ueber den tatsaechlichen Overlap)
 
 Alle USD-basiert (FX-resistent, siehe T37).
 """
@@ -34,15 +36,21 @@ class PerfMetrics:
     calmar:         Optional[float] = None
     last_total_usd: Optional[float] = None
     first_total_usd: Optional[float] = None
+    # Benchmark (SPY) — nur ueber das Fenster in dem SPY-Daten vorliegen
+    spy_return_pct: Optional[float] = None
+    alpha_pct:      Optional[float] = None
+    benchmark_days: int = 0
 
 
-def _fetch_daily_equity(source: str, days: int) -> list[tuple[str, float]]:
+def _fetch_daily_equity(source: str, days: int) -> list[tuple[str, float, Optional[float]]]:
     """
-    Returns [(date_iso, equity_usd), ...] — eine Zeile pro Kalendertag (last snapshot).
+    Returns [(date_iso, equity_usd, spy_close_or_None), ...] — eine Zeile pro
+    Kalendertag (jeweils letzter Snapshot des Tages).
     """
     sql = """
         SELECT date(timestamp, 'localtime') AS d,
-               total_usd
+               total_usd,
+               spy_close
           FROM equity_snapshots
          WHERE source = ?
            AND total_usd IS NOT NULL
@@ -53,7 +61,21 @@ def _fetch_daily_equity(source: str, days: int) -> list[tuple[str, float]]:
     """
     with connect(TRADING_DB) as conn:
         rows = conn.execute(sql, (source, f"-{days} day")).fetchall()
-    return [(r["d"], float(r["total_usd"])) for r in rows]
+    return [(r["d"], float(r["total_usd"]),
+             float(r["spy_close"]) if r["spy_close"] is not None else None)
+            for r in rows]
+
+
+def _compute_alpha(series: list[tuple[str, float, Optional[float]]]) -> tuple[Optional[float], Optional[float], int]:
+    """Alpha vs SPY ueber das Fenster in dem BEIDE (Portfolio + SPY) vorliegen.
+    Returns (spy_return_pct, alpha_pct, benchmark_days). Ehrlich: nutzt nur Tage
+    mit SPY-Daten und gibt deren Anzahl zurueck."""
+    both = [(eq, spy) for _, eq, spy in series if spy is not None and spy > 0]
+    if len(both) < 2 or both[0][0] <= 0 or both[0][1] <= 0:
+        return None, None, len(both)
+    pf_ret = both[-1][0] / both[0][0] - 1
+    spy_ret = both[-1][1] / both[0][1] - 1
+    return spy_ret, pf_ret - spy_ret, len(both)
 
 
 def compute_metrics(source: str = "paper", days: int = 30) -> PerfMetrics:
@@ -65,6 +87,7 @@ def compute_metrics(source: str = "paper", days: int = 30) -> PerfMetrics:
     first_total = series[0][1]
     last_total  = series[-1][1]
     total_ret   = (last_total / first_total) - 1 if first_total > 0 else 0
+    spy_ret, alpha, bench_days = _compute_alpha(series)
 
     # Daily returns
     returns = []
@@ -78,7 +101,8 @@ def compute_metrics(source: str = "paper", days: int = 30) -> PerfMetrics:
     if n == 0:
         return PerfMetrics(period_days=days, n_observations=len(series),
                            total_return_pct=total_ret,
-                           first_total_usd=first_total, last_total_usd=last_total)
+                           first_total_usd=first_total, last_total_usd=last_total,
+                           spy_return_pct=spy_ret, alpha_pct=alpha, benchmark_days=bench_days)
 
     mean_ret = sum(returns) / n
     var = sum((r - mean_ret) ** 2 for r in returns) / n
@@ -101,7 +125,7 @@ def compute_metrics(source: str = "paper", days: int = 30) -> PerfMetrics:
     # Max-Drawdown
     peak = series[0][1]
     max_dd = 0
-    for _, val in series:
+    for _, val, _spy in series:
         if val > peak:
             peak = val
         if peak > 0:
@@ -131,6 +155,9 @@ def compute_metrics(source: str = "paper", days: int = 30) -> PerfMetrics:
         calmar=calmar,
         last_total_usd=last_total,
         first_total_usd=first_total,
+        spy_return_pct=spy_ret,
+        alpha_pct=alpha,
+        benchmark_days=bench_days,
     )
 
 
@@ -141,6 +168,10 @@ def format_metrics(m: PerfMetrics) -> str:
     parts = [f"📊 <b>Performance ({m.period_days}d)</b>"]
     if m.total_return_pct is not None:
         parts.append(f"  Total: <b>{m.total_return_pct*100:+.2f}%</b>")
+    # Alpha vs SPY — der eigentliche Maßstab. Fenster ausweisen wenn kurz.
+    if m.alpha_pct is not None:
+        win = f" ({m.benchmark_days}d Bench)" if m.benchmark_days < m.n_observations else ""
+        parts.append(f"  vs SPY: <b>{m.alpha_pct*100:+.2f}%</b> (SPY {m.spy_return_pct*100:+.2f}%){win}")
     if m.cagr is not None:
         parts.append(f"  CAGR: {m.cagr*100:+.1f}%/y")
     if m.annual_vol is not None:
