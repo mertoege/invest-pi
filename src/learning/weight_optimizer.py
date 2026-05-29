@@ -177,6 +177,18 @@ def optimize_and_apply(
 
     new_weights = compute_optimal_weights(job_source, days)
 
+    # Rate-Limiter: max. Schritt pro Lauf, damit ein einzelner (evtl. verrauschter)
+    # Attributions-Lauf das Live-Verhalten nicht ruckartig umwirft. Gewichte
+    # konvergieren ueber mehrere Laeufe graduell zum Attributions-Ziel. Bruecke
+    # bis das Backtest-Gate Gewichtsaenderungen absichert.
+    MAX_WEIGHT_STEP = 0.15
+    limited = {}
+    for name, target in new_weights.items():
+        old_w = old_weights.get(name, DEFAULT_WEIGHTS.get(name, 1.0))
+        step = max(-MAX_WEIGHT_STEP, min(MAX_WEIGHT_STEP, target - old_w))
+        limited[name] = round(max(MIN_WEIGHT, min(MAX_WEIGHT, old_w + step)), 3)
+    new_weights = limited
+
     # Delta berechnen
     deltas = {}
     for name in DEFAULT_WEIGHTS:

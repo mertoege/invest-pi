@@ -1,20 +1,24 @@
 """
 Performance-Attribution-Layer.
 
-Beantwortet die Frage: WELCHE Risk-Dimensionen liefern eigentlich das
-Profit-Signal? Aktuell haben wir 9 Dimensionen mit hartcodierten Gewichten —
-ohne Attribution wissen wir nie welche davon Geld macht und welche nur Noise
-addet.
+Beantwortet die Frage: WELCHE Risk-Dimensionen liefern eigentlich Signal?
 
-Methode: fuer jede measured prediction (outcome_correct in {0,1}) extrahieren
-wir die 9 dimension-scores aus output_json. Pro Dimension berechnen wir:
-  - avg_score_correct:   mittlerer dim.score wenn outcome=1
-  - avg_score_incorrect: mittlerer dim.score wenn outcome=0
-  - separation:          Differenz (high score = "predictiv")
-  - n_triggered_correct / n_triggered_incorrect: bei dim.triggered=True
-  - hit_rate_when_triggered
+WICHTIG (2026-05-30): Attribution misst jetzt gegen REALISIERTE Forward-Returns
+(return_7d aus reflections), NICHT mehr gegen das outcome_correct-Flag. Grund:
+outcome_correct ist basisraten-dominiert (95% 'Green = kein Crash'), eine
+Dimension konnte hohe 'separation' zeigen indem sie nur die Basisrate nachbildet
+— ohne echte Vorhersagekraft fuer Rendite/Drawdown. Jetzt zaehlt, ob ein hoher
+Dimensions-Score eine SCHWAECHERE Forward-Rendite vorhersagt (= echtes Risiko).
 
-Wird in daily_report (Sonntag), meta_review und calibration_block genutzt.
+Methode pro Dimension: teile measured predictions (mit realisiertem return_7d)
+am Median des Dimensions-Scores in 'hoher Score' vs 'niedriger Score'. Separation
+= mean_return(niedrig) - mean_return(hoch), in Prozentpunkten.
+  separation > 0  → hoher Score sagt schwaechere Rendite voraus = PRAEDIKTIV
+  separation < 0  → hoher Score sagt staerkere Rendite voraus = KONTRAER/anti
+Dimensionen ohne ausreichende Stichprobe in beiden Gruppen werden ausgelassen
+(behalten im Optimizer ihr Default-Gewicht statt faelschlich abgewertet zu werden).
+
+Wird in daily_report (Sonntag), meta_review und weight_optimizer genutzt.
 """
 
 from __future__ import annotations
@@ -25,30 +29,32 @@ from typing import Optional
 from ..common.json_utils import safe_parse
 from ..common.storage import LEARNING_DB, connect
 
+# Mindest-Stichprobe pro Score-Gruppe (hoch/niedrig), sonst Dimension auslassen.
+_MIN_PER_GROUP = 20
+
 
 def attribute_dimensions(job_source: str = "daily_score", days: int = 30) -> list[dict]:
     """
-    Returns Liste von Dim-Stats, sortiert nach |separation| descending.
+    Returns Liste von Dim-Stats, sortiert nach separation descending.
 
     Format pro Dim:
         {
             "name":               "technical_breakdown",
-            "n_total":            42,
-            "n_correct":          25,
-            "n_incorrect":        17,
-            "avg_score_correct":   55.4,
-            "avg_score_incorrect": 38.1,
-            "separation":         17.3,    # > 0: hoher score koreliert mit correct outcome
-            "n_triggered":        18,
-            "hit_rate_triggered": 0.72,
+            "n_total":            420,
+            "avg_return_high":    -0.031,   # mittlere 7d-Rendite bei hohem Score
+            "avg_return_low":     -0.009,   # mittlere 7d-Rendite bei niedrigem Score
+            "separation":          2.2,     # (low - high) * 100, >0 = praediktiv
+            "n_triggered":         55,
+            "hit_rate_triggered":  0.61,    # Anteil getriggerter mit return_7d < 0
         }
     """
     sql = """
-        SELECT output_json, outcome_correct
-          FROM predictions
-         WHERE job_source = ?
-           AND outcome_correct IN (0, 1)
-           AND created_at >= datetime('now', ?)
+        SELECT p.output_json AS output_json, r.return_7d AS return_7d
+          FROM predictions p
+          JOIN reflections r ON r.prediction_id = p.id
+         WHERE p.job_source = ?
+           AND r.return_7d IS NOT NULL
+           AND p.created_at >= datetime('now', ?)
     """
     with connect(LEARNING_DB) as conn:
         rows = conn.execute(sql, (job_source, f"-{days} day")).fetchall()
@@ -56,58 +62,49 @@ def attribute_dimensions(job_source: str = "daily_score", days: int = 30) -> lis
     if not rows:
         return []
 
-    # Per-dim Akkumulator: {name: {correct_scores, incorrect_scores, triggered_correct, triggered_incorrect}}
+    # Per-dim: Liste (score, fwd_return) + getriggerte Returns
     acc: dict[str, dict] = {}
-
     for r in rows:
         out = safe_parse(r["output_json"] or "{}", default={})
-        outcome = r["outcome_correct"]
+        fwd = float(r["return_7d"])
         for d in out.get("dimensions", []):
             name = d.get("name")
             if not name:
                 continue
             if name not in acc:
-                acc[name] = {
-                    "correct_scores": [], "incorrect_scores": [],
-                    "triggered_correct": 0, "triggered_incorrect": 0,
-                }
+                acc[name] = {"pairs": [], "trig_returns": []}
             score = float(d.get("score", 0))
-            triggered = bool(d.get("triggered", False))
-            if outcome == 1:
-                acc[name]["correct_scores"].append(score)
-                if triggered: acc[name]["triggered_correct"] += 1
-            else:
-                acc[name]["incorrect_scores"].append(score)
-                if triggered: acc[name]["triggered_incorrect"] += 1
+            acc[name]["pairs"].append((score, fwd))
+            if bool(d.get("triggered", False)):
+                acc[name]["trig_returns"].append(fwd)
 
     result = []
     for name, data in acc.items():
-        cs = data["correct_scores"]
-        ics = data["incorrect_scores"]
-        n_correct = len(cs)
-        n_incorrect = len(ics)
-        n_total = n_correct + n_incorrect
-        if n_total == 0:
-            continue
-        avg_c = statistics.mean(cs) if cs else 0.0
-        avg_ic = statistics.mean(ics) if ics else 0.0
-        separation = avg_c - avg_ic
-        n_trig_c = data["triggered_correct"]
-        n_trig_ic = data["triggered_incorrect"]
-        n_trig = n_trig_c + n_trig_ic
-        hit_rate_trig = (n_trig_c / n_trig) if n_trig > 0 else None
+        pairs = data["pairs"]
+        n_total = len(pairs)
+        if n_total < 2 * _MIN_PER_GROUP:
+            continue  # zu wenig Daten -> auslassen (Optimizer behaelt Default)
+        scores = sorted(p[0] for p in pairs)
+        median = scores[len(scores) // 2]
+        high = [fwd for s, fwd in pairs if s > median]
+        low = [fwd for s, fwd in pairs if s <= median]
+        if len(high) < _MIN_PER_GROUP or len(low) < _MIN_PER_GROUP:
+            continue  # Score zu degeneriert (z.B. fast nur Nullen) -> auslassen
+        avg_high = statistics.mean(high)
+        avg_low = statistics.mean(low)
+        separation = (avg_low - avg_high) * 100  # >0 = hoher Score -> schwaechere Rendite
+        trig = data["trig_returns"]
+        n_trig = len(trig)
+        hit_rate_trig = (sum(1 for x in trig if x < 0) / n_trig) if n_trig > 0 else None
         result.append({
             "name":               name,
             "n_total":            n_total,
-            "n_correct":          n_correct,
-            "n_incorrect":        n_incorrect,
-            "avg_score_correct":   round(avg_c, 1),
-            "avg_score_incorrect": round(avg_ic, 1),
-            "separation":         round(separation, 1),
+            "avg_return_high":    round(avg_high, 4),
+            "avg_return_low":     round(avg_low, 4),
+            "separation":         round(separation, 2),
             "n_triggered":        n_trig,
             "hit_rate_triggered": round(hit_rate_trig, 3) if hit_rate_trig is not None else None,
         })
-    # Sort: positive separation oben (predictiv), neutral mittig, negativ unten
     result.sort(key=lambda x: -x["separation"])
     return result
 
@@ -119,11 +116,11 @@ def attribution_block(job_source: str = "daily_score", days: int = 30) -> str:
         return ""
     parts = [f"📐 <b>Risk-Dim-Attribution ({days}d, {job_source})</b>"]
     for r in rows[:9]:
-        sep_emoji = "🟢" if r["separation"] > 5 else ("🔴" if r["separation"] < -5 else "⚪")
+        sep_emoji = "🟢" if r["separation"] > 0.5 else ("🔴" if r["separation"] < -0.5 else "⚪")
         hit = (f"{r['hit_rate_triggered']*100:.0f}%" if r["hit_rate_triggered"] is not None else "—")
         parts.append(
             f"  {sep_emoji} <code>{r['name']:<22}</code> "
-            f"sep:{r['separation']:+5.1f} | trig {r['n_triggered']:>3} ({hit})"
+            f"sep:{r['separation']:+5.1f}pp | trig {r['n_triggered']:>3} ({hit})"
         )
-    parts.append("\n<i>sep > 0 = hoher Score korreliert mit korrekter Vorhersage</i>")
+    parts.append("\n<i>sep > 0 = hoher Score sagt schwächere 7d-Rendite voraus (prädiktiv)</i>")
     return "\n".join(parts)
