@@ -280,7 +280,15 @@ def _risk_sell_cooldown(ticker: str, hours: int = 12) -> bool:
 
 def risk_sell_pass(broker: BrokerAdapter, t_cfg: TradingConfig, source: str, dry_run: bool) -> int:
     """Verkauft Positionen basierend auf Risk-Score. Regime-aware: im Bull weniger aggressiv."""
-    from src.trading.decision import latest_risk_score
+    from src.trading.decision import latest_risk_score, risk_signal_predictive
+    # Autonomes Signal-Validitaets-Gate: nur auf Warnungen handeln wenn das
+    # Warnsignal nachweislich Drawdowns vorhersagt. Sonst zerstoeren Risk-Sells
+    # Rendite (anti-praediktive Fehlalarme). Stop-Loss/Trailing/Take-Profit sind
+    # davon UNBERUEHRT (preisbasiert, kein Vorhersage-Signal).
+    _sig_ok, _sig_reason = risk_signal_predictive()
+    if not _sig_ok:
+        print(f"  risk-sell pass: 0 sells ({_sig_reason})")
+        return 0
     # Regime-aware Schwellen: im Bull-Markt weniger verkaufen
     regime_label = "unknown"
     try:

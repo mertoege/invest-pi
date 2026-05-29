@@ -90,6 +90,49 @@ def latest_risk_score(ticker: str, max_age_hours: int = 24) -> Optional[dict]:
     }
 
 
+def risk_signal_predictive(days: int = 90, min_warnings: int = 30) -> tuple[bool, str]:
+    """Autonomes Signal-Validitaets-Gate.
+
+    Misst aus den eigenen gemessenen Outcomes, ob das Warnsignal (alert_level>=2)
+    Drawdowns ueberhaupt besser vorhersagt als die Basisrate. Das System soll nur
+    dann auf Warnungen HANDELN (risk_sell), wenn gewarnte Aktien tatsaechlich
+    oefter fallen als gruene. Andernfalls ist das Signal anti-praediktiv (Stand
+    2026-05: Warn-Drop 0,4% vs Green-Drop ~12%) und Verkaeufe darauf zerstoeren
+    Rendite. Selbstheilend: sobald das Signal wieder trennscharf wird, oeffnet
+    das Gate automatisch.
+
+    outcome_correct-Semantik: bei Warnung (lvl>=2) ==1 wenn Aktie wirklich fiel;
+    bei Green (lvl==0) ==0 wenn Aktie fiel.
+
+    Returns (ist_prediktiv, begruendung). Fail-safe: bei Datenfehler -> False.
+    """
+    try:
+        with connect(LEARNING_DB) as conn:
+            rows = conn.execute(
+                """
+                SELECT CAST(json_extract(output_json,'$.alert_level') AS INT) lvl,
+                       outcome_correct
+                  FROM predictions
+                 WHERE job_source='daily_score' AND outcome_correct IS NOT NULL
+                   AND outcome_measured_at > datetime('now', ?)
+                """,
+                (f"-{days} days",),
+            ).fetchall()
+    except Exception:
+        return False, "signal-validity: DB nicht lesbar -> fail-safe aus"
+
+    warn = [r for r in rows if (r["lvl"] or 0) >= 2]
+    green = [r for r in rows if (r["lvl"] or 0) == 0]
+    if len(warn) < min_warnings:
+        return False, f"signal-validity: zu wenig Warnungen ({len(warn)}<{min_warnings}) -> aus"
+    warn_drop = sum(1 for r in warn if r["outcome_correct"] == 1) / len(warn)
+    green_drop = (sum(1 for r in green if r["outcome_correct"] == 0) / len(green)) if green else 0.0
+    if warn_drop >= max(0.15, green_drop * 1.5):
+        return True, f"signal-validity: Warn-Drop {warn_drop:.0%} > Green-Drop {green_drop:.0%} -> prediktiv"
+    return False, (f"signal-validity: Warn-Drop {warn_drop:.0%} <= Green-Drop {green_drop:.0%} "
+                   f"-> NICHT prediktiv, risk_sell unterdrueckt")
+
+
 # ────────────────────────────────────────────────────────────
 # DECISION CORE
 # ────────────────────────────────────────────────────────────
