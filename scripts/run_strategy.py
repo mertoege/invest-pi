@@ -377,6 +377,7 @@ def _sector_momentum_map() -> dict[str, float]:
 def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_run: bool, regime_info: str = "") -> dict:
     """Pruefe alle tradeable Tickers, treffe Decision, fuehre Buys aus."""
     from src.trading import get_active_profile
+    from src.trading.decision import latest_risk_score
     held = {p.ticker for p in broker.get_positions()}
     open_n = len(held)
     candidates = [e for e in cfg.universe if e.ring in t_cfg.tradeable_rings]
@@ -482,7 +483,6 @@ def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_
             decisions["skips"].append({"ticker": entry.ticker, "reason": f"correlation: {corr_reason}"})
             continue
 
-        from src.trading.decision import latest_risk_score
         score = latest_risk_score(entry.ticker)
         # Momentum: 20-Tage-Rendite als Tiebreaker
         momentum = 0.0
