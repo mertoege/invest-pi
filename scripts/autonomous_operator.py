@@ -133,6 +133,32 @@ def check_failed_timers() -> list:
         return []
 
 
+def check_recent_crashes() -> list:
+    """Scanne journalctl der letzten 24h nach Python-Tracebacks in invest-pi
+    Services. Faengt Crashes die der Momentan-Check (--failed) verpasst, weil
+    timer-getriggerte oneshot-Services zwischen Laeufen nicht 'failed' bleiben
+    und der Operator (13:00, Markt zu) oft genau im sauberen Fenster prueft."""
+    try:
+        r = subprocess.run(
+            ["journalctl", "--since", "24 hours ago", "--no-pager", "-o", "cat",
+             "-u", "invest-pi-strategy-hourly.service",
+             "-u", "invest-pi-rebalance.service",
+             "-u", "invest-pi-score.service",
+             "-u", "invest-pi-sync.service"],
+            capture_output=True, text=True, timeout=20
+        )
+        markers = ("Traceback (most recent call last)", "UnboundLocalError",
+                   "result 'exit-code'", "status=1/FAILURE")
+        hits = {}
+        for line in r.stdout.splitlines():
+            for m in markers:
+                if m in line:
+                    hits[m] = hits.get(m, 0) + 1
+        return [f"{m} x{n}" for m, n in hits.items()]
+    except Exception:
+        return []
+
+
 def fix_dedup() -> int:
     with connect(LEARNING_DB) as conn:
         result = conn.execute("""
@@ -167,8 +193,9 @@ def build_telegram_message(checks: dict, fixes: dict) -> str:
     acc = checks["accuracy"]
     pos = checks["positions"]
     failed = checks["failed_timers"]
+    crashes = checks.get("recent_crashes", [])
 
-    if failed or trades["duplicates"] > 0:
+    if failed or crashes or trades["duplicates"] > 0:
         emoji = "⚠️"
     elif fixes.get("deduped", 0) > 0 or fixes.get("expired", 0) > 0:
         emoji = "\U0001f527"
@@ -198,6 +225,8 @@ def build_telegram_message(checks: dict, fixes: dict) -> str:
 
     if failed:
         lines.append(f"FEHLER: {len(failed)} Timer fehlgeschlagen!")
+    if crashes:
+        lines.append(f"CRASH (24h): {', '.join(crashes)}")
     if trades["duplicates"] > 0:
         lines.append(f"WARNUNG: {trades['duplicates']} Duplicate-Trades!")
 
@@ -215,6 +244,7 @@ def main():
         "accuracy": check_accuracy(),
         "positions": check_positions(),
         "failed_timers": check_failed_timers(),
+        "recent_crashes": check_recent_crashes(),
     }
 
     for name, result in checks.items():
