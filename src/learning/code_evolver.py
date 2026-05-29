@@ -142,16 +142,21 @@ def run_tests() -> tuple[bool, str]:
     return passed, output
 
 
-def git_commit(message: str) -> bool:
-    """Committed alle staged + unstaged Aenderungen."""
+def git_commit(message: str, files: list[str] | None = None) -> bool:
+    """Committed GEZIELT die angegebenen Dateien (Fallback: alle, wenn None).
+    Gezieltes Adden verhindert, dass parallele/fremde Aenderungen (z.B. Status-
+    Push, andere Jobs) versehentlich in einen Auto-Evolve-Commit gesweept werden."""
     try:
-        subprocess.run(
-            ["git", "add", "-A"],
-            cwd=str(REPO_ROOT), capture_output=True, timeout=30,
-        )
+        if files:
+            subprocess.run(["git", "add", "--", *files],
+                           cwd=str(REPO_ROOT), capture_output=True, timeout=30)
+            commit_cmd = ["git", "commit", "-m", message, "--", *files]
+        else:
+            subprocess.run(["git", "add", "-A"],
+                           cwd=str(REPO_ROOT), capture_output=True, timeout=30)
+            commit_cmd = ["git", "commit", "-m", message]
         result = subprocess.run(
-            ["git", "commit", "-m", message],
-            cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=30,
+            commit_cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=30,
         )
         return result.returncode == 0
     except Exception as e:
@@ -218,22 +223,26 @@ def evolve(code_changes: list[dict]) -> dict:
     # Tests laufen lassen
     tests_passed, test_output = run_tests()
 
+    changed_files = [r.file for r in results if r.success and getattr(r, "file", None)]
+
     rolled_back = False
     if tests_passed:
-        # Commit
+        # Commit — NUR die geaenderten Dateien
         n_applied = sum(1 for r in results if r.success)
         descriptions = [r.description for r in results if r.success]
         msg = (f"auto-evolve: {n_applied} Code-Aenderung(en)\n\n"
                + "\n".join(f"- {d}" for d in descriptions))
-        git_commit(msg)
+        git_commit(msg, files=changed_files)
         log.info(f"code-evolution committed: {n_applied} changes")
     else:
-        # Rollback: alle geaenderten Dateien zuruecksetzen via git checkout
+        # Rollback: NUR die geaenderten Dateien zuruecksetzen (nicht '.', das
+        # wuerde parallele uncommitted Arbeit anderer Jobs mit zerstoeren).
         log.warning("tests failed after code changes — rolling back")
-        subprocess.run(
-            ["git", "checkout", "--", "."],
-            cwd=str(REPO_ROOT), capture_output=True, timeout=30,
-        )
+        if changed_files:
+            subprocess.run(
+                ["git", "checkout", "--", *changed_files],
+                cwd=str(REPO_ROOT), capture_output=True, timeout=30,
+            )
         rolled_back = True
 
     return {
