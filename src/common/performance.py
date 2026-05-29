@@ -66,11 +66,24 @@ def _fetch_daily_equity(source: str, days: int) -> list[tuple[str, float, Option
             for r in rows]
 
 
-def _compute_alpha(series: list[tuple[str, float, Optional[float]]]) -> tuple[Optional[float], Optional[float], int]:
-    """Alpha vs SPY ueber das Fenster in dem BEIDE (Portfolio + SPY) vorliegen.
-    Returns (spy_return_pct, alpha_pct, benchmark_days). Ehrlich: nutzt nur Tage
-    mit SPY-Daten und gibt deren Anzahl zurueck."""
-    both = [(eq, spy) for _, eq, spy in series if spy is not None and spy > 0]
+def _compute_alpha(source: str, days: int) -> tuple[Optional[float], Optional[float], int]:
+    """Alpha vs SPY ueber das Fenster in dem SPY-Daten vorliegen. Nutzt pro Tag
+    den letzten Snapshot der SPY-Daten HAT (spy_close ist oft NULL wenn der Abruf
+    fehlschlaegt), damit Equity und SPY zeitgleich verglichen werden.
+    Returns (spy_return_pct, alpha_pct, benchmark_days)."""
+    sql = """
+        SELECT date(timestamp, 'localtime') AS d, total_usd, spy_close
+          FROM equity_snapshots
+         WHERE source = ?
+           AND total_usd IS NOT NULL AND spy_close IS NOT NULL
+           AND date(timestamp, 'localtime') >= date('now', ?)
+         GROUP BY d
+         HAVING MAX(timestamp)
+         ORDER BY d
+    """
+    with connect(TRADING_DB) as conn:
+        rows = conn.execute(sql, (source, f"-{days} day")).fetchall()
+    both = [(float(r["total_usd"]), float(r["spy_close"])) for r in rows if r["spy_close"] > 0]
     if len(both) < 2 or both[0][0] <= 0 or both[0][1] <= 0:
         return None, None, len(both)
     pf_ret = both[-1][0] / both[0][0] - 1
@@ -87,7 +100,7 @@ def compute_metrics(source: str = "paper", days: int = 30) -> PerfMetrics:
     first_total = series[0][1]
     last_total  = series[-1][1]
     total_ret   = (last_total / first_total) - 1 if first_total > 0 else 0
-    spy_ret, alpha, bench_days = _compute_alpha(series)
+    spy_ret, alpha, bench_days = _compute_alpha(source, days)
 
     # Daily returns
     returns = []

@@ -204,6 +204,13 @@ def _build_daily_msg(data: dict) -> str:
         if metrics.max_drawdown is not None:
             line += f" · Max-DD {metrics.max_drawdown*100:.1f}%"
         parts.append(line)
+        # Alpha vs SPY — der eigentliche Maßstab (Markt schlagen)
+        if metrics.alpha_pct is not None:
+            asign = "+" if metrics.alpha_pct >= 0 else ""
+            verdict = "schlägt Markt ✅" if metrics.alpha_pct >= 0 else "unter Markt ⚠️"
+            win = f" · {metrics.benchmark_days}d" if metrics.benchmark_days < metrics.n_observations else ""
+            parts.append(f"🎯 vs SPY: <b>{asign}{metrics.alpha_pct*100:.2f}%</b> "
+                         f"(SPY {metrics.spy_return_pct*100:+.2f}%) {verdict}{win}")
 
     return "\n".join(parts)
 
