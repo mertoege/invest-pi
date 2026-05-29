@@ -213,7 +213,7 @@ def trades_today(source: str = "paper") -> int:
         SELECT COUNT(*) FROM trades
          WHERE source = ?
            AND date(created_at, 'localtime') = date('now', 'localtime')
-           AND status = 'filled'
+           AND status IN ('filled', 'partially_filled', 'accepted', 'pending_new', 'new')
     """
     with connect(TRADING_DB) as conn:
         return int(conn.execute(sql, (source,)).fetchone()[0])
