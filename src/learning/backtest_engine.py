@@ -655,24 +655,27 @@ def _bt_macro_regime(spy_closes: np.ndarray, day_idx: int) -> tuple[float, bool,
 
     spy_5d_ret = (spy_closes[day_idx] / spy_closes[max(0, day_idx-5)] - 1) if day_idx >= 5 else 0
 
+    # synth_vix kommt aus SMH (Halbleiter, ~30-40% Normalvola = ~2x echter VIX).
+    # Schwellen entsprechend hoch, damit Trigger-Rate zur Live-macro_regime passt
+    # (~0% in normalen Maerkten; nur bei echtem Stress feuern).
     score = 0.0
     reasons = []
-    if synth_vix > 30:
+    if synth_vix > 50:
         score += 45
         reasons.append(f"Vol {synth_vix:.0f} (stress)")
-    elif synth_vix > 20:
+    elif synth_vix > 40:
         score += 25
         reasons.append(f"Vol {synth_vix:.0f} (elevated)")
 
-    if spy_5d_ret < -0.05:
+    if spy_5d_ret < -0.08:
         score += 30
         reasons.append(f"SPY 5d {spy_5d_ret:+.1%}")
-    elif spy_5d_ret < -0.02:
+    elif spy_5d_ret < -0.04:
         score += 15
         reasons.append(f"SPY 5d {spy_5d_ret:+.1%}")
 
     score = min(100.0, score)
-    return score, score >= 40, "; ".join(reasons) if reasons else "ok"
+    return score, score >= 50, "; ".join(reasons) if reasons else "ok"
 
 
 # Dimension weights matching live risk_scorer
@@ -839,7 +842,7 @@ def _bt_gap_pattern(opens: np.ndarray, closes: np.ndarray) -> tuple[float, bool,
     if gap_fill_rate < 0.3 and n_gd >= 4:
         score += 15
     score = min(100.0, score)
-    return score, score >= 35, f"{n_gd} Gap-Downs, max {max_gd:.1%}"
+    return score, score >= 45, f"{n_gd} Gap-Downs, max {max_gd:.1%}"
 
 
 def _score_9dim(
