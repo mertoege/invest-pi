@@ -220,6 +220,52 @@ def trades_today(source: str = "paper") -> int:
 
 
 # ────────────────────────────────────────────────────────────
+# PORTFOLIO-DRAWDOWN-CIRCUIT-BREAKER
+# Schutz auf PORTFOLIO-Ebene — die Einzel-Stops greifen nur pro Position und
+# fangen einen breiten Markt-Abverkauf traege/lueckenhaft ab. Reaktiv, KEINE
+# Vorhersage: faellt das Gesamtdepot vom Rolling-Peak, wird gestaffelt
+# defensiv -> entrisikt -> Survival. Schwellen hier konfigurierbar.
+# ────────────────────────────────────────────────────────────
+DRAWDOWN_DEFENSIVE_PCT    = 0.08   # Tier 1: keine neuen Buys
+DRAWDOWN_DERISK_PCT       = 0.15   # Tier 2: riskante Positionen trimmen
+DRAWDOWN_SURVIVE_PCT      = 0.22   # Tier 3: stark in Cash
+DRAWDOWN_PEAK_WINDOW_DAYS = 90
+
+
+def portfolio_drawdown(source: str = "paper") -> tuple[float, float, float]:
+    """Returns (current_total_usd, peak_total_usd, drawdown_pct).
+    drawdown_pct <= 0 (z.B. -0.12 = 12% unter dem Rolling-Peak der letzten N Tage)."""
+    with connect(TRADING_DB) as conn:
+        peak = conn.execute(
+            "SELECT MAX(total_usd) FROM equity_snapshots WHERE source = ? "
+            "AND total_usd IS NOT NULL AND timestamp >= datetime('now', ?)",
+            (source, f"-{DRAWDOWN_PEAK_WINDOW_DAYS} days"),
+        ).fetchone()[0]
+        cur_row = conn.execute(
+            "SELECT total_usd FROM equity_snapshots WHERE source = ? "
+            "AND total_usd IS NOT NULL ORDER BY timestamp DESC LIMIT 1",
+            (source,),
+        ).fetchone()
+    cur = float(cur_row[0]) if cur_row and cur_row[0] else 0.0
+    peak = float(peak) if peak else cur
+    dd = (cur / peak - 1.0) if peak > 0 else 0.0
+    return cur, peak, dd
+
+
+def drawdown_tier(source: str = "paper") -> tuple[int, float]:
+    """Portfolio-Drawdown-Stufe. 0=normal, 1=defensiv (keine Buys),
+    2=entrisken, 3=survival. Returns (tier, drawdown_pct)."""
+    _, _, dd = portfolio_drawdown(source)
+    if dd <= -DRAWDOWN_SURVIVE_PCT:
+        return 3, dd
+    if dd <= -DRAWDOWN_DERISK_PCT:
+        return 2, dd
+    if dd <= -DRAWDOWN_DEFENSIVE_PCT:
+        return 1, dd
+    return 0, dd
+
+
+# ────────────────────────────────────────────────────────────
 # MAIN CHECK
 # ────────────────────────────────────────────────────────────
 def pre_trade_check(
@@ -230,6 +276,13 @@ def pre_trade_check(
     """Aggregierter Pre-Trade-Check — vor JEDEM place_order aufrufen."""
     if kill_switch_active():
         return CheckResult(False, f"kill switch active ({KILL_SWITCH_PATH})", "kill")
+
+    _dd_src = "paper" if broker.is_paper else "live"
+    _tier, _dd = drawdown_tier(_dd_src)
+    if _tier >= 1:
+        return CheckResult(False,
+                           f"portfolio drawdown {_dd:.1%} (tier {_tier}) — neue Buys gestoppt",
+                           "drawdown")
 
     if not is_market_open(open_cet=config.market_open_cet, close_cet=config.market_close_cet):
         return CheckResult(False,
