@@ -686,10 +686,160 @@ _V2_WEIGHTS = {
     "peer_weakness":        0.9,
     "valuation_percentile": 1.0,
     "macro_regime":         1.1,
+    "var_risk":             1.2,
+    "updown_volume":        1.1,
+    "hurst_regime":         0.9,
+    "gap_pattern":          0.8,
 }
 
 # Stub dimensions get 0.3x weight, matching live behavior
 _STUB_DIMS = {"insider_selling", "analyst_downgrades", "options_skew", "sentiment_reversal"}
+
+
+def _bt_var_risk(closes: np.ndarray) -> tuple[float, bool, str]:
+    """Dim 13: Value-at-Risk (95%) + CVaR + annual vol. Port von score_var_risk."""
+    if len(closes) < 60:
+        return 0.0, False, "zu wenig Historie"
+    returns = np.diff(closes) / closes[:-1]
+    rr = returns[~np.isnan(returns)][-60:]
+    if len(rr) < 60:
+        return 0.0, False, "zu wenig Returns"
+    var_95 = float(np.percentile(rr, 5))
+    cvar_95 = float(rr[rr <= var_95].mean()) if (rr <= var_95).any() else var_95
+    vol_annual = float(np.std(rr) * np.sqrt(252))
+    score = 0.0
+    if var_95 < -0.04:
+        score += 40 + 30 * min(1.0, (abs(var_95) - 0.04) / 0.06)
+    elif var_95 < -0.025:
+        score += 20 + 20 * (abs(var_95) - 0.025) / 0.015
+    if cvar_95 < -0.06:
+        score += 20
+    if vol_annual > 0.50:
+        score += 15
+    score = min(100.0, score)
+    return score, score >= 40, f"VaR95 {var_95:.1%}, Vol {vol_annual:.0%}"
+
+
+def _bt_updown_volume(closes: np.ndarray, volumes: np.ndarray) -> tuple[float, bool, str]:
+    """Dim 11: Up-Volume vs Down-Volume Ratio 20d. Port von score_updown_volume."""
+    if len(closes) < 25 or len(volumes) < 25:
+        return 0.0, False, "zu wenig Historie"
+    c = closes[-20:]
+    v = volumes[-20:].astype(float)
+    ret = np.diff(c) / c[:-1]
+    vv = v[1:]  # auf Returns ausgerichtet (erster Tag ohne Return)
+    up_vol = float(vv[ret > 0].sum())
+    down_vol = float(vv[ret < 0].sum())
+    if up_vol + down_vol == 0:
+        return 0.0, False, "kein Volumen"
+    ratio = up_vol / down_vol if down_vol > 0 else 5.0
+    score = 0.0
+    if ratio < 0.6:
+        score += 60 + 30 * (0.6 - ratio) / 0.6
+    elif ratio < 0.85:
+        score += 35 + 25 * (0.85 - ratio) / 0.25
+    ds = mds = 0
+    for r in ret:
+        if r < 0:
+            ds += 1
+            mds = max(mds, ds)
+        else:
+            ds = 0
+    if mds >= 4:
+        score += 15
+    score = min(100.0, score)
+    return score, score >= 40, f"Up/Down {ratio:.2f}, Streak {mds}"
+
+
+def _bt_hurst_exponent(series: np.ndarray, max_lag: int = 40) -> float | None:
+    """R/S Hurst-Exponent. Kopie von risk_scorer._hurst_exponent."""
+    n = len(series)
+    if n < max_lag * 2:
+        return None
+    rs_values = []
+    for lag in range(10, max_lag + 1):
+        rs_lag = []
+        for start in range(0, n - lag, lag):
+            chunk = series[start:start + lag]
+            devs = np.cumsum(chunk - chunk.mean())
+            r = devs.max() - devs.min()
+            s = chunk.std(ddof=1)
+            if s > 0:
+                rs_lag.append(r / s)
+        if rs_lag:
+            rs_values.append((np.log(lag), np.log(np.mean(rs_lag))))
+    if len(rs_values) < 3:
+        return None
+    x = np.array([p[0] for p in rs_values])
+    y = np.array([p[1] for p in rs_values])
+    slope = float(np.polyfit(x, y, 1)[0])
+    return max(0.0, min(1.0, slope))
+
+
+def _bt_hurst_regime(closes: np.ndarray) -> tuple[float, bool, str]:
+    """Dim 12: Hurst-Exponent + 20d-Kontext. Port von score_hurst_regime."""
+    if len(closes) < 100:
+        return 0.0, False, "zu wenig Historie"
+    lr = np.log(closes[1:] / closes[:-1])
+    lr = lr[~np.isnan(lr)]
+    h = _bt_hurst_exponent(lr)
+    if h is None:
+        return 0.0, False, "Hurst n/a"
+    ret_20d = float(closes[-1] / closes[-20] - 1) if len(closes) >= 20 else 0.0
+    score = 0.0
+    if h < 0.40:
+        if ret_20d > 0.05:
+            score = 55 + 30 * (0.40 - h) / 0.40
+        elif ret_20d < -0.05:
+            score = 20
+        else:
+            score = 25
+    elif h > 0.60:
+        if ret_20d < -0.03:
+            score = 50 + 25 * (h - 0.60) / 0.40
+        else:
+            score = 10
+    else:
+        score = 15
+    score = min(100.0, score)
+    return score, score >= 40, f"H={h:.2f}, 20d {ret_20d:+.1%}"
+
+
+def _bt_gap_pattern(opens: np.ndarray, closes: np.ndarray) -> tuple[float, bool, str]:
+    """Dim 14: Gap-Downs (Open vs prev Close) 30d. Port von score_gap_pattern."""
+    if opens is None or len(closes) < 30 or len(opens) < 30:
+        return 0.0, False, "zu wenig Historie"
+    o = opens[-30:]
+    c = closes[-30:]
+    gaps = o[1:] / c[:-1] - 1
+    gaps = gaps[~np.isnan(gaps)]
+    if len(gaps) == 0:
+        return 0.0, False, "keine Gap-Daten"
+    gap_downs = gaps[gaps < -0.01]
+    n_gd = len(gap_downs)
+    max_gd = float(gap_downs.min()) if n_gd > 0 else 0.0
+    intraday = (c - o) / np.where(o != 0, o, 1.0)
+    gap_fill_rate = 0.0
+    if n_gd > 0:
+        filled = 0
+        for i in range(1, len(c)):
+            if i - 1 < len(gaps) and gaps[i - 1] < -0.01:
+                if i < len(intraday) and intraday[i] > abs(gaps[i - 1]) * 0.5:
+                    filled += 1
+        gap_fill_rate = filled / n_gd
+    score = 0.0
+    if n_gd >= 7:
+        score += 50 + 15 * min(1.0, (n_gd - 7) / 5)
+    elif n_gd >= 4:
+        score += 25 + 8 * (n_gd - 4) / 3
+    if max_gd < -0.05:
+        score += 20
+    elif max_gd < -0.03:
+        score += 10
+    if gap_fill_rate < 0.3 and n_gd >= 4:
+        score += 15
+    score = min(100.0, score)
+    return score, score >= 35, f"{n_gd} Gap-Downs, max {max_gd:.1%}"
 
 
 def _score_9dim(
@@ -699,24 +849,36 @@ def _score_9dim(
     day_idx: int,
     peer_histories: dict[str, np.ndarray],
     spy_closes: np.ndarray,
+    opens: np.ndarray | None = None,
+    weights: dict | None = None,
 ) -> tuple[float, int, int, str]:
     """
-    Full 9-dim composite risk score for backtesting.
+    13-Dim composite risk score for backtesting (9 real + 4 stub).
     Returns (composite, alert_level, triggered_n, confidence).
     No look-ahead: only uses data up to day_idx.
+
+    Aggregator an Live risk_scorer angeglichen: gewichteter Schnitt NUR der
+    getriggerten Dimensionen x Breadth-Faktor (min(1, 0.5+0.1n)); bei 0 Triggers
+    gedaempfter All-Dims-Schnitt x 0.25. Alert-Schwellen = Live ALERT_THRESHOLDS
+    (40/55/70). Regime-Dampening (live ×0.70 bull) wird hier NICHT angewandt —
+    bekannter Rest-Unterschied, in Phase-2-Validierung zu messen.
     """
-    # Slice data up to day_idx+1
+    # Slice data up to day_idx+1 (no look-ahead)
     c = closes[:day_idx+1]
     v = volumes[:day_idx+1]
+    o = opens[:day_idx+1] if opens is not None else None
 
-    # Compute real dimensions
     tech_score, tech_trig, _ = _bt_technical_breakdown(c)
     vol_score, vol_trig, _ = _bt_volume_divergence(c, v)
     peer_score, peer_trig, _ = _bt_peer_weakness(ticker, c, peer_histories, day_idx)
     val_score, val_trig, _ = _bt_valuation_percentile(c)
     macro_score, macro_trig, _ = _bt_macro_regime(spy_closes, day_idx)
+    var_score, var_trig, _ = _bt_var_risk(c)
+    ud_score, ud_trig, _ = _bt_updown_volume(c, v)
+    hurst_score, hurst_trig, _ = _bt_hurst_regime(c)
+    gap_score, gap_trig, _ = _bt_gap_pattern(o, c)
 
-    # Build dimension list: (name, score, triggered)
+    # (name, score, triggered)
     dims = [
         ("technical_breakdown",  tech_score,  tech_trig),
         ("volume_divergence",    vol_score,   vol_trig),
@@ -727,32 +889,42 @@ def _score_9dim(
         ("peer_weakness",        peer_score,  peer_trig),
         ("valuation_percentile", val_score,   val_trig),
         ("macro_regime",         macro_score, macro_trig),
+        ("var_risk",             var_score,   var_trig),
+        ("updown_volume",        ud_score,    ud_trig),
+        ("hurst_regime",         hurst_score, hurst_trig),
+        ("gap_pattern",          gap_score,   gap_trig),
     ]
 
-    # Weighted composite (stubs get 0.3x weight like live)
-    total_w = 0.0
-    weighted_sum = 0.0
-    for name, sc, _ in dims:
-        w = _V2_WEIGHTS[name]
-        if name in _STUB_DIMS:
-            w *= 0.3
-        weighted_sum += sc * w
-        total_w += w
-    composite = weighted_sum / total_w if total_w > 0 else 0
+    w_map = weights if weights is not None else _V2_WEIGHTS
 
-    # Alert level
-    if composite >= 75:
+    def _w(name: str) -> float:
+        w = w_map.get(name, _V2_WEIGHTS.get(name, 1.0))
+        return w * 0.3 if name in _STUB_DIMS else w
+
+    triggered = [(n, sc) for n, sc, t in dims if t]
+    if triggered:
+        tw = sum(_w(n) for n, _ in triggered)
+        ws = sum(sc * _w(n) for n, sc in triggered)
+        avg = ws / tw if tw > 0 else 0.0
+        breadth = min(1.0, 0.5 + 0.1 * len(triggered))
+        composite = avg * breadth
+    else:
+        aw = sum(_w(n) for n, _, _ in dims)
+        asum = sum(sc * _w(n) for n, sc, _ in dims)
+        composite = (asum / aw * 0.25) if aw > 0 else 0.0
+    composite = max(0.0, min(100.0, composite))
+
+    # Alert level — Live ALERT_THRESHOLDS (0:<40, 1:40-55, 2:55-70, 3:>=70)
+    if composite >= 70:
         alert_level = 3
-    elif composite >= 50:
+    elif composite >= 55:
         alert_level = 2
-    elif composite >= 25:
+    elif composite >= 40:
         alert_level = 1
     else:
         alert_level = 0
 
-    triggered_n = sum(1 for _, _, t in dims if t)
-
-    # Confidence (matching live risk_scorer logic)
+    triggered_n = len(triggered)
     n_stubs = len(_STUB_DIMS)
     if n_stubs == 0 and triggered_n >= 3:
         confidence = "high"
@@ -880,6 +1052,7 @@ def run_backtest_v2(
     daily_loss_pct:  float = 0.05,
     long_term_composite_max: float = 25.0,
     vol_targeting:   bool = True,
+    dimension_weights: dict | None = None,
 ) -> BacktestResultV2:
     """
     V2 Walk-Forward-Backtest with full 9-dim risk scoring.
@@ -892,6 +1065,12 @@ def run_backtest_v2(
       - Detailed per-trade log
     """
     import datetime as dt
+
+    # Effektive Dimensions-Gewichte: lokale Kopie, Live-Default (_V2_WEIGHTS)
+    # bleibt unberuehrt. Erlaubt Backtest-Gating von Gewichts-Kandidaten.
+    eff_weights = dict(_V2_WEIGHTS)
+    if dimension_weights:
+        eff_weights.update(dimension_weights)
 
     # Load history with lookback buffer
     history_start = (dt.datetime.fromisoformat(start) - dt.timedelta(days=250)).strftime("%Y-%m-%d")
@@ -948,6 +1127,7 @@ def run_backtest_v2(
         ticker_data[t] = {
             "closes": aligned["close"].values,
             "volumes": aligned["volume"].fillna(0).values,
+            "opens": aligned["open"].values if "open" in aligned.columns else aligned["close"].values,
         }
         tradeable.append(t)
 
@@ -1114,6 +1294,7 @@ def run_backtest_v2(
 
                 closes = ticker_data[tkr]["closes"]
                 volumes = ticker_data[tkr]["volumes"]
+                opens = ticker_data[tkr].get("opens")
                 px = float(closes[day_idx])
                 if np.isnan(px) or px <= 0:
                     continue
@@ -1133,6 +1314,7 @@ def run_backtest_v2(
                 composite, alert_level, triggered_n, confidence = _score_9dim(
                     tkr, closes, volumes, day_idx,
                     peer_closes_aligned, spy_closes,
+                    opens=opens, weights=eff_weights,
                 )
 
                 # Hard skip on high alert
