@@ -488,7 +488,11 @@ def correlation_check(
 
         return True, ""
     except Exception as e:
-        return True, ""  # bei Fehler nicht blockieren
+        # Fail-CONSERVATIVE: ein echter Datenfehler (z.B. keine Preisdaten fuer
+        # den Kandidaten) darf den Korrelations-Check nicht still ueberspringen.
+        # Kandidat ueberspringen statt blind kaufen — andere Kandidaten + naechster
+        # Run sind unberuehrt (per-Kandidat, nicht paralytisch).
+        return False, f"correlation: Daten nicht pruefbar ({e}) -> uebersprungen"
 
 
 def _strategy_thresholds(config, label: str) -> dict:

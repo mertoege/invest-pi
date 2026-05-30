@@ -875,6 +875,7 @@ def score_macro_regime() -> DimensionScore:
         vix_reasons = []
         current_vix = 0.0
         vix_5d_change = 0.0
+        vix_ok = True
 
         try:
             vix = get_prices("^VIX", period="3mo")
@@ -895,29 +896,44 @@ def score_macro_regime() -> DimensionScore:
                 vix_score += 15
                 vix_reasons.append(f"VIX +{vix_5d_change:.0%} in 5T")
         except Exception:
-            pass
+            vix_ok = False
 
         # ── Teil B: FRED Cross-Asset-Signale ─────────────────────
+        fred_ok = False
         fred_result = {"score": 0, "reasons": [], "details": {}}
         try:
             from .fred_signals import macro_risk_score
             fred_result = macro_risk_score()
+            fred_ok = True
         except Exception:
-            pass
+            fred_ok = False
 
         # ── Teil C: Market Breadth ───────────────────────────────
+        breadth_ok = False
         breadth_result = {"score": 0, "reasons": []}
         try:
             from .market_breadth import market_breadth_score
             breadth_result = market_breadth_score()
+            breadth_ok = True
         except Exception:
-            pass
+            breadth_ok = False
 
-        # ── Kombination: 40% VIX + 35% FRED + 25% Breadth ───────
+        # ── Kombination: VIX 40% / FRED 35% / Breadth 25%, ABER auf die
+        # VERFUEGBAREN Komponenten re-normalisiert. Ein Daten-Ausfall darf das
+        # Macro-Risiko nicht still nach unten ziehen (sonst wirkt der Markt bei
+        # Outage faelschlich ruhig -> System kauft aggressiver).
         vix_score = min(100.0, vix_score)
         fred_score = min(100.0, fred_result["score"])
         breadth_score = min(100.0, breadth_result.get("score", 0))
-        score = (vix_score * 0.40) + (fred_score * 0.35) + (breadth_score * 0.25)
+        _parts = []
+        if vix_ok:     _parts.append((vix_score, 0.40))
+        if fred_ok:    _parts.append((fred_score, 0.35))
+        if breadth_ok: _parts.append((breadth_score, 0.25))
+        if _parts:
+            _tw = sum(w for _, w in _parts)
+            score = sum(s * w for s, w in _parts) / _tw
+        else:
+            score = 0.0
         score = min(100.0, score)
 
         reasons = vix_reasons + fred_result.get("reasons", []) + breadth_result.get("reasons", [])
