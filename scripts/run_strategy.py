@@ -382,6 +382,67 @@ def _sector_momentum_map() -> dict[str, float]:
     return result
 
 
+def _derisk_cooldown(source: str, hours: int = 48) -> bool:
+    """True wenn in den letzten N Stunden bereits entrisikt wurde (verhindert
+    eine Verkaufs-Todesspirale, wenn das Depot mehrere Runs im Drawdown bleibt)."""
+    try:
+        with connect(TRADING_DB) as conn:
+            row = conn.execute(
+                "SELECT 1 FROM trades WHERE strategy_label LIKE 'derisk_%' "
+                "AND source=? AND created_at > datetime('now', ?) LIMIT 1",
+                (source, f"-{hours} hours"),
+            ).fetchone()
+        return row is not None
+    except Exception:
+        return False
+
+
+def portfolio_derisk_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
+    """Portfolio-Drawdown Tier 2/3: entrisikt durch anteiliges Trimmen ALLER
+    Positionen, wenn das GESAMTdepot stark vom Rolling-Peak faellt.
+    Tier 2 (-15%): 25% je Position. Tier 3 (-22%): 50%. 48h-Cooldown gegen
+    Verkaufs-Spirale. Reaktiv (keine Vorhersage) — kappt den Gesamt-Drawdown,
+    waehrend die Einzel-Stops weiterlaufen."""
+    from src.risk.limits import drawdown_tier
+    tier, dd = drawdown_tier(source)
+    if tier < 2:
+        return 0
+    if _derisk_cooldown(source, hours=48):
+        print(f"  derisk: tier {tier} (dd {dd:.1%}) — Cooldown aktiv, skip")
+        return 0
+    trim_frac = 0.25 if tier == 2 else 0.50
+    sold = 0
+    for pos in broker.get_positions():
+        if pos.qty <= 0:
+            continue
+        qty = round(pos.qty * trim_frac, 4)
+        if qty <= 0:
+            continue
+        print(f"  DERISK-T{tier} {pos.ticker}: dd {dd:.1%}, trim {trim_frac:.0%} = {qty} @ {pos.market_price:.2f}")
+        if dry_run:
+            sold += 1
+            continue
+        result = _sell_with_limit(broker, pos.ticker, qty, last=pos.market_price)
+        _record_trade(
+            decision_pred_id=None, ticker=pos.ticker, side="sell", qty=qty,
+            eur_value=qty * pos.market_price * eur_per_usd(), price=pos.market_price,
+            status=result.status, order_id=result.order_id,
+            strategy_label=f"derisk_tier{tier}-v1", source=source,
+            notes=f"portfolio drawdown {dd:.1%} tier {tier}, trim {trim_frac:.0%}",
+        )
+        if result.status in ("filled", "pending_new", "accepted"):
+            sold += 1
+    if sold and not dry_run:
+        try:
+            notifier.send_info(
+                f"⚠️ Portfolio-Drawdown {dd:.1%} (Tier {tier}) — "
+                f"{sold} Positionen um {trim_frac:.0%} getrimmt, Cash erhoeht.",
+                label="derisk")
+        except Exception:
+            pass
+    return sold
+
+
 def buy_pass(broker: BrokerAdapter, cfg, t_cfg: TradingConfig, source: str, dry_run: bool, regime_info: str = "") -> dict:
     """Pruefe alle tradeable Tickers, treffe Decision, fuehre Buys aus."""
     from src.trading import get_active_profile
@@ -1297,6 +1358,9 @@ def _run_strategy_locked(args):
         print(f"  trailing-stop pass: {n_tr} sells")
         n = stop_loss_pass(broker, t_cfg, src, args.dry_run)
         print(f"  stop-loss pass: {n} sells")
+        n_dr = portfolio_derisk_pass(broker, t_cfg, src, args.dry_run)
+        if n_dr:
+            print(f"  portfolio-derisk pass: {n_dr} trims")
 
     # Risk-Score-basierte Sells: RED-Alert Positionen verkaufen
     if not args.skip_stop_loss:
