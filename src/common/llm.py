@@ -56,16 +56,18 @@ class LLMResult:
 
 
 MODEL_MAP = {
-    "claude-sonnet-4-6": "claude-opus-4-6",
-    "claude-opus-4-6":   "claude-opus-4-6",
-    "claude-haiku-4-5":  "claude-opus-4-6",
+    "claude-sonnet-4-6": "claude-opus-4-8",
+    "claude-opus-4-6":   "claude-opus-4-8",
+    "claude-opus-4-7":   "claude-opus-4-8",
+    "claude-opus-4-8":   "claude-opus-4-8",
+    "claude-haiku-4-5":  "claude-opus-4-8",
 }
 
 
 def _raw_call(model: str, system: str, prompt: str,
               max_tokens: int, temperature: float) -> dict:
     """Ruft Claude Code CLI auf. Returns parsed JSON response."""
-    cli_model = MODEL_MAP.get(model, "claude-opus-4-6")
+    cli_model = MODEL_MAP.get(model, "claude-opus-4-8")
 
     full_prompt = f"{system}\n\n---\n\n{prompt}"
 
@@ -210,7 +212,7 @@ def call_sonnet(**kwargs) -> LLMResult:
 
 def call_opus(**kwargs) -> LLMResult:
     """Wrapper fuer Opus — fuer monatliche Tiefenanalysen."""
-    kwargs.setdefault("model", "claude-opus-4-6")
+    kwargs.setdefault("model", "claude-opus-4-8")
     kwargs.setdefault("max_tokens", 4096)
     return _call(**kwargs)
 
