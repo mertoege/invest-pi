@@ -84,8 +84,10 @@ def test_decision_branches():
     d = decide_action("LOW_RISK", {"LOW_RISK"}, 1, ring=1, config=cfg)
     assert d.action == "skip" and "already in positions" in d.reason
 
-    # Hard skip: max positions
-    d = decide_action("LOW_RISK", set(), cfg.max_open_positions, ring=1, config=cfg)
+    # Hard skip: max positions. decide_action nutzt das (regime-abhaengige)
+    # Profil-Limit, das ueber config.max_open_positions liegen kann -> mit einem
+    # garantiert ueber jedem Profil-Limit liegenden Count testen.
+    d = decide_action("LOW_RISK", set(), 999, ring=1, config=cfg)
     assert d.action == "skip" and "max_open_positions" in d.reason
 
     # Skip: alert_level >= 2
