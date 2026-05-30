@@ -276,6 +276,7 @@ def hit_rate(
     days:          int = 30,
     confidence:    Optional[str] = None,
     subject_id:    Optional[str] = None,
+    by_measured:   bool = False,
 ) -> dict:
     """
     Berechnet Hit-Rate über die letzten N Tage.
@@ -290,7 +291,11 @@ def hit_rate(
           "hit_rate":  correct/measured (None falls measured=0),
         }
     """
-    sql_filters = ["job_source = ?", "date(created_at) >= date('now', ?)"]
+    # by_measured=True filtert nach MESS-Datum statt Erstell-Datum. Wichtig fuer
+    # Reviews: Predictions der letzten N Tage sind wegen des 7d-Outcome-Horizonts
+    # fast nie schon gemessen (Henne-Ei) — created_at wuerde measured~0 liefern.
+    _date_col = "outcome_measured_at" if by_measured else "created_at"
+    sql_filters = ["job_source = ?", f"date({_date_col}) >= date('now', ?)"]
     params: list[Any] = [job_source, f"-{days} day"]
     if confidence:
         sql_filters.append("confidence = ?")
@@ -323,13 +328,13 @@ def hit_rate(
     }
 
 
-def hit_rate_stratified(job_source: str, days: int = 30) -> dict:
+def hit_rate_stratified(job_source: str, days: int = 30, by_measured: bool = False) -> dict:
     """Hit-Rate aufgeschlüsselt nach Konfidenz-Stufe (für Meta-Review-Prompts)."""
     return {
-        "overall": hit_rate(job_source, days),
-        "high":    hit_rate(job_source, days, confidence="high"),
-        "medium":  hit_rate(job_source, days, confidence="medium"),
-        "low":     hit_rate(job_source, days, confidence="low"),
+        "overall": hit_rate(job_source, days, by_measured=by_measured),
+        "high":    hit_rate(job_source, days, confidence="high", by_measured=by_measured),
+        "medium":  hit_rate(job_source, days, confidence="medium", by_measured=by_measured),
+        "low":     hit_rate(job_source, days, confidence="low", by_measured=by_measured),
     }
 
 

@@ -79,7 +79,10 @@ def _recent_patches(days: int = 14) -> list[dict]:
 
 
 def _gather_context(job_source: str = "daily_score", days: int = 7) -> dict:
-    rates = hit_rate_stratified(job_source, days=days)
+    # by_measured=True: nach Mess-Datum fenstern, sonst ist measured~0 (frische
+    # Predictions sind wegen 7d-Outcome-Horizont noch nicht gemessen) und der
+    # Review uebersprang sich dauerhaft selbst.
+    rates = hit_rate_stratified(job_source, days=days, by_measured=True)
     drift = detect_drift(job_source, window_days=7) or {}
 
     sql_ticker = """
