@@ -13,14 +13,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "df2ccd71",
+    "commit": "be71d312",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 63.9,
+    "cpu_temp_c": 64.45,
     "disk_pct": 37,
-    "load_1min": 0.04,
-    "mem_pct": 52
+    "load_1min": 0.12,
+    "mem_pct": 51
   },
   "last_runs": {
     "run_strategy": null,
@@ -31,7 +31,7 @@
   "predictions": {
     "correct": 14442,
     "incorrect": 2291,
-    "last_24h": 1230,
+    "last_24h": 1228,
     "last_7d": 8310,
     "pending": 1128,
     "total": 32954
@@ -44,5 +44,5 @@
     "strategy": "?",
     "sync": "active"
   },
-  "timestamp_utc": "2026-05-30T18:59:41"
+  "timestamp_utc": "2026-05-30T19:01:41"
 }
