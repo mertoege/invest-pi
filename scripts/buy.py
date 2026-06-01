@@ -26,6 +26,47 @@ from src.common import config as cfg_mod
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
 
 
+def record_position(ticker: str, eur_amount: float, shares: float | None = None,
+                    price: float | None = None, entry=None) -> str:
+    """Bucht einen Kauf ins config.yaml-Portfolio-Ledger ein (KEINE Broker-Order).
+    Aktualisiert invested_eur, shares und avg_buy_price; legt neue Position an oder
+    stockt auf. Returns kurzen Status-Text. Wiederverwendbar (CLI + Auto-DCA)."""
+    raw = yaml.safe_load(CONFIG_PATH.read_text())
+    if "portfolio" not in raw:
+        raw["portfolio"] = {}
+
+    if ticker in raw["portfolio"]:
+        existing = raw["portfolio"][ticker]
+        old_invested = float(existing.get("invested_eur", 0))
+        new_invested = old_invested + eur_amount
+        if price and existing.get("avg_buy_price") and existing.get("shares"):
+            old_shares = float(existing["shares"])
+            new_shares = old_shares + (shares or eur_amount / price)
+            existing["shares"] = round(new_shares, 6)
+            existing["avg_buy_price"] = round(new_invested / new_shares, 4)
+        elif price and shares:
+            existing["shares"] = round((existing.get("shares") or 0) + shares, 6)
+            existing["avg_buy_price"] = price
+        existing["invested_eur"] = round(new_invested, 2)
+        msg = f"{ticker}: {old_invested:.0f} -> {new_invested:.0f} EUR aufgestockt"
+    else:
+        ring = entry.ring if entry else 0
+        raw["portfolio"][ticker] = {
+            "invested_eur":    round(eur_amount, 2),
+            "shares":          round(shares, 6) if shares else None,
+            "avg_buy_price":   round(price, 4) if price else None,
+            "date_first":      _this_month(),
+            "currency":        _guess_currency(ticker),
+            "ring":            ring,
+            "note":            entry.note if entry else "",
+        }
+        msg = f"{ticker}: neue Position {eur_amount:.0f} EUR"
+
+    CONFIG_PATH.write_text(yaml.dump(raw, allow_unicode=True, default_flow_style=False))
+    cfg_mod.reload()
+    return msg
+
+
 def main() -> None:
     args = sys.argv[1:]
     dry_run = "--check" in args
@@ -70,47 +111,9 @@ def main() -> None:
         print("  Mit --check kannst du alternative Beträge testen.")
         return
 
-    # Config aktualisieren
-    raw = yaml.safe_load(CONFIG_PATH.read_text())
-    if "portfolio" not in raw:
-        raw["portfolio"] = {}
-
-    if ticker in raw["portfolio"]:
-        existing = raw["portfolio"][ticker]
-        old_invested = float(existing.get("invested_eur", 0))
-        new_invested = old_invested + eur_amount
-
-        # Durchschnitts-Preis neu berechnen
-        if price and existing.get("avg_buy_price") and existing.get("shares"):
-            old_shares = float(existing["shares"])
-            new_shares = old_shares + (shares or eur_amount / price)
-            new_avg = new_invested / new_shares
-            existing["shares"] = round(new_shares, 6)
-            existing["avg_buy_price"] = round(new_avg, 4)
-        elif price and shares:
-            existing["shares"] = round(
-                (existing.get("shares") or 0) + shares, 6
-            )
-            existing["avg_buy_price"] = price
-
-        existing["invested_eur"] = round(new_invested, 2)
-        print(f"\n  {ticker}: {old_invested:.0f} EUR → {new_invested:.0f} EUR aufgestockt")
-    else:
-        # Neue Position
-        ring = entry.ring if entry else 0
-        raw["portfolio"][ticker] = {
-            "invested_eur":    round(eur_amount, 2),
-            "shares":          round(shares, 6) if shares else None,
-            "avg_buy_price":   round(price, 4) if price else None,
-            "date_first":      _this_month(),
-            "currency":        _guess_currency(ticker),
-            "ring":            ring,
-            "note":            entry.note if entry else "",
-        }
-        print(f"\n  {ticker}: neue Position {eur_amount:.0f} EUR")
-
-    CONFIG_PATH.write_text(yaml.dump(raw, allow_unicode=True, default_flow_style=False))
-    cfg_mod.reload()
+    # Config aktualisieren (gemeinsame Logik, auch vom Auto-DCA genutzt)
+    msg = record_position(ticker, eur_amount, shares=shares, price=price, entry=entry)
+    print(f"\n  {msg}")
     print(f"  config.yaml aktualisiert.")
 
 
