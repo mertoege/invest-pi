@@ -1,459 +1,368 @@
-# ════════════════════════════════════════════════════════════
-#  INVEST-PI · KONFIGURATION
-#  Einzige Wahrheitsquelle: Portfolio + Watchlist + Einstellungen.
-#  Bearbeite diese Datei, um neue Käufe einzubuchen oder Titel hinzuzufügen.
-# ════════════════════════════════════════════════════════════
-
-
-# ─────────────────────────────────────────────────────────────
-# DEIN PORTFOLIO — was du aktuell hältst
-# Format: TICKER: {invested_eur, shares, avg_buy_price, date_first}
-# shares und avg_buy_price werden nach jedem Kauf aktualisiert.
-# ─────────────────────────────────────────────────────────────
-portfolio:
-  NVDA:
-    invested_eur:    50.0
-    shares:          null        # nach erstem Kauf eintragen
-    avg_buy_price:   null        # Ø Kaufpreis in EUR/USD
-    date_first:      "2025-01"
-    currency:        "USD"
-    ring:            1
-    note:            "Core-Position · GPU-Monopol AI"
-
-  ASML:
-    invested_eur:    50.0
-    shares:          null
-    avg_buy_price:   null
-    date_first:      "2025-01"
-    currency:        "EUR"
-    ring:            1
-    note:            "Core-Position · EUV-Monopol"
-
-
-# ─────────────────────────────────────────────────────────────
-# INVESTMENT UNIVERSE — alles was das System beobachtet
-# Du kaufst aus dieser Liste, nicht nur aus dem Portfolio.
-# Kommentiere Titel aus, die du nicht willst.
-# ─────────────────────────────────────────────────────────────
-universe:
-
-  # ══════════════════════════════════════════════════════════
-  #  RING 1: Sektor-ETFs (Kern-Diversifikation)
-  #  Alle 11 GICS-Sektoren. Niedrige Korrelation untereinander.
-  #  Das System lernt welche Sektoren in welchem Regime performen.
-  # ══════════════════════════════════════════════════════════
-
-  ring_3_sector_etfs:
-    - ticker: XLK
-      name: "Technology Select Sector SPDR"
-      note: "Tech-Sektor · MSFT, AAPL, NVDA"
-
-    - ticker: XLF
-      name: "Financial Select Sector SPDR"
-      note: "Finanzen · JPM, BRK, V · profitiert von steigenden Zinsen"
-
-    - ticker: XLE
-      name: "Energy Select Sector SPDR"
-      note: "Energie · XOM, CVX · negativ korreliert zu Tech"
-
-    - ticker: XLV
-      name: "Health Care Select Sector SPDR"
-      note: "Gesundheit · UNH, JNJ, LLY · defensiv"
-
-    - ticker: XLI
-      name: "Industrial Select Sector SPDR"
-      note: "Industrie · CAT, GE, HON · konjunkturempfindlich"
-
-    - ticker: XLP
-      name: "Consumer Staples Select Sector SPDR"
-      note: "Konsum-Basis · PG, KO, PEP · Rezessions-Hedge"
-
-    - ticker: XLY
-      name: "Consumer Discretionary Select Sector SPDR"
-      note: "Konsum-Zyklisch · AMZN, TSLA · wachstumsgetrieben"
-
-    - ticker: XLU
-      name: "Utilities Select Sector SPDR"
-      note: "Versorger · NEE, SO · Zins-sensitiv, defensiv"
-
-    - ticker: XLRE
-      name: "Real Estate Select Sector SPDR"
-      note: "Immobilien · AMT, PLD · REIT-Dividenden"
-
-    - ticker: XLC
-      name: "Communication Services Select Sector SPDR"
-      note: "Kommunikation · META, GOOGL · Hybrid aus Tech+Media"
-
-    - ticker: XLB
-      name: "Materials Select Sector SPDR"
-      note: "Materialien · LIN, SHW · Inflation-Hedge"
-
-  # ══════════════════════════════════════════════════════════
-  #  RING 1: AI/Semiconductor-Kern (bewährt)
-  #  Unsere ursprüngliche Alpha-Quelle. Jetzt eingebettet in
-  #  ein breiteres Portfolio statt als einziger Fokus.
-  # ══════════════════════════════════════════════════════════
-
-  ring_1_semiconductors:
-    - ticker: NVDA
-      name: "NVIDIA"
-      note: "GPU-Duopol · Data-Center · CUDA-Moat"
-
-    - ticker: AMD
-      name: "Advanced Micro Devices"
-      note: "einziger echter NVDA-Challenger · MI-Serie"
-
-    - ticker: AVGO
-      name: "Broadcom"
-      note: "Custom AI ASICs (Google TPU, Meta etc.) + Networking"
-
-    - ticker: TSM
-      name: "Taiwan Semiconductor"
-      note: "größter Foundry · fertigt NVDA, Apple, AMD"
-
-    - ticker: ASML
-      name: "ASML Holding"
-      note: "EUV-Monopol · niemand kann ohne ASML tiefe Knoten fertigen"
-      yahoo_ticker: "ASML"
-
-  # ══════════════════════════════════════════════════════════
-  #  RING 2: Defensive Blue Chips (Cross-Sektor)
-  #  Niedrige Beta, stabile Dividenden, Rezessions-Resistenz.
-  #  Geben dem Self-Learning-System mehr Diversity zum Lernen.
-  # ══════════════════════════════════════════════════════════
-
-  ring_2_defensive:
-    - ticker: JNJ
-      name: "Johnson & Johnson"
-      note: "Healthcare-Dividenden-Aristokrat · ultra-defensiv"
-
-    - ticker: PG
-      name: "Procter & Gamble"
-      note: "Consumer Staples · 67 Jahre Dividenden-Wachstum"
-
-    - ticker: KO
-      name: "Coca-Cola"
-      note: "Consumer Staples · Buffett-Holding · Rezessions-fest"
-
-    - ticker: JPM
-      name: "JPMorgan Chase"
-      note: "Größte US-Bank · profitiert von Zinsen + Volatilität"
-
-    - ticker: XOM
-      name: "Exxon Mobil"
-      note: "Energie-Leader · negativ korreliert zu Tech"
-
-    - ticker: UNH
-      name: "UnitedHealth Group"
-      note: "Healthcare-Leader · stabil, kaum zyklisch"
-
-    - ticker: LLY
-      name: "Eli Lilly"
-      note: "Pharma-Wachstum · GLP-1/Ozempic-Boom"
-
-  # ══════════════════════════════════════════════════════════
-  #  RING 2: Hyperscaler + AI-Software (bekannt)
-  # ══════════════════════════════════════════════════════════
-
-  ring_2_hyperscaler:
-    - ticker: MSFT
-      name: "Microsoft"
-      note: "OpenAI-Partner · Azure-AI · Copilot-Monetarisierung"
-
-    - ticker: GOOGL
-      name: "Alphabet"
-      note: "Gemini · TPU · GCP AI · eigene Silicon-Strategie"
-
-    - ticker: META
-      name: "Meta Platforms"
-      note: "Llama-Open-Source · MTIA-Chip · enorm hoher Capex"
-
-    - ticker: AMZN
-      name: "Amazon"
-      note: "AWS-AI · Trainium/Inferentia · Bedrock"
-
-    - ticker: AAPL
-      name: "Apple"
-      note: "Apple Intelligence · On-Device-AI · eigene Neural Engine"
-
-  # ══════════════════════════════════════════════════════════
-  #  RING 2: Growth Blue Chips (diversifiziert)
-  # ══════════════════════════════════════════════════════════
-
-  ring_2_growth:
-    - ticker: V
-      name: "Visa"
-      note: "Payments-Monopol · stabiles Wachstum · PE 22"
-
-    - ticker: COST
-      name: "Costco"
-      note: "Membership-Modell · Konsumenten-Momentum"
-
-    - ticker: ABBV
-      name: "AbbVie"
-      note: "Pharma-Pipeline · Humira-Nachfolger · PE 13"
-
-    - ticker: WMT
-      name: "Walmart"
-      note: "Retail-Riese · E-Commerce-Wachstum"
-
-    - ticker: TXN
-      name: "Texas Instruments"
-      note: "Analog-Halbleiter · Industriezyklusgewinner"
-
-    - ticker: ADBE
-      name: "Adobe"
-      note: "Creative Cloud + Firefly AI · PE 9 extrem guenstig"
-
-    - ticker: NFLX
-      name: "Netflix"
-      note: "Streaming-Leader · Ad-Tier-Wachstum · PE 23"
-
-    - ticker: BRK-B
-      name: "Berkshire Hathaway B"
-      note: "Buffett-Konglomerat · Cash-Berg · defensiver Anker"
-
-  # ══════════════════════════════════════════════════════════
-  #  RING 3: Spekulative AI-Plays + Europa
-  #  Höheres Risiko, aber Self-Learning kann hier am meisten
-  #  aus Fehlern lernen und sich kalibrieren.
-  # ══════════════════════════════════════════════════════════
-
-  ring_3_speculative:
-    - ticker: PLTR
-      name: "Palantir"
-      note: "AI-Analytics-Software · Government + Commercial"
-
-    - ticker: CRM
-      name: "Salesforce"
-      note: "AI-CRM · Agentforce · Enterprise-AI"
-
-    - ticker: SMCI
-      name: "Super Micro Computer"
-      note: "AI-Server-Assemblierung · sehr volatil"
-
-    - ticker: MRVL
-      name: "Marvell Technology"
-      note: "AI-Networking-ICs · Cloud-Custom-Chips"
-
-    - ticker: NOW
-      name: "ServiceNow"
-      note: "AI-Automatisierung in Unternehmens-IT"
-
-    - ticker: PANW
-      name: "Palo Alto Networks"
-      note: "Cybersecurity-Leader · Platformization-Strategie"
-
-    - ticker: CRWD
-      name: "CrowdStrike"
-      note: "Endpoint-Security · Cloud-Native · starkes Momentum"
-
-    - ticker: ARM
-      name: "ARM Holdings"
-      note: "CPU-IP-Lizenzierung · AI-Edge · Smartphone/Data-Center"
-
-    - ticker: COIN
-      name: "Coinbase"
-      note: "Crypto-Exchange · profitiert von Bitcoin-Zyklen"
-
-    - ticker: ANET
-      name: "Arista Networks"
-      note: "AI-Datacenter-Networking · Hyper-Scaler-Zulieferer"
-
-    - ticker: UBER
-      name: "Uber Technologies"
-      note: "Mobility+Delivery-Plattform · erstmals profitabel"
-
-    - ticker: APP
-      name: "AppLovin"
-      note: "AI-Ad-Tech · AXON-Engine · extremes Wachstum"
-
-  # ── BENCHMARK-ETFs (für Scoring + Backtesting, nicht getradet) ──
-  etfs:
-    - ticker: SMH
-      name: "VanEck Semiconductor ETF"
-      note: "Semiconductor-Benchmark"
-
-    - ticker: SPY
-      name: "SPDR S&P 500 ETF"
-      note: "Gesamtmarkt-Benchmark"
-
-    - ticker: QQQ
-      name: "Invesco QQQ Trust (Nasdaq 100)"
-      note: "Tech-heavy Benchmark"
-
-
-# ─────────────────────────────────────────────────────────────
-# STRATEGISCHE EINSTELLUNGEN
-# ─────────────────────────────────────────────────────────────
-settings:
-  monatliches_budget_eur:    50.0
-  max_position_anteil:       0.40      # max. 40 % in einem Titel
-  max_ring1_anteil:          0.70      # max. 70 % in Ring 1 gesamt
-  max_tactical_anteil:       0.20      # max. 20 % Tactical Bucket
-  drawdown_scan_threshold:   0.15      # Pattern-Mining ab 15 % Drawdown
-  alert_stufe2_trigger:      50        # Composite-Score für Caution-Alert
-  alert_stufe3_trigger:      75        # Composite-Score für Red-Alert
-  dca_fallback_etf:          "SMH"     # wenn kein Titel überzeugt
-
-  # Risiko-Profil: "conservative" | "moderate" | "aggressive"
-  risk_profile:              "conservative"
-
-  # Notification
-  telegram_enabled:          false     # true sobald Bot konfiguriert
-  telegram_min_level:        2         # ab Stufe 2 benachrichtigen
-  email_enabled:             false
-
-  # ─────────────────────────────────────────────────────────────
-  # API-KOSTEN-CAPS (3-Tier, calendar-day Aggregation)
-  # Hard-Stop bei monthly. Ab 70% des Tages-Caps: Cost-Awareness-Block in Prompts.
-  # ─────────────────────────────────────────────────────────────
-  api_costs:
-    hourly_eur:                0.20
-    daily_eur:                 2.00
-    monthly_eur:              50.00     # Mert's max-Budget für API-Analysen
-
-  # ─────────────────────────────────────────────────────────────
-  # AUTONOMOUS TRADING (Demo / Paper-Account auf dem Pi)
-  # ─────────────────────────────────────────────────────────────
-  trading:
-    enabled:                   true
-    broker:                    "alpaca_paper"   # alpaca_paper | mock | (später) alpaca_live
-    live_trading:              false            # MUSS hier UND in env LIVE_TRADING=true sein für echte Orders
-    mode:                      "adaptive"       # conservative | moderate | aggressive | adaptive
-
-    # Position-Limits
-    max_open_positions:        25               # gleichzeitig offene Positionen (Paper)
-    max_position_eur:        300.0              # max EUR pro Position
-    min_position_eur:         25.0              # unter diesem Wert wird gar nicht geordert
-    starting_paper_capital:  10000.0            # MockBroker-Startkapital für Simulation
-
-    # Buy-Trigger (Conservative-Default in Klammern)
-    score_buy_max:            45                # Buy nur wenn composite < dieser Wert (conservative: 25)
-    force_skip_alert_min:      3                # Bei alert_level >= 3 (RED) IMMER skippen
-    moderate_alert_max:        1                # moderate-mode erlaubt alert_level<=1 (statt nur 0)
-
-    # Sell-Trigger
-    stop_loss_pct:             0.10             # auto-sell bei -10 % (conservative: 0.15)
-    take_profit_pct:           0.25             # auto-sell bei +25 % (full)
-    partial_take_profit_pct:   0.15             # 50% verkaufen bei +15 % (lock in gains)
-    trailing_stop_pct:         0.08             # ab +12% Profit: -8% vom High = sell (NEU)
-    trailing_activation_pct:   0.12             # ab welchem Profit Trailing-Stop aktiv wird
-
-    max_daily_loss_pct:        0.05             # Tages-Drawdown der Equity-Curve, Notbremse
-    max_trades_per_day:       15                # Hard-Cap (conservative: 3)
-    cash_floor_pct:            0.03             # min. 5% Cash-Reserve halten
-    max_per_sector_pct:        0.35             # max. 35% Equity in einem Sektor
-
-    # Marktöffnung (CET) — keine Orders außerhalb
-    market_open_cet:          "15:30"
-    market_close_cet:         "22:00"
-
-    # Universe-Filter: nur diese Rings dürfen tactical traded werden
-    tradeable_rings:           [1, 2]
-    # ETF-Fallback wenn kein Titel überzeugt (bleibt fix)
-    dca_fallback_ticker:      "SMH"
-
-    # ── Regime-Profile fuer adaptive Mode (waehlen pro HMM-State) ──
-    # Backtest-Befunde (Bull 2024-25 + Bear 2022 + Combined 3y):
-    #   - aggressive in Bull: +39.89% (Sharpe 1.14)
-    #   - conservative in Bear: -0.73% (vs SMH -34.97%, Alpha +34%)
-    #   - kombiniert gewinnt adaptive
-    # sector_preference + sector_avoid werden dynamisch von weekly_mini_review
-    # gesetzt via config_patches. Hier nur strukturelle Defaults.
-    regime_profiles:
-      low_vol_bull:
-        score_buy_max:        60
-        max_open_positions:   30
-        max_position_eur:     8000
-        max_trades_per_day:   12
-        stop_loss_pct:        0.15
-        take_profit_pct:      0.50
-        trailing_activation:  0.15
-        trailing_stop_pct:    0.10
-        target_invest_pct:    0.95
-        sector_preference:    []
-        sector_avoid:         []
-      high_vol_mixed:
-        score_buy_max:        50
-        max_open_positions:   30
-        max_position_eur:     5000
-        max_trades_per_day:   10
-        stop_loss_pct:        0.09
-        take_profit_pct:      0.40
-        trailing_activation:  0.10
-        trailing_stop_pct:    0.08
-        target_invest_pct:    0.80
-        sector_preference:    [healthcare, consumer_staples, technology, utilities]
-        sector_avoid:         [real_estate, materials, consumer_disc]
-      bear:
-        score_buy_max:        40
-        max_open_positions:   12
-        max_position_eur:     1500
-        max_trades_per_day:   3
-        stop_loss_pct:        0.08
-        take_profit_pct:      0.20
-        trailing_activation:  0.05
-        trailing_stop_pct:    0.06
-        target_invest_pct:    0.40
-        sector_preference:    []
-        sector_avoid:         []
-      unknown:
-        score_buy_max:        45
-        max_open_positions:   20
-        max_position_eur:     2500
-        max_trades_per_day:   5
-        stop_loss_pct:        0.10
-        take_profit_pct:      0.40
-        trailing_activation:  0.10
-        trailing_stop_pct:    0.10
-        target_invest_pct:    0.60
-        sector_preference:    []
-        sector_avoid:         []
-
-    # Multi-Horizon Strategies (long-term hold + mid-term momentum)
-    # Pro Strategy eigene take_profit/stop_loss/trailing-Schwellen.
-    # Aktive Strategy-Auswahl beim Buy: ring 1 + composite<25 → long_term, sonst mid_term
-    strategies:
-      mid_term:
-        take_profit_pct:        0.40    # Default-Strategy (T+7d-Outcomes)
-        stop_loss_pct:          0.10
-        trailing_activation_pct: 0.10
-        trailing_stop_pct:      0.10
-      long_term:
-        take_profit_pct:        0.50    # Ring 1 Long-Term-Hold (T+30d-Outcomes)
-        stop_loss_pct:          0.20    # weiter Stop-Loss = mehr Atemluft
-        trailing_activation_pct: 0.25    # Trailing erst ab +25% aktiv
-        trailing_stop_pct:      0.15    # bei -15% vom Hoch
-    long_term_composite_max:    25      # für long_term: composite muss < 25 sein (zusaetzlich zu Ring 1)
-
-    # Sector-Map fuer max_per_sector_pct-Constraint (neu)
-    sector_map:
-      technology:        [XLK, NVDA, AMD, AVGO, TSM, ASML, MSFT, AAPL, TXN, ADBE]
-      financials:        [XLF, JPM, V, BRK-B]
-      energy:            [XLE, XOM]
-      healthcare:        [XLV, UNH, LLY, JNJ, ABBV]
-      industrials:       [XLI]
-      consumer_staples:  [XLP, PG, KO, COST, WMT]
-      consumer_disc:     [XLY, AMZN]
-      utilities:         [XLU]
-      real_estate:       [XLRE]
-      communication:     [XLC, GOOGL, META, NFLX]
-      materials:         [XLB]
-      software:          [CRM, NOW, PLTR, MRVL, SMCI, PANW, CRWD]
-      etfs:              [SMH, SPY, QQQ]
-
-
-# ─────────────────────────────────────────────────────────────
-# API KEYS (hier oder via Umgebungsvariablen)
-# Leere Strings → System läuft im Stub-Modus für diese Quellen
-# ─────────────────────────────────────────────────────────────
 api_keys:
-  finnhub:             ""    # -> FINNHUB_API_KEY in .env
-  newsapi:             ""    # -> NEWSAPI_KEY in .env
-  telegram_bot_token:  ""
-  telegram_chat_id:    ""
-  alpaca_key:          ""    # -> ALPACA_API_KEY in .env (Paper)
-  alpaca_secret:       ""    # -> ALPACA_API_SECRET in .env
-  alpaca_base_url:     "https://paper-api.alpaca.markets"
-  anthropic:           ""    # -> ANTHROPIC_API_KEY in .env
+  alpaca_base_url: https://paper-api.alpaca.markets
+  alpaca_key: ''
+  alpaca_secret: ''
+  anthropic: ''
+  finnhub: ''
+  newsapi: ''
+  telegram_bot_token: ''
+  telegram_chat_id: ''
+portfolio:
+  ASML:
+    avg_buy_price: null
+    currency: EUR
+    date_first: 2025-01
+    invested_eur: 50.0
+    note: Core-Position · EUV-Monopol
+    ring: 1
+    shares: null
+  NVDA:
+    avg_buy_price: null
+    currency: USD
+    date_first: 2025-01
+    invested_eur: 50.0
+    note: Core-Position · GPU-Monopol AI
+    ring: 1
+    shares: null
+  PG:
+    avg_buy_price: 58.0
+    currency: USD
+    date_first: 2026-06
+    invested_eur: 50.0
+    note: Consumer Staples · 67 Jahre Dividenden-Wachstum
+    ring: 2
+    shares: 1.004157
+settings:
+  alert_stufe2_trigger: 50
+  alert_stufe3_trigger: 75
+  api_costs:
+    daily_eur: 2.0
+    hourly_eur: 0.2
+    monthly_eur: 50.0
+  dca_fallback_etf: SMH
+  drawdown_scan_threshold: 0.15
+  email_enabled: false
+  max_position_anteil: 0.4
+  max_ring1_anteil: 0.7
+  max_tactical_anteil: 0.2
+  monatliches_budget_eur: 50.0
+  risk_profile: conservative
+  telegram_enabled: false
+  telegram_min_level: 2
+  trading:
+    broker: alpaca_paper
+    cash_floor_pct: 0.03
+    dca_fallback_ticker: SMH
+    enabled: true
+    force_skip_alert_min: 3
+    live_trading: false
+    long_term_composite_max: 25
+    market_close_cet: '22:00'
+    market_open_cet: '15:30'
+    max_daily_loss_pct: 0.05
+    max_open_positions: 25
+    max_per_sector_pct: 0.35
+    max_position_eur: 300.0
+    max_trades_per_day: 15
+    min_position_eur: 25.0
+    mode: adaptive
+    moderate_alert_max: 1
+    partial_take_profit_pct: 0.15
+    regime_profiles:
+      bear:
+        max_open_positions: 12
+        max_position_eur: 1500
+        max_trades_per_day: 3
+        score_buy_max: 40
+        sector_avoid: []
+        sector_preference: []
+        stop_loss_pct: 0.08
+        take_profit_pct: 0.2
+        target_invest_pct: 0.4
+        trailing_activation: 0.05
+        trailing_stop_pct: 0.06
+      high_vol_mixed:
+        max_open_positions: 30
+        max_position_eur: 5000
+        max_trades_per_day: 10
+        score_buy_max: 50
+        sector_avoid:
+        - real_estate
+        - materials
+        - consumer_disc
+        sector_preference:
+        - healthcare
+        - consumer_staples
+        - technology
+        - utilities
+        stop_loss_pct: 0.09
+        take_profit_pct: 0.4
+        target_invest_pct: 0.8
+        trailing_activation: 0.1
+        trailing_stop_pct: 0.08
+      low_vol_bull:
+        max_open_positions: 30
+        max_position_eur: 8000
+        max_trades_per_day: 12
+        score_buy_max: 60
+        sector_avoid: []
+        sector_preference: []
+        stop_loss_pct: 0.15
+        take_profit_pct: 0.5
+        target_invest_pct: 0.95
+        trailing_activation: 0.15
+        trailing_stop_pct: 0.1
+      unknown:
+        max_open_positions: 20
+        max_position_eur: 2500
+        max_trades_per_day: 5
+        score_buy_max: 45
+        sector_avoid: []
+        sector_preference: []
+        stop_loss_pct: 0.1
+        take_profit_pct: 0.4
+        target_invest_pct: 0.6
+        trailing_activation: 0.1
+        trailing_stop_pct: 0.1
+    score_buy_max: 45
+    sector_map:
+      communication:
+      - XLC
+      - GOOGL
+      - META
+      - NFLX
+      consumer_disc:
+      - XLY
+      - AMZN
+      consumer_staples:
+      - XLP
+      - PG
+      - KO
+      - COST
+      - WMT
+      energy:
+      - XLE
+      - XOM
+      etfs:
+      - SMH
+      - SPY
+      - QQQ
+      financials:
+      - XLF
+      - JPM
+      - V
+      - BRK-B
+      healthcare:
+      - XLV
+      - UNH
+      - LLY
+      - JNJ
+      - ABBV
+      industrials:
+      - XLI
+      materials:
+      - XLB
+      real_estate:
+      - XLRE
+      software:
+      - CRM
+      - NOW
+      - PLTR
+      - MRVL
+      - SMCI
+      - PANW
+      - CRWD
+      technology:
+      - XLK
+      - NVDA
+      - AMD
+      - AVGO
+      - TSM
+      - ASML
+      - MSFT
+      - AAPL
+      - TXN
+      - ADBE
+      utilities:
+      - XLU
+    starting_paper_capital: 10000.0
+    stop_loss_pct: 0.1
+    strategies:
+      long_term:
+        stop_loss_pct: 0.2
+        take_profit_pct: 0.5
+        trailing_activation_pct: 0.25
+        trailing_stop_pct: 0.15
+      mid_term:
+        stop_loss_pct: 0.1
+        take_profit_pct: 0.4
+        trailing_activation_pct: 0.1
+        trailing_stop_pct: 0.1
+    take_profit_pct: 0.25
+    tradeable_rings:
+    - 1
+    - 2
+    trailing_activation_pct: 0.12
+    trailing_stop_pct: 0.08
+universe:
+  etfs:
+  - name: VanEck Semiconductor ETF
+    note: Semiconductor-Benchmark
+    ticker: SMH
+  - name: SPDR S&P 500 ETF
+    note: Gesamtmarkt-Benchmark
+    ticker: SPY
+  - name: Invesco QQQ Trust (Nasdaq 100)
+    note: Tech-heavy Benchmark
+    ticker: QQQ
+  ring_1_semiconductors:
+  - name: NVIDIA
+    note: GPU-Duopol · Data-Center · CUDA-Moat
+    ticker: NVDA
+  - name: Advanced Micro Devices
+    note: einziger echter NVDA-Challenger · MI-Serie
+    ticker: AMD
+  - name: Broadcom
+    note: Custom AI ASICs (Google TPU, Meta etc.) + Networking
+    ticker: AVGO
+  - name: Taiwan Semiconductor
+    note: größter Foundry · fertigt NVDA, Apple, AMD
+    ticker: TSM
+  - name: ASML Holding
+    note: EUV-Monopol · niemand kann ohne ASML tiefe Knoten fertigen
+    ticker: ASML
+    yahoo_ticker: ASML
+  ring_2_defensive:
+  - name: Johnson & Johnson
+    note: Healthcare-Dividenden-Aristokrat · ultra-defensiv
+    ticker: JNJ
+  - name: Procter & Gamble
+    note: Consumer Staples · 67 Jahre Dividenden-Wachstum
+    ticker: PG
+  - name: Coca-Cola
+    note: Consumer Staples · Buffett-Holding · Rezessions-fest
+    ticker: KO
+  - name: JPMorgan Chase
+    note: Größte US-Bank · profitiert von Zinsen + Volatilität
+    ticker: JPM
+  - name: Exxon Mobil
+    note: Energie-Leader · negativ korreliert zu Tech
+    ticker: XOM
+  - name: UnitedHealth Group
+    note: Healthcare-Leader · stabil, kaum zyklisch
+    ticker: UNH
+  - name: Eli Lilly
+    note: Pharma-Wachstum · GLP-1/Ozempic-Boom
+    ticker: LLY
+  ring_2_growth:
+  - name: Visa
+    note: Payments-Monopol · stabiles Wachstum · PE 22
+    ticker: V
+  - name: Costco
+    note: Membership-Modell · Konsumenten-Momentum
+    ticker: COST
+  - name: AbbVie
+    note: Pharma-Pipeline · Humira-Nachfolger · PE 13
+    ticker: ABBV
+  - name: Walmart
+    note: Retail-Riese · E-Commerce-Wachstum
+    ticker: WMT
+  - name: Texas Instruments
+    note: Analog-Halbleiter · Industriezyklusgewinner
+    ticker: TXN
+  - name: Adobe
+    note: Creative Cloud + Firefly AI · PE 9 extrem guenstig
+    ticker: ADBE
+  - name: Netflix
+    note: Streaming-Leader · Ad-Tier-Wachstum · PE 23
+    ticker: NFLX
+  - name: Berkshire Hathaway B
+    note: Buffett-Konglomerat · Cash-Berg · defensiver Anker
+    ticker: BRK-B
+  ring_2_hyperscaler:
+  - name: Microsoft
+    note: OpenAI-Partner · Azure-AI · Copilot-Monetarisierung
+    ticker: MSFT
+  - name: Alphabet
+    note: Gemini · TPU · GCP AI · eigene Silicon-Strategie
+    ticker: GOOGL
+  - name: Meta Platforms
+    note: Llama-Open-Source · MTIA-Chip · enorm hoher Capex
+    ticker: META
+  - name: Amazon
+    note: AWS-AI · Trainium/Inferentia · Bedrock
+    ticker: AMZN
+  - name: Apple
+    note: Apple Intelligence · On-Device-AI · eigene Neural Engine
+    ticker: AAPL
+  ring_3_sector_etfs:
+  - name: Technology Select Sector SPDR
+    note: Tech-Sektor · MSFT, AAPL, NVDA
+    ticker: XLK
+  - name: Financial Select Sector SPDR
+    note: Finanzen · JPM, BRK, V · profitiert von steigenden Zinsen
+    ticker: XLF
+  - name: Energy Select Sector SPDR
+    note: Energie · XOM, CVX · negativ korreliert zu Tech
+    ticker: XLE
+  - name: Health Care Select Sector SPDR
+    note: Gesundheit · UNH, JNJ, LLY · defensiv
+    ticker: XLV
+  - name: Industrial Select Sector SPDR
+    note: Industrie · CAT, GE, HON · konjunkturempfindlich
+    ticker: XLI
+  - name: Consumer Staples Select Sector SPDR
+    note: Konsum-Basis · PG, KO, PEP · Rezessions-Hedge
+    ticker: XLP
+  - name: Consumer Discretionary Select Sector SPDR
+    note: Konsum-Zyklisch · AMZN, TSLA · wachstumsgetrieben
+    ticker: XLY
+  - name: Utilities Select Sector SPDR
+    note: Versorger · NEE, SO · Zins-sensitiv, defensiv
+    ticker: XLU
+  - name: Real Estate Select Sector SPDR
+    note: Immobilien · AMT, PLD · REIT-Dividenden
+    ticker: XLRE
+  - name: Communication Services Select Sector SPDR
+    note: Kommunikation · META, GOOGL · Hybrid aus Tech+Media
+    ticker: XLC
+  - name: Materials Select Sector SPDR
+    note: Materialien · LIN, SHW · Inflation-Hedge
+    ticker: XLB
+  ring_3_speculative:
+  - name: Palantir
+    note: AI-Analytics-Software · Government + Commercial
+    ticker: PLTR
+  - name: Salesforce
+    note: AI-CRM · Agentforce · Enterprise-AI
+    ticker: CRM
+  - name: Super Micro Computer
+    note: AI-Server-Assemblierung · sehr volatil
+    ticker: SMCI
+  - name: Marvell Technology
+    note: AI-Networking-ICs · Cloud-Custom-Chips
+    ticker: MRVL
+  - name: ServiceNow
+    note: AI-Automatisierung in Unternehmens-IT
+    ticker: NOW
+  - name: Palo Alto Networks
+    note: Cybersecurity-Leader · Platformization-Strategie
+    ticker: PANW
+  - name: CrowdStrike
+    note: Endpoint-Security · Cloud-Native · starkes Momentum
+    ticker: CRWD
+  - name: ARM Holdings
+    note: CPU-IP-Lizenzierung · AI-Edge · Smartphone/Data-Center
+    ticker: ARM
+  - name: Coinbase
+    note: Crypto-Exchange · profitiert von Bitcoin-Zyklen
+    ticker: COIN
+  - name: Arista Networks
+    note: AI-Datacenter-Networking · Hyper-Scaler-Zulieferer
+    ticker: ANET
+  - name: Uber Technologies
+    note: Mobility+Delivery-Plattform · erstmals profitabel
+    ticker: UBER
+  - name: AppLovin
+    note: AI-Ad-Tech · AXON-Engine · extremes Wachstum
+    ticker: APP
