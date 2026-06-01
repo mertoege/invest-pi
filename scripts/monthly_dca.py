@@ -189,6 +189,52 @@ def _send_html_with_markup(text: str, reply_markup: dict) -> bool:
         return False
 
 
+def _auto_record_dca(verdict: str, data: dict, budget_eur: float, pred_id) -> str:
+    """Bucht die DCA-Empfehlung automatisch ins config.yaml-Portfolio-Ledger ein
+    (Voll-Autonomie, kein Telegram-Button) und loggt das Feedback fuer den
+    Lern-Loop. Returns Status-Text fuer die Telegram-Info."""
+    from scripts.buy import record_position, _guess_currency
+    from src.common.predictions import log_feedback
+    cfg = cfg_mod.load()
+    fallback_etf = (data.get("alternative_etf") or cfg.settings.dca_fallback_etf or "SMH").upper()
+    ticker = (data.get("ticker") if verdict == "buy_single" else fallback_etf) or fallback_etf
+    ticker = ticker.upper()
+
+    # Konzentrations-Check: bei Block auf ETF-Fallback ausweichen
+    if cfg.concentration_check(ticker, budget_eur).get("blocks"):
+        if fallback_etf != ticker and not cfg.concentration_check(fallback_etf, budget_eur).get("blocks"):
+            ticker = fallback_etf
+        else:
+            return f"NICHT eingetragen (Konzentrations-Limit): {ticker}"
+
+    # Aktuellen Preis holen -> shares berechnen (best-effort, sonst nur invested_eur)
+    shares = price = None
+    try:
+        from src.common.data_loader import get_prices
+        px = get_prices(ticker, period="5d")
+        if px is not None and len(px) > 0:
+            price = float(px["close"].iloc[-1])
+            if _guess_currency(ticker) == "USD":
+                from src.common.fx import eur_per_usd
+                fx = eur_per_usd()
+                native = budget_eur / fx if fx else budget_eur
+            else:
+                native = budget_eur
+            shares = round(native / price, 6) if price else None
+    except Exception as e:
+        log.warning(f"DCA-Preis fuer {ticker} nicht ermittelbar: {e}")
+
+    msg = record_position(ticker, budget_eur, shares=shares, price=price,
+                          entry=cfg.entry_by_ticker(ticker))
+    if pred_id is not None:
+        try:
+            log_feedback(pred_id, feedback_type="dca_bought",
+                         reason_text=f"auto-recorded {ticker} {budget_eur:.0f}EUR @ {price}")
+        except Exception:
+            pass
+    return msg
+
+
 def main() -> int:
     if not llm_configured():
         log.warning("ANTHROPIC_API_KEY nicht gesetzt — monthly_dca skipped")
@@ -226,14 +272,26 @@ def main() -> int:
     data = result.parsed_json or safe_parse(result.text, default={})
     verdict = data.get("verdict", "skip")
 
-    text, reply_markup = _build_telegram_text(
+    # AUTOMATISCH ins Portfolio-Ledger eintragen (Voll-Autonomie, kein Button).
+    record_msg = ""
+    if verdict in ("buy_single", "buy_etf"):
+        try:
+            record_msg = _auto_record_dca(verdict, data, ctx["month_budget_eur"], result.prediction_id)
+        except Exception as e:
+            log.error(f"Auto-DCA-Eintrag fehlgeschlagen: {e}")
+            record_msg = f"FEHLER beim Eintragen: {e}"
+
+    text, _markup = _build_telegram_text(
         verdict, data,
         prediction_id=result.prediction_id,
         budget_eur=ctx["month_budget_eur"],
     )
+    if record_msg:
+        text += f"\n\n✅ <b>Automatisch ins Portfolio eingetragen:</b>\n{escape(record_msg)}"
 
-    ok = _send_html_with_markup(text, reply_markup)
-    print(f"DCA pred_id={result.prediction_id} verdict={verdict} delivered={ok} cost_eur={result.cost_eur:.4f}")
+    # Voll-Autonomie: informativ, KEINE interaktiven Buttons.
+    ok = _send_html_with_markup(text, {})
+    print(f"DCA pred_id={result.prediction_id} verdict={verdict} recorded={bool(record_msg)} cost_eur={result.cost_eur:.4f}")
     return 0 if ok else 1
 
 
