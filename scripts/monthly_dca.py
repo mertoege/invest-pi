@@ -189,6 +189,26 @@ def _send_html_with_markup(text: str, reply_markup: dict) -> bool:
         return False
 
 
+def _persist_config_change(label: str) -> None:
+    """Committet+pusht die config.yaml-Aenderung, damit sie nicht vom auto-pull/
+    status-push (git reset --hard origin/main) verworfen wird. Best-effort mit
+    rebase, falls remote zwischenzeitlich vorrueckte."""
+    import subprocess
+    repo = str(Path(__file__).resolve().parents[1])
+    def _git(*args):
+        return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, timeout=30)
+    try:
+        _git("add", "config.yaml")
+        if _git("commit", "-m", f"portfolio: {label}").returncode != 0:
+            return  # nichts zu committen
+        if _git("pull", "--rebase", "--no-edit").returncode != 0:
+            _git("rebase", "--abort")
+        if _git("push").returncode != 0:
+            _git("push", "--force-with-lease")
+    except Exception as e:
+        log.error(f"config.yaml commit/push fehlgeschlagen: {e}")
+
+
 def _auto_record_dca(verdict: str, data: dict, budget_eur: float, pred_id) -> str:
     """Bucht die DCA-Empfehlung automatisch ins config.yaml-Portfolio-Ledger ein
     (Voll-Autonomie, kein Telegram-Button) und loggt das Feedback fuer den
@@ -226,6 +246,8 @@ def _auto_record_dca(verdict: str, data: dict, budget_eur: float, pred_id) -> st
 
     msg = record_position(ticker, budget_eur, shares=shares, price=price,
                           entry=cfg.entry_by_ticker(ticker))
+    # config.yaml committen+pushen, sonst verwirft auto-pull/status-push die Aenderung
+    _persist_config_change(f"Auto-DCA {ticker} {budget_eur:.0f}EUR @ {price}")
     if pred_id is not None:
         try:
             log_feedback(pred_id, feedback_type="dca_bought",
