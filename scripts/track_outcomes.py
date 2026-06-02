@@ -30,7 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.common.outcomes import run_tracker, detect_drift
+from src.common.outcomes import run_tracker, detect_drift, measure_dca_outcomes
 from src.common.storage import init_all
 
 
@@ -59,6 +59,16 @@ def main() -> None:
     print(f"  still pending: {stats['still_pending']}")
     print(f"  errors:        {stats['errors']}")
     print(f"  by correctness: {stats['by_correctness']}")
+
+    # DCA-Outcomes messen (Forward-Return vs SPY) — schliesst den DCA-Lern-Loop.
+    # Laeuft immer mit, unabhaengig von --source, da der Timer mit default laeuft.
+    try:
+        dca = measure_dca_outcomes()
+        print(f"\n=== DCA-Outcomes (monthly_dca · Pick-Return vs SPY) ===")
+        print(f"  checked: {dca['checked']}  measured: {dca['measured']} (correct {dca['correct']})  "
+              f"skipped: {dca['skipped']}  pending: {dca['pending']}  errors: {dca['errors']}")
+    except Exception as e:
+        print(f"  DCA-Outcome-Messung fehlgeschlagen: {e}")
 
     if not args.no_drift:
         drift = detect_drift(args.source)

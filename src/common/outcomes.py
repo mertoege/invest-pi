@@ -367,6 +367,91 @@ def _auto_feedback(prediction_id: int, result: dict) -> None:
         pass
 
 
+def _dca_return_between(ticker: str, start_date, end_date) -> Optional[float]:
+    """Return des Tickers vom ersten Handelstag >= start bis letztem <= end.
+    None wenn keine Daten."""
+    from .data_loader import get_prices
+    try:
+        px = get_prices(ticker, period="1y")
+    except Exception:
+        return None
+    if px is None or len(px) == 0 or "close" not in px:
+        return None
+    try:
+        dates = pd.to_datetime(px.index).date
+        close = px["close"]
+        sel_start = close[dates >= start_date]
+        sel_end = close[dates <= end_date]
+        if len(sel_start) == 0 or len(sel_end) == 0:
+            return None
+        p0 = float(sel_start.iloc[0])
+        p1 = float(sel_end.iloc[-1])
+        if p0 <= 0:
+            return None
+        return p1 / p0 - 1
+    except Exception:
+        return None
+
+
+def measure_dca_outcomes(horizon_days: int = 30, limit: int = 200) -> dict:
+    """Misst monthly_dca-Outcomes per FORWARD-RETURN ueber horizon_days.
+    Skill-Metrik: hat der gewaehlte Titel den breiten Markt (SPY) geschlagen?
+    outcome_correct=1 wenn Pick-Return >= SPY-Return. verdict=skip -> nicht
+    messbar (markiert). Schliesst den DCA-Lern-Loop — calibration_block(
+    'monthly_dca') liest die so entstehende hit_rate und speist sie in den
+    naechsten DCA-Prompt. Wichtig fuer Echtgeld-DCA."""
+    from .storage import LEARNING_DB, connect
+    stats = {"checked": 0, "measured": 0, "correct": 0, "skipped": 0,
+             "pending": 0, "errors": 0}
+    with connect(LEARNING_DB) as conn:
+        rows = conn.execute(
+            """SELECT id, created_at, output_json FROM predictions
+                WHERE job_source='monthly_dca'
+                  AND outcome_correct IS NULL AND outcome_json IS NULL
+                  AND created_at <= datetime('now', ?)
+                ORDER BY created_at LIMIT ?""",
+            (f"-{horizon_days} days", limit),
+        ).fetchall()
+        for r in rows:
+            stats["checked"] += 1
+            out = safe_parse(r["output_json"] or "{}", default={})
+            verdict = out.get("verdict", "skip")
+            if verdict not in ("buy_single", "buy_etf"):
+                conn.execute(
+                    "UPDATE predictions SET outcome_json=?, outcome_measured_at=datetime('now') WHERE id=?",
+                    (json.dumps({"dca_skip": True}), r["id"]))
+                stats["skipped"] += 1
+                continue
+            etf = (out.get("alternative_etf") or "SPY").upper()
+            ticker = ((out.get("ticker") if verdict == "buy_single" else etf) or etf).upper()
+            try:
+                created = dt.datetime.fromisoformat(
+                    str(r["created_at"]).replace("Z", "").split(".")[0]).date()
+            except Exception:
+                stats["errors"] += 1
+                continue
+            end = created + dt.timedelta(days=horizon_days)
+            pick_ret = _dca_return_between(ticker, created, end)
+            if pick_ret is None:
+                stats["pending"] += 1
+                continue
+            spy_ret = _dca_return_between("SPY", created, end)
+            bench = spy_ret if spy_ret is not None else 0.0
+            correct = 1 if pick_ret >= bench else 0
+            oj = {"pick": ticker, "pick_return": round(pick_ret, 4),
+                  "benchmark": "SPY",
+                  "benchmark_return": round(spy_ret, 4) if spy_ret is not None else None,
+                  "outperformance": round(pick_ret - bench, 4),
+                  "horizon_days": horizon_days}
+            conn.execute(
+                "UPDATE predictions SET outcome_correct=?, outcome_json=?, "
+                "outcome_measured_at=datetime('now') WHERE id=?",
+                (correct, json.dumps(oj), r["id"]))
+            stats["measured"] += 1
+            stats["correct"] += correct
+    return stats
+
+
 def detect_drift(job_source: str = "daily_score",
                  window_days: int = DRIFT_WINDOW_DAYS) -> Optional[dict]:
     """
