@@ -13,14 +13,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "530fd6fc",
+    "commit": "edf3267a",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 61.15,
+    "cpu_temp_c": 60.05,
     "disk_pct": 40,
-    "load_1min": 0.55,
-    "mem_pct": 40
+    "load_1min": 0.81,
+    "mem_pct": 41
   },
   "last_runs": {
     "run_strategy": null,
@@ -31,10 +31,10 @@
   "predictions": {
     "correct": 14659,
     "incorrect": 2411,
-    "last_24h": 554,
-    "last_7d": 6155,
-    "pending": 1425,
-    "total": 48925
+    "last_24h": 572,
+    "last_7d": 6161,
+    "pending": 1443,
+    "total": 48943
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "?",
     "sync": "active"
   },
-  "timestamp_utc": "2026-06-15T22:32:30"
+  "timestamp_utc": "2026-06-15T22:34:33"
 }
