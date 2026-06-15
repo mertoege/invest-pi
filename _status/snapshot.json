@@ -13,14 +13,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "bae40bfa",
+    "commit": "bdee0cf7",
     "dirty": true
   },
   "hardware": {
     "cpu_temp_c": 60.05,
     "disk_pct": 40,
-    "load_1min": 0.38,
-    "mem_pct": 40
+    "load_1min": 0.36,
+    "mem_pct": 41
   },
   "last_runs": {
     "run_strategy": null,
@@ -31,10 +31,10 @@
   "predictions": {
     "correct": 14659,
     "incorrect": 2411,
-    "last_24h": 499,
-    "last_7d": 6154,
-    "pending": 1369,
-    "total": 48869
+    "last_24h": 518,
+    "last_7d": 6160,
+    "pending": 1388,
+    "total": 48888
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "?",
     "sync": "active"
   },
-  "timestamp_utc": "2026-06-15T21:31:50"
+  "timestamp_utc": "2026-06-15T21:34:00"
 }
