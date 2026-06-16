@@ -630,6 +630,23 @@ def benchmark():
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+# ─── DayPi (Schwester-System · Intraday-Day-Trader, eigenes Paper-Konto) ──
+DAYPI_SNAPSHOT = Path("/home/pi/daytrader/data/daypi_public.json")
+
+
+@app.get("/api/daypi")
+def daypi():
+    """Spiegelt DayPis welt-lesbares Snapshot (entkoppelte Brücke, kein Cross-User-Key-Zugriff)."""
+    import json as _json
+    try:
+        if not DAYPI_SNAPSHOT.exists():
+            return {"has_data": False, "error": "DayPi-Snapshot noch nicht vorhanden"}
+        with open(DAYPI_SNAPSHOT) as f:
+            return _json.load(f)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 # ─── Static Files & Frontend ─────────────────────────────────
 STATIC_DIR = Path(__file__).parent / "static"
 

@@ -411,6 +411,11 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v18"/><path d="M17 7c-1-1.6-3-2.5-5-2.5C9 4.5 7 6 7 8s2 3 5 3.5S17 13 17 15s-2 3.5-5 3.5c-2 0-4-.9-5-2.5"/></svg>
             DCA
         </div>
+        <div class="nav-section">Schwester-System</div>
+        <div class="nav-item" data-page="daypi" onclick="switchPage('daypi')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
+            DayPi<span class="badge" id="nav-daypi-trades">--</span>
+        </div>
         <div class="nav-section">System</div>
         <a class="nav-item" href="/" style="text-decoration:none;color:inherit">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M9 21V12h6v9"/></svg>
@@ -719,6 +724,35 @@
                 </div>
             </div>
 
+            <div class="page" id="page-daypi">
+                <div class="page-h">
+                    <div>
+                        <h2>DayPi · Intraday-Trader</h2>
+                        <div class="sub" id="daypi-sub">Laden...</div>
+                    </div>
+                    <div class="actions">
+                        <div class="btn" onclick="loadDayPi()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            Refresh
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sys-row" id="daypi-kpis">
+                    <div class="sys-stat"><span class="label">Equity</span><div class="v" id="daypi-equity">--</div><div class="h" id="daypi-account">Paper</div></div>
+                    <div class="sys-stat"><span class="label">Tages-P/L</span><div class="v" id="daypi-daypl">--</div><div class="h" id="daypi-daypl-pct"></div></div>
+                    <div class="sys-stat"><span class="label">Gesamt-P/L</span><div class="v" id="daypi-totalpl">--</div><div class="h" id="daypi-totalpl-pct"></div></div>
+                    <div class="sys-stat"><span class="label">Trades heute</span><div class="v" id="daypi-trades-count">--</div><div class="h">ORB · Stocks-in-Play</div></div>
+                </div>
+
+                <div class="charts-row" style="grid-template-columns:1fr">
+                    <div class="card">
+                        <div class="h"><h3>Trades heute</h3><span class="meta" id="daypi-trades-meta"></span></div>
+                        <div class="body" id="daypi-trades-body"><span class="loading">Laden...</span></div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 </div>
@@ -741,6 +775,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v18"/><path d="M17 7c-1-1.6-3-2.5-5-2.5C9 4.5 7 6 7 8s2 3 5 3.5S17 13 17 15s-2 3.5-5 3.5c-2 0-4-.9-5-2.5"/></svg>
         <span class="mlbl">DCA</span>
     </div>
+    <div class="mtab" data-page="daypi" onclick="switchPage('daypi')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
+        <span class="mlbl">DayPi</span>
+    </div>
     <div class="mtab" data-page="system" onclick="switchPage('system')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
         <span class="mlbl">System</span>
@@ -760,6 +798,7 @@
         portfolio: 'Positionen',
         trades: 'Trade History',
         dca: '50 €/Monat · Sparplan aktiv',
+        daypi: 'Intraday · ORB-Breakout',
         system: 'Raspberry Pi 5'
     };
 
@@ -779,6 +818,7 @@
         const pageName = page.charAt(0).toUpperCase() + page.slice(1);
         crumb.innerHTML = `<b>${pageName}</b><i>·</i><span id="topbar-sub">${crumbTexts[page] || ''}</span>`;
         localStorage.setItem('invest-pi-page', page);
+        if (page === 'daypi') loadDayPi();
     }
     const savedPage = localStorage.getItem('invest-pi-page');
     if (savedPage) switchPage(savedPage);
@@ -1376,10 +1416,54 @@
         } catch(e) { console.error('System:', e); }
     }
 
+    // ─── DayPi (Schwester-System · Intraday) ───
+    async function loadDayPi() {
+        try {
+            const r = await fetch(`${BASE}/daypi`);
+            const d = await r.json();
+            const sub = document.getElementById('daypi-sub');
+            if (d && d.has_data === false) {
+                sub.textContent = 'Noch keine Session — DayPi handelt Mo–Fr ab 15:30 (US-Open).';
+            } else {
+                sub.textContent = `${(d && d.strategy) || 'ORB'} · Stand ${d.updated ? d.updated.slice(11,16) : '--'}`;
+            }
+            document.getElementById('daypi-account').textContent = d.account || 'Paper';
+            document.getElementById('daypi-equity').textContent = fmtUsd(d.equity_usd);
+            const dp = document.getElementById('daypi-daypl');
+            dp.textContent = `${plSign(d.day_pl_usd || 0)}${fmtUsd(d.day_pl_usd)}`;
+            dp.className = `v num ${plCls(d.day_pl_usd)}`;
+            document.getElementById('daypi-daypl-pct').textContent = `${plSign(d.day_pl_pct || 0)}${fmt(d.day_pl_pct)}%`;
+            const tp = document.getElementById('daypi-totalpl');
+            tp.textContent = `${plSign(d.total_pl_usd || 0)}${fmtUsd(d.total_pl_usd)}`;
+            tp.className = `v num ${plCls(d.total_pl_usd)}`;
+            document.getElementById('daypi-totalpl-pct').textContent = `${plSign(d.total_pl_pct || 0)}${fmt(d.total_pl_pct)}%`;
+            document.getElementById('daypi-trades-count').textContent = d.trades_today || 0;
+            document.getElementById('nav-daypi-trades').textContent = d.trades_today || 0;
+            const body = document.getElementById('daypi-trades-body');
+            const meta = document.getElementById('daypi-trades-meta');
+            if (!d.trades || !d.trades.length) {
+                body.innerHTML = '<span class="loading">Noch keine Trades heute.</span>';
+                meta.textContent = '';
+            } else {
+                meta.textContent = `${d.trades.length} heute`;
+                body.innerHTML = d.trades.map(t => {
+                    const side = (t.side || '').toUpperCase();
+                    const sc = side === 'BUY' ? '' : 'neg';
+                    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.06)">
+                        <span style="font-weight:700;min-width:54px">${t.symbol || ''}</span>
+                        <span class="chip ${sc}">${side}</span>
+                        <span class="muted num">${t.qty || 0} @ ${fmtUsd(t.price)}</span>
+                        <span class="muted" style="margin-left:auto">${t.status || ''} · ${t.ts ? t.ts.slice(11, 16) : ''}</span>
+                    </div>`;
+                }).join('');
+            }
+        } catch(e) { console.error('DayPi:', e); }
+    }
+
     // ─── Init ───
     async function loadAll() {
         await Promise.allSettled([loadDashboard(), loadBenchmark()]);
-        await Promise.allSettled([loadPositions(), loadEquityChart(), loadAllocation(), loadPerformance(), loadTrades(), loadDCA(), loadSystem()]);
+        await Promise.allSettled([loadPositions(), loadEquityChart(), loadAllocation(), loadPerformance(), loadTrades(), loadDCA(), loadSystem(), loadDayPi()]);
     }
     loadAll();
     setInterval(loadAll, 60000);
