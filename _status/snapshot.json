@@ -13,28 +13,28 @@
   },
   "git": {
     "branch": "main",
-    "commit": "833d7328",
+    "commit": "bed7cbbc",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 64.45,
+    "cpu_temp_c": 65.0,
     "disk_pct": 42,
-    "load_1min": 0.46,
-    "mem_pct": 34
+    "load_1min": 0.63,
+    "mem_pct": 30
   },
   "last_runs": {
     "run_strategy": null,
-    "score_portfolio": null,
+    "score_portfolio": "Wed 2026-06-17 19:36:45 CEST",
     "sync_positions": "Wed 2026-06-17 19:35:04 CEST",
     "track_outcomes": "Wed 2026-06-17 02:33:00 CEST"
   },
   "predictions": {
     "correct": 14919,
     "incorrect": 2454,
-    "last_24h": 1273,
-    "last_7d": 6319,
-    "pending": 1102,
-    "total": 51300
+    "last_24h": 1275,
+    "last_7d": 6314,
+    "pending": 1108,
+    "total": 51306
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "?",
     "sync": "active"
   },
-  "timestamp_utc": "2026-06-17T17:36:03"
+  "timestamp_utc": "2026-06-17T17:38:10"
 }
