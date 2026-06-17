@@ -1488,9 +1488,10 @@
                         <span class="num ${plCls(p.unrealized_pl)}" style="font-size:12px">${plSign(p.unrealized_pl_pct)}${fmt(p.unrealized_pl_pct)}%</span>
                     </div>
                     ${candleSvg(p.bars, p.entry, p.current)}
-                    <div class="muted num" style="font-size:11px;margin-top:5px;display:flex;gap:14px">
+                    <div class="muted num" style="font-size:11px;margin-top:5px;display:flex;gap:12px;flex-wrap:wrap">
                         <span><span style="color:#6ba0db">━━</span> Einstieg ${fmtUsd(p.entry)}</span>
-                        <span style="margin-left:auto">aktuell ${fmtUsd(p.current)}</span>
+                        <span>aktuell ${fmtUsd(p.current)}</span>
+                        <span style="margin-left:auto">Einsatz ${fmtUsd(Math.abs(p.market_value))} · ${fmt(Math.abs(p.market_value)/(d.equity_usd||1),2)}× Hebel</span>
                     </div>
                 </div>`;
             }).join('') : '<span class="loading">Keine offenen Positionen.</span>';
