@@ -1,0 +1,529 @@
+# investpi — Projekt-Manifest · Single Source of Truth fuer den Canvas
+# REGEL: Aenderungen an Aufbau/Status/Roadmap/Entscheidungen kommen HIER rein, nicht nur in den Chat.
+# Live-Zahlen (KPIs/Positionen) zieht der Generator separat aus DB/Code.
+
+summary: Autonomes Aktien-Trading (Paper über Alpaca). Bewertet jede Aktie laufend mit 20 Kennzahlen,
+  handelt nach Regeln + Sicherheits­bremsen, misst das Ergebnis und lernt daraus — ein geschlossener Kreislauf.
+flow:
+- - Quellen
+  - yfinance · FRED · Google-Trends · Short-Interest
+  - source
+- - heuristic-v5
+  - 20 Dimensionen → Risiko-Score 0–100 (live gewichtet)
+  - engine
+- - Decision Engine
+  - Score + HMM-Regime → Kaufen/Halten/Verkaufen + Positionsgröße
+  - decision
+- - Risk-Limits
+  - Stop-Loss · Cash-Floor · Sektor-Cap · Korrelation · Daily-Loss · Kill-Switch
+  - guard
+- - Alpaca (Paper)
+  - Order-Ausführung, hält die Positionen
+  - broker
+- - Outcome-Messung
+  - 'nach 7 Tagen: war der Score richtig?'
+  - measure
+- - Attribution
+  - welche der 20 Dimensionen haben getroffen?
+  - learn
+- - Weight-Optimizer
+  - Gewichte aus 60-Tage-Attribution anpassen ↺ zurück zu heuristic-v5
+  - learn
+loop:
+  title: Self-Learning
+  center: Risiko-Modell
+  steps:
+  - - Bewerten
+    - jeder Aktie alle 30 Sek eine Risiko-Note geben (19 Kennzahlen, reine Mathematik)
+  - - Handeln
+    - nach den Noten + Sicherheitsregeln kaufen/verkaufen
+  - - Messen
+    - nach 7 Tagen prüfen, ob die Note stimmte
+  - - Auswerten
+    - welche der 19 Kennzahlen haben WIRKLICH gut vorhergesagt?
+  - - Lernen
+    - gute Kennzahlen zählen künftig mehr → Kreislauf beginnt von vorn
+jobs:
+- - Scoring — Aktien bewerten
+  - invest-pi-score · alle 30 Sek
+  - ok
+  - läuft
+- - Strategie — kaufen/verkaufen
+  - invest-pi-strategy-hourly · stündlich
+  - ok
+  - läuft
+- - Rebalance (sell-only)
+  - invest-pi-rebalance · Mo–Fr 21:30
+  - ok
+  - aktiv
+- - Daten-Refresh
+  - invest-pi-sync · alle 30 Min
+  - ok
+  - läuft
+- - Outcome-Messung (7-Tage)
+  - invest-pi-outcomes · täglich
+  - ok
+  - läuft
+- - Gewichts-Optimierung
+  - Lern-Zyklus · aus 60-Tage-Attribution
+  - ok
+  - läuft
+- - Pattern-Mining
+  - invest-pi-patterns
+  - ok
+  - läuft
+- - Regime-Training (HMM)
+  - invest-pi-train-regime
+  - ok
+  - aktiv
+- - Universe-Screener
+  - invest-pi-universe-screener
+  - ok
+  - aktiv
+- - Monats-Sparplan (DCA)
+  - invest-pi-monthly-dca · monatlich
+  - ok
+  - aktiv
+- - Wochen-Mini-Review (Opus)
+  - invest-pi-weekly-mini-review
+  - ok
+  - aktiv
+- - Meta-Review (Opus)
+  - invest-pi-meta-review · monatlich
+  - ok
+  - aktiv
+- - Tagesbericht (Telegram)
+  - invest-pi-daily-report · 18:00
+  - ok
+  - aktiv
+- - Monats-Digest (Telegram)
+  - invest-pi-monthly-digest
+  - ok
+  - aktiv
+- - Backup
+  - invest-pi-backup · täglich
+  - ok
+  - aktiv
+sources:
+- - yfinance
+  - Kurse, Volumen & Fundamentaldaten
+  - extern
+- - FRED
+  - Makro-/Zinsdaten (Wirtschaftslage)
+  - extern
+- - Google Trends
+  - Aufmerksamkeits-Signale
+  - extern
+- - Short-Interest
+  - Leerverkaufs-Quote
+  - extern
+- - Alpaca (Paper)
+  - Broker — führt Trades aus, hält Positionen
+  - broker
+- - 19 Risiko-Dimensionen
+  - intern aus Kursen berechnet
+  - intern
+instances:
+- - heuristic-v5
+  - 'Regel-Engine: 19 Kennzahlen, gratis, im Sekundentakt'
+  - regel
+- - Opus 4.8
+  - strategische Reviews, Pattern-Mining, Meta-Analyse
+  - ki
+- - Claude-Operator
+  - setzt tiefere Verbesserungen mit Mert um
+  - mensch
+views:
+  decision:
+    title: Entscheidungs-Engine
+    intro: Jeder Trading-Lauf (stündlich Mo–Fr) durchläuft erst alle Verkauf-Pässe (Schutz zuerst), dann
+      die Kauf-Pipeline. 13 Pässe, jeder mit eigener Logik.
+    groups:
+    - label: Verkauf-Pässe (zuerst — Schutz)
+      color: '#d77163'
+      cards:
+      - t: 1 · Stop-Loss
+        d: Position unter adaptiver Verlustgrenze → komplett raus.
+        badge: -10% (×0,6–1,8 Vola)
+      - t: 2 · Risk-Sell
+        d: Hoher Risk-Score → anteilig verkaufen, regime-abhängig.
+        badge: nur wenn Signal prädiktiv
+      - t: 3 · Take-Profit
+        d: Gewinne gestaffelt mitnehmen (3 Stufen).
+        badge: +12/+20/+35% · je 20%
+      - t: 4 · Trailing-Stop
+        d: Nach Aktivierung Verkauf bei Rückfall vom Hoch.
+        badge: ab +12%, -8% vom Peak
+      - t: 5 · Portfolio-Derisk
+        d: Bei Gesamt-Drawdown alle Positionen anteilig trimmen.
+        badge: Tier2 -15%→25% · Tier3 -22%→50%
+      - t: 6 · Momentum-Exit
+        d: Totes Kapital mit negativem Momentum liquidieren.
+        badge: 20d-Momentum < 0,2%
+      - t: 7 · Ring-3-Liquidation
+        d: Positionen außerhalb der handelbaren Ringe schließen.
+        badge: max 5/Lauf
+    - label: Kauf-Pipeline (pro Kandidat)
+      color: '#6aa98c'
+      cards:
+      - t: 8a · decide_action
+        d: Score < Schwelle, Alert ok, keine Earnings-Nähe, Ring handelbar → Kauf.
+        badge: Score < buy_max (regime)
+      - t: 8b · size_position
+        d: Zielgröße × 5 Multiplikatoren, dann VaR/Cash/Min-Caps.
+        badge: siehe Sizing-Formel
+      - t: 8c · Risk-Gates
+        d: Cash-Floor, Sektor-Cap, Korrelation, Leverage prüfen.
+        badge: blockiert Kandidat
+      - t: 8d · Ranking
+        d: Kandidaten nach Momentum + Sektor-Momentum − Risk sortieren.
+        badge: Conviction-Rang
+      - t: 8e · LLM-Screen
+        d: 'Optional: Claude prüft Fundamentals/Kontext (kostenbewusst).'
+        badge: Sonnet (optional)
+      - t: 8f · Order
+        d: Limit-Order 0,1% über Mid; Position + Stop + Peak setzen.
+        badge: max 5 offene Positionen
+    - label: Nachkauf-Pässe (Chancen)
+      color: '#6ba0db'
+      cards:
+      - t: 9 · Winner-Scaling
+        d: Gewinner mit positivem Momentum nachkaufen.
+        badge: '>+7% Gain, Alert<2'
+      - t: 10 · Dip-Buying
+        d: Qualitätsaktien im Tages-Dip mean-reversion kaufen.
+        badge: -2,5% Tag, Score<40
+    note: 'Sizing-Formel: target = Ziel-EUR × Konfidenz(0,15–1,0) × Vol-Scaling(0,3–1,0, Ziel-Vola 18%)
+      × Kelly(0,4–1,5) × Conviction(0,5–1,8) × Regime-Hebel(0,7–1,5) — danach gekappt durch VaR (max 2%
+      Portfolio-VaR), Cash (95%) und Mindestgröße 25 €.'
+  protections:
+    title: Schutz-Ebenen
+    intro: 23 Sicherheits-Bremsen in 5 Schichten — von globalen Notbremsen bis zu Einzelpositions-Stops.
+      Alle mit echten Schwellenwerten aus config.yaml + Regime-Profilen.
+    groups:
+    - label: Global — vor JEDER Order (pre_trade_check)
+      color: '#d77163'
+      cards:
+      - t: Kill-Switch
+        d: 'Notfall-Stop: blockiert sämtliche Orders.'
+        badge: Datei data/.KILL
+      - t: Markt-Zeiten
+        d: Handel nur im US-Marktfenster, werktags.
+        badge: 15:30–22:00 CET · Mo–Fr
+      - t: Max-Trades/Tag
+        d: Hard-Cap gegen Overtrading.
+        badge: 15 Trades/Tag
+      - t: Tages-Verlust-Limit
+        d: Stoppt alle neuen Orders bei Tagesverlust.
+        badge: -5%
+      - t: Kosten-Cap (3 Stufen)
+        d: Blockiert teure LLM-Calls bei Budget-Überschreitung.
+        badge: 0,2€/h · 2€/Tag · 50€/Monat
+    - label: Buy-Gate — pro Kauf-Kandidat
+      color: '#d8ab5e'
+      cards:
+      - t: Cash-Floor
+        d: Mindest-Liquidität nach dem Kauf.
+        badge: ≥3% Cash
+      - t: Sektor-Cap
+        d: Klumpenrisiko pro Branche begrenzen.
+        badge: ≤35%/Sektor
+      - t: Korrelations-Check
+        d: Blockt zu ähnliche Titel (rollierend 90T).
+        badge: Ø-Korr ≤0,75
+      - t: Leverage-Cap
+        d: Brutto-Exposure begrenzen.
+        badge: ≤1,5× Equity
+      - t: VaR-Cap
+        d: Positions-VaR am Portfolio begrenzen.
+        badge: ≤2% Portfolio-VaR
+    - label: Position — pro gehaltene Aktie
+      color: '#6aa98c'
+      cards:
+      - t: Stop-Loss (adaptiv)
+        d: Verkauf bei Verlust, Schwelle skaliert mit Vola.
+        badge: -10% × 0,6–1,8
+      - t: Take-Profit (3 Stufen)
+        d: Gewinne gestaffelt sichern.
+        badge: +12/+20/+35% · Full +25%
+      - t: Trailing-Stop
+        d: Gewinnschutz nach Aktivierung.
+        badge: ab +12%, -8% vom Hoch
+      - t: ATR-Stop-Update
+        d: Technischer Stop, gegen Rauschen.
+        badge: 2× ATR (20T)
+    - label: Portfolio — Gesamtdepot
+      color: '#6ba0db'
+      cards:
+      - t: Drawdown-Circuit-Breaker
+        d: Gestaffelte Entrisikung bei Depot-Drawdown.
+        badge: T1 -8% · T2 -15% · T3 -22%
+      - t: Derisk-Cooldown
+        d: Verhindert Verkaufs-Spirale.
+        badge: 48h Sperre
+      - t: Risk-Sell (regime-aware)
+        d: Weniger aggressiv in Bull-, hart in Bär-Märkten.
+        badge: 'Bull: Alert3+85 · Bear: Alert3'
+      - t: Predictive-Gate
+        d: Risk-Sell nur wenn Warnsignale echt vorhersagen.
+        badge: Self-Healing
+    - label: Betrieb
+      color: '#828791'
+      cards:
+      - t: Stale-Order-Cleanup
+        d: Bricht alte, nicht ausgeführte Orders ab.
+        badge: '>4h alt'
+      - t: Regime-Rebalance
+        d: Passt Profil bei Regimewechsel an.
+        badge: bei HMM-Wechsel
+      - t: Fail-Safe Korrelation
+        d: Bei Datenfehler konservativ blocken.
+        badge: default = blockieren
+  learning:
+    title: Self-Learning-System
+    intro: '12 Module bilden den Lern-Kreislauf: Bewerten → Messen → Attribution → Gewichte/Config/Code
+      anpassen. Sicher durch Backtest-Gate, pytest und Auto-Rollback.'
+    groups:
+    - label: Messen & Auswerten
+      color: '#c98fd0'
+      cards:
+      - t: Outcomes
+        d: Misst nach 1/7/30 Tagen, ob die Risiko-Note stimmte.
+        badge: täglich 02:30
+      - t: Reflection
+        d: 'Nach jeder Messung: welche Dimension war schuld (Blame)?'
+        badge: je Outcome
+      - t: Attribution
+        d: Welche Dimension trennt Gewinner/Verlierer wirklich (Separation vs. Forward-Return)?
+        badge: 60-Tage-Fenster
+      - t: Calibration
+        d: Baut den Lern-Kontext für den nächsten Score-Prompt (Hit-Rate, Reflexionen, Regime).
+        badge: je Score
+    - label: Anpassen
+      color: '#5cc093'
+      cards:
+      - t: Weight-Optimizer
+        d: Setzt die 20 Dimensions-Gewichte neu (70% empirisch / 30% Default).
+        badge: max ±0,15/Lauf
+      - t: Config-Patcher
+        d: Wendet maschinenlesbare Config-Änderungen aus dem Meta-Review an.
+        badge: validiert + geloggt
+      - t: Code-Evolver
+        d: Opus kann echten Code patchen — mit pytest-Test + Auto-Rollback.
+        badge: 15 erlaubte Dateien, max 3
+      - t: Backtest-Gate
+        d: 'Aktiver Wächter: blockt Config-Patches, die im 6-Mon-Backtest schaden.'
+        badge: Sharpe ≥80%, DD ≤130%
+    - label: Markt-Modell
+      color: '#6ba0db'
+      cards:
+      - t: Regime (HMM)
+        d: '3-Zustands-HMM auf SPY+VIX: low_vol_bull / high_vol_mixed / bear.'
+        badge: wöchentlich Sa 05:00
+      - t: Regime-Tracker
+        d: Snapshot des Regimes je Vorhersage + Hit-Rate je Regime.
+        badge: je Prediction
+      - t: Pattern-Miner
+        d: Findet Vor-Drawdown-Muster in 5-Jahres-Historie.
+        badge: monatlich
+      - t: Correlation
+        d: 'Portfolio-Diversifikation: Cluster-Risiko über 60T.'
+        badge: Cluster bei >0,8
+    note: 'Kern-Innovation: Attribution misst nicht ''war korrekt'' (Basisrate-Falle), sondern die ECHTE
+      Trennschärfe gegen 7-Tage-Forward-Returns. Gewichte konvergieren über Wochen (±0,15/Lauf) statt
+      radikaler Sprünge.'
+  dbs:
+    title: Daten & Datenbanken
+    intro: 5 getrennte SQLite-Datenbanken (WAL-Modus) — entkoppelt für Backup-Granularität. Die predictions-Tabelle
+      ist der Anker des Self-Learning.
+    cards:
+    - t: trading.db
+      d: Das Paper-Konto & die Ausführung.
+      tables:
+      - positions
+      - trades
+      - equity_snapshots
+    - t: learning.db
+      d: Herz des Self-Learning — jede Vorhersage + Auswertung.
+      tables:
+      - predictions
+      - reflections
+      - weight_snapshots
+      - regime_snapshots
+      - meta_reviews
+      - config_patch_log
+      - strategic_recommendations
+      - cost_ledger
+      - feedback_reasons
+      - kv_store
+    - t: market.db
+      d: Kurs- & Fundamentaldaten-Cache (yfinance).
+      tables:
+      - prices
+      - fundamentals
+    - t: alerts.db
+      d: Risiko-Scores & versendete Benachrichtigungen.
+      tables:
+      - risk_scores
+      - notifications
+    - t: patterns.db
+      d: Historische Drawdown-Muster (ML-Input).
+      tables:
+      - drawdown_events
+      - pre_drawdown_features
+  signals:
+    title: Signal-Module
+    intro: Eigenständige Module, die externe Lage-Signale berechnen und in die Risiko-Dimensionen einfließen.
+    cards:
+    - t: FRED-Makro
+      d: Zinskurve, BBB-Credit-Spread, Dollar, Breakeven-Inflation, VIX-Cross-Check.
+      badge: FRED API · 6h-Cache
+    - t: Markt-Breadth
+      d: SPY vs. RSP (Equal-Weight) + % der Titel über MA200 — wie breit trägt der Markt?
+      badge: 6h-Cache
+    - t: Sentiment (VADER)
+      d: News-Schlagzeilen regelbasiert bewerten (kein ML nötig).
+      badge: yfinance News
+    - t: Earnings
+      d: Nächster/letzter Earnings-Termin → Event-Risiko & PEAD-Drift.
+      badge: yfinance Kalender
+  broker:
+    title: Ausführung & Broker
+    intro: 'Broker-blinde Architektur: die Strategie kennt nur ein Adapter-Interface. Standard ist Alpaca
+      Paper; ein Mock-Broker dient Tests.'
+    cards:
+    - t: Adapter-Interface
+      d: 'Einheitliche Methoden: get_account, get_positions, get_quote, place_order, cancel_order.'
+      badge: base.py
+    - t: Alpaca (Paper)
+      d: Echtes Paper-Trading; Market-/Limit-Orders, Extended-Hours; Quotes mit yfinance-Fallback.
+      badge: paper-api.alpaca.markets
+    - t: Mock-Broker
+      d: In-Memory-Simulation, 0% Slippage, sofortige Fills — für Tests/Backtests.
+      badge: mock.py
+    - t: FX-Schicht
+      d: Intern EUR, USD in Snapshots; EUR/USD-Kurs 1×/Tag aus yfinance.
+      badge: fx.py · Cache 24h
+    - t: Retry
+      d: Alle Broker-Calls mit 3 Versuchen (exponentielles Warten).
+      badge: '@api_retry'
+  jobs2:
+    title: Automatisierung — 22 Timer
+    intro: systemd-Timer orchestrieren alles cron-artig — vom Sekundentakt bis monatlich. Gruppiert nach
+      Funktion.
+    groups:
+    - label: Trading
+      color: '#6aa98c'
+      cards:
+      - t: strategy-hourly
+        d: 'Autonomes Handeln: Buy/Sell/Stops.'
+        badge: Mo–Fr stündl. 10–21
+      - t: rebalance
+        d: Sell-only Pass (Stop/TP) zum Close.
+        badge: Mo–Fr 21:30
+      - t: rotation
+        d: 'Portfolio-Rotation: schwach raus, stark rein.'
+        badge: Sa 12:00
+      - t: monthly-dca
+        d: Monatlicher Sparplan-Pick.
+        badge: 1. d. Monats 14:00
+      - t: dca-watchdog
+        d: Überwacht DCA-Positionen auf Probleme.
+        badge: täglich 18:00
+    - label: Lernen
+      color: '#c98fd0'
+      cards:
+      - t: score
+        d: Risk-Scoring aller Titel + Universe-Scan.
+        badge: stündlich :30
+      - t: outcomes
+        d: Outcome-Messung + Drift-Erkennung.
+        badge: täglich 02:30
+      - t: train-regime
+        d: HMM-Regime-Modell neu trainieren.
+        badge: Sa 05:00
+      - t: patterns
+        d: Drawdown-Muster-Bibliothek aktualisieren.
+        badge: 1. d. Monats 03:00
+      - t: meta-review
+        d: Opus-Tiefenanalyse + Config/Code-Patches.
+        badge: 2. d. Monats 04:00
+      - t: universe-screener
+        d: Neue Kandidaten screenen.
+        badge: 1. d. Monats 06:00
+    - label: Reports
+      color: '#d8ab5e'
+      cards:
+      - t: daily-report
+        d: Tages-Performance via Telegram.
+        badge: täglich 21:30
+      - t: weekly-mini-review
+        d: Sonnet-Wochenanalyse.
+        badge: So 10:00
+      - t: weekly-recap
+        d: Wochen-Recap (Hit-Rate, Best/Worst).
+        badge: So 19:00
+      - t: monthly-digest
+        d: Monatlicher Verbesserungs-Digest.
+        badge: 3. d. Monats 09:00
+    - label: Daten
+      color: '#6ba0db'
+      cards:
+      - t: sync
+        d: Broker → DB Sync + Equity-Snapshot.
+        badge: stündlich :35
+      - t: status-push
+        d: Status/Equity nach Telegram & GitHub.
+        badge: alle 2 Min
+      - t: auto-pull
+        d: Git-Pull = Auto-Deploy in <2 Min.
+        badge: alle 2 Min
+    - label: Infrastruktur
+      color: '#828791'
+      cards:
+      - t: operator
+        d: System-Health-Check + Auto-Fixes vor Open.
+        badge: täglich 13:00
+      - t: hardware
+        d: CPU/Disk/RAM-Check mit Alert.
+        badge: alle 30 Min
+      - t: backup
+        d: DB-Backup (lokal + optional restic).
+        badge: täglich 03:30
+      - t: telegram-callbacks
+        d: Verarbeitet Telegram-Eingaben.
+        badge: alle 60s
+tech:
+- - Sprache
+  - Python 3.11 (nativ, kein Docker)
+- - Datenhaltung
+  - 5× SQLite — trading, learning, market, alerts, patterns
+- - Scheduling
+  - 17 systemd-Timer · User investpi
+- - Marktdaten
+  - yfinance · fredapi (FRED)
+- - ML / Regime
+  - hmmlearn (HMM) · scikit-learn · Hurst/VaR eigen
+- - Broker
+  - Alpaca SDK (Paper-Account)
+- - Alerts
+  - Telegram Bot API
+- - Risiko-Engine
+  - heuristic-v5 · 20 gewichtete Dimensionen
+- - KI-Reviews
+  - Claude Opus 4.8 (wöchentlich/monatlich)
+- - Deploy
+  - git auto-pull alle 2 Min → push = Live in <2 Min
+protections:
+- Stop-Loss
+- Trailing-Stop
+- Take-Profit
+- Drawdown-Bremse
+- Kill-Switch
+- Cash-Reserve
+- Sektor-Limit
+- Korrelations-Check
+- Tages-Verlust-Limit
+notes: 'EUR-denominiert, Paper-Trading. Ziel: maximale absolute Rendite — aber mit Risiko­abwägung, nicht
+  gepokert. Die 20 Dimensions-Gewichte werden vom Lern-Loop aus 60-Tage-Attribution laufend auto-optimiert
+  (heute zuletzt nachjustiert).'
