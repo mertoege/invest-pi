@@ -1487,6 +1487,12 @@
     }
     loadAll();
     setInterval(loadAll, 60000);
+
+    // Live-Refresh DayPi: alle 2 Sek. — aber nur wenn der DayPi-Tab offen UND der Browser-Tab sichtbar ist
+    setInterval(() => {
+        const dp = document.getElementById('page-daypi');
+        if (dp && dp.classList.contains('active') && !document.hidden) loadDayPi();
+    }, 2000);
 </script>
 </body>
 </html>
