@@ -741,14 +741,19 @@
                 <div class="sys-row" id="daypi-kpis">
                     <div class="sys-stat"><span class="label">Equity</span><div class="v" id="daypi-equity">--</div><div class="h" id="daypi-account">Paper</div></div>
                     <div class="sys-stat"><span class="label">Tages-P/L</span><div class="v" id="daypi-daypl">--</div><div class="h" id="daypi-daypl-pct"></div></div>
-                    <div class="sys-stat"><span class="label">Gesamt-P/L</span><div class="v" id="daypi-totalpl">--</div><div class="h" id="daypi-totalpl-pct"></div></div>
-                    <div class="sys-stat"><span class="label">Trades heute</span><div class="v" id="daypi-trades-count">--</div><div class="h">ORB · Stocks-in-Play</div></div>
+                    <div class="sys-stat"><span class="label">Realisiert heute</span><div class="v" id="daypi-realized">--</div><div class="h">geschlossene Trades</div></div>
+                    <div class="sys-stat"><span class="label">Offen (unrealisiert)</span><div class="v" id="daypi-unrealized">--</div><div class="h" id="daypi-openinfo">Positionen</div></div>
+                    <div class="sys-stat"><span class="label">Hebel (brutto)</span><div class="v" id="daypi-leverage">--</div><div class="h">Cap ≤ 2×</div></div>
                 </div>
 
-                <div class="charts-row" style="grid-template-columns:1fr">
+                <div class="charts-row" style="grid-template-columns:1fr 1fr">
                     <div class="card">
-                        <div class="h"><h3>Trades heute</h3><span class="meta" id="daypi-trades-meta"></span></div>
-                        <div class="body" id="daypi-trades-body"><span class="loading">Laden...</span></div>
+                        <div class="h"><h3>Aktive Trades</h3><span class="meta" id="daypi-active-meta"></span></div>
+                        <div class="body" id="daypi-active-body"><span class="loading">Laden...</span></div>
+                    </div>
+                    <div class="card">
+                        <div class="h"><h3>Abgeschlossen heute</h3><span class="meta" id="daypi-closed-meta"></span></div>
+                        <div class="body" id="daypi-closed-body"><span class="loading">Laden...</span></div>
                     </div>
                 </div>
             </div>
@@ -1427,36 +1432,51 @@
             } else {
                 sub.textContent = `${(d && d.strategy) || 'ORB'} · Stand ${d.updated ? d.updated.slice(11,16) : '--'}`;
             }
+            if (d.alpaca_live === false && d.has_data !== false) {
+                document.getElementById('daypi-sub').textContent += ' · (Broker offline — DB-Stand)';
+            }
             document.getElementById('daypi-account').textContent = d.account || 'Paper';
             document.getElementById('daypi-equity').textContent = fmtUsd(d.equity_usd);
-            const dp = document.getElementById('daypi-daypl');
-            dp.textContent = `${plSign(d.day_pl_usd || 0)}${fmtUsd(d.day_pl_usd)}`;
-            dp.className = `v num ${plCls(d.day_pl_usd)}`;
+            const setPL = (id, usd) => {
+                const el = document.getElementById(id);
+                el.textContent = `${plSign(usd || 0)}${fmtUsd(usd)}`;
+                el.className = `v num ${plCls(usd)}`;
+            };
+            setPL('daypi-daypl', d.day_pl_usd);
             document.getElementById('daypi-daypl-pct').textContent = `${plSign(d.day_pl_pct || 0)}${fmt(d.day_pl_pct)}%`;
-            const tp = document.getElementById('daypi-totalpl');
-            tp.textContent = `${plSign(d.total_pl_usd || 0)}${fmtUsd(d.total_pl_usd)}`;
-            tp.className = `v num ${plCls(d.total_pl_usd)}`;
-            document.getElementById('daypi-totalpl-pct').textContent = `${plSign(d.total_pl_pct || 0)}${fmt(d.total_pl_pct)}%`;
-            document.getElementById('daypi-trades-count').textContent = d.trades_today || 0;
-            document.getElementById('nav-daypi-trades').textContent = d.trades_today || 0;
-            const body = document.getElementById('daypi-trades-body');
-            const meta = document.getElementById('daypi-trades-meta');
-            if (!d.trades || !d.trades.length) {
-                body.innerHTML = '<span class="loading">Noch keine Trades heute.</span>';
-                meta.textContent = '';
-            } else {
-                meta.textContent = `${d.trades.length} heute`;
-                body.innerHTML = d.trades.map(t => {
-                    const side = (t.side || '').toUpperCase();
-                    const sc = side === 'BUY' ? '' : 'neg';
-                    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.06)">
-                        <span style="font-weight:700;min-width:54px">${t.symbol || ''}</span>
-                        <span class="chip ${sc}">${side}</span>
-                        <span class="muted num">${t.qty || 0} @ ${fmtUsd(t.price)}</span>
-                        <span class="muted" style="margin-left:auto">${t.status || ''} · ${t.ts ? t.ts.slice(11, 16) : ''}</span>
-                    </div>`;
-                }).join('');
-            }
+            setPL('daypi-realized', d.realized_today_usd);
+            setPL('daypi-unrealized', d.unrealized_pl_usd);
+            document.getElementById('daypi-openinfo').textContent = `${d.open_positions || 0} Positionen`;
+            document.getElementById('daypi-leverage').textContent = `${fmt(d.leverage_x || 0, 2)}×`;
+            document.getElementById('nav-daypi-trades').textContent = d.open_positions || 0;
+
+            // Aktive Trades (offene Positionen, Live-P/L)
+            const ab = document.getElementById('daypi-active-body'), am = document.getElementById('daypi-active-meta');
+            const pos = d.positions || [];
+            am.textContent = pos.length ? `${pos.length} offen` : '';
+            ab.innerHTML = pos.length ? pos.map(p => {
+                const long = p.side === 'long';
+                return `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,.06)">
+                    <span class="chip ${long ? '' : 'neg'}">${long ? 'LONG' : 'SHORT'}</span>
+                    <span style="font-weight:700;min-width:50px">${p.symbol}</span>
+                    <span class="muted num" style="font-size:11.5px">${fmt(p.qty, 0)} @ ${fmtUsd(p.entry)} → ${fmtUsd(p.current)}</span>
+                    <span class="num ${plCls(p.unrealized_pl)}" style="margin-left:auto;font-weight:700">${plSign(p.unrealized_pl)}${fmtUsd(p.unrealized_pl)}</span>
+                    <span class="num ${plCls(p.unrealized_pl)}" style="min-width:52px;text-align:right">${plSign(p.unrealized_pl_pct)}${fmt(p.unrealized_pl_pct)}%</span>
+                </div>`;
+            }).join('') : '<span class="loading">Keine offenen Positionen.</span>';
+
+            // Abgeschlossen heute (realisierter P/L)
+            const cb = document.getElementById('daypi-closed-body'), cm = document.getElementById('daypi-closed-meta');
+            const cl = d.closed_trades || [];
+            const wins = cl.filter(c => c.realized_pl > 0).length;
+            cm.textContent = cl.length ? `${cl.length} · ${wins} im Plus` : '';
+            cb.innerHTML = cl.length ? cl.map(c => {
+                return `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,.06)">
+                    <span style="font-weight:700;min-width:50px">${c.symbol}</span>
+                    <span class="muted num" style="font-size:11.5px">${fmt(c.qty, 0)} Stück</span>
+                    <span class="num ${plCls(c.realized_pl)}" style="margin-left:auto;font-weight:700">${plSign(c.realized_pl)}${fmtUsd(c.realized_pl)}</span>
+                </div>`;
+            }).join('') : '<span class="loading">Noch nichts geschlossen.</span>';
         } catch(e) { console.error('DayPi:', e); }
     }
 
