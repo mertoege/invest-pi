@@ -746,11 +746,11 @@
                     <div class="sys-stat"><span class="label">Hebel (brutto)</span><div class="v" id="daypi-leverage">--</div><div class="h">Cap ≤ 2×</div></div>
                 </div>
 
-                <div class="charts-row" style="grid-template-columns:1fr 1fr">
-                    <div class="card">
-                        <div class="h"><h3>Aktive Trades</h3><span class="meta" id="daypi-active-meta"></span></div>
-                        <div class="body" id="daypi-active-body"><span class="loading">Laden...</span></div>
-                    </div>
+                <div class="card" style="margin-bottom:14px">
+                    <div class="h"><h3>Aktive Trades — Live-Charts</h3><span class="meta" id="daypi-active-meta"></span></div>
+                    <div class="body"><div id="daypi-active-charts" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px"><span class="loading">Laden...</span></div></div>
+                </div>
+                <div class="charts-row" style="grid-template-columns:1fr">
                     <div class="card">
                         <div class="h"><h3>Abgeschlossen heute</h3><span class="meta" id="daypi-closed-meta"></span></div>
                         <div class="body" id="daypi-closed-body"><span class="loading">Laden...</span></div>
@@ -1422,6 +1422,29 @@
     }
 
     // ─── DayPi (Schwester-System · Intraday) ───
+    // Kerzenchart als SVG (abhängigkeitsfrei) · bars = [[t,o,h,l,c], ...]
+    function candleSvg(bars, entry, current) {
+        if (!bars || !bars.length) return '<div class="loading" style="padding:26px 0;text-align:center">keine Kursdaten</div>';
+        const W = 600, H = 150, padT = 6, padB = 4, padL = 1;
+        let max = Math.max(...bars.map(b => b[2])), min = Math.min(...bars.map(b => b[3]));
+        if (entry) { max = Math.max(max, entry); min = Math.min(min, entry); }
+        if (current) { max = Math.max(max, current); min = Math.min(min, current); }
+        const rng = (max - min) || 1; max += rng * 0.06; min -= rng * 0.06;
+        const Y = v => padT + (max - v) / (max - min) * (H - padT - padB);
+        const n = bars.length, cw = (W - padL) / n, bw = Math.max(1.2, cw * 0.62);
+        let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="display:block">`;
+        if (entry) { const y = Y(entry); s += `<line x1="0" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}" stroke="#6ba0db" stroke-width="1" stroke-dasharray="5 3"/>`; }
+        if (current) { const y = Y(current); s += `<line x1="0" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}" stroke="#e8eaed" stroke-width="1" opacity="0.45"/>`; }
+        bars.forEach((b, i) => {
+            const o = b[1], hi = b[2], lo = b[3], c = b[4];
+            const x = padL + i * cw + cw / 2;
+            const col = c >= o ? '#5cc093' : '#d77163';
+            s += `<line x1="${x.toFixed(1)}" y1="${Y(hi).toFixed(1)}" x2="${x.toFixed(1)}" y2="${Y(lo).toFixed(1)}" stroke="${col}" stroke-width="1"/>`;
+            const yo = Y(o), yc = Y(c), top = Math.min(yo, yc), bh = Math.max(1, Math.abs(yo - yc));
+            s += `<rect x="${(x - bw / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${col}"/>`;
+        });
+        return s + `</svg>`;
+    }
     async function loadDayPi() {
         try {
             const r = await fetch(`${BASE}/daypi`);
@@ -1450,18 +1473,25 @@
             document.getElementById('daypi-leverage').textContent = `${fmt(d.leverage_x || 0, 2)}×`;
             document.getElementById('nav-daypi-trades').textContent = d.open_positions || 0;
 
-            // Aktive Trades (offene Positionen, Live-P/L)
-            const ab = document.getElementById('daypi-active-body'), am = document.getElementById('daypi-active-meta');
+            // Aktive Trades — Live-Kerzencharts je offener Position
+            const ac = document.getElementById('daypi-active-charts'), am = document.getElementById('daypi-active-meta');
             const pos = d.positions || [];
-            am.textContent = pos.length ? `${pos.length} offen` : '';
-            ab.innerHTML = pos.length ? pos.map(p => {
+            am.textContent = pos.length ? `${pos.length} offen${d.alpaca_live === false ? ' · (offline)' : ''}` : '';
+            ac.innerHTML = pos.length ? pos.map(p => {
                 const long = p.side === 'long';
-                return `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,.06)">
-                    <span class="chip ${long ? '' : 'neg'}">${long ? 'LONG' : 'SHORT'}</span>
-                    <span style="font-weight:700;min-width:50px">${p.symbol}</span>
-                    <span class="muted num" style="font-size:11.5px">${fmt(p.qty, 0)} @ ${fmtUsd(p.entry)} → ${fmtUsd(p.current)}</span>
-                    <span class="num ${plCls(p.unrealized_pl)}" style="margin-left:auto;font-weight:700">${plSign(p.unrealized_pl)}${fmtUsd(p.unrealized_pl)}</span>
-                    <span class="num ${plCls(p.unrealized_pl)}" style="min-width:52px;text-align:right">${plSign(p.unrealized_pl_pct)}${fmt(p.unrealized_pl_pct)}%</span>
+                return `<div style="border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:11px;background:rgba(255,255,255,.015)">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                        <span class="chip ${long ? '' : 'neg'}">${long ? 'LONG' : 'SHORT'}</span>
+                        <span style="font-weight:700;font-size:15px">${p.symbol}</span>
+                        <span class="muted num" style="font-size:11px">${fmt(p.qty, 0)} Stk</span>
+                        <span class="num ${plCls(p.unrealized_pl)}" style="margin-left:auto;font-weight:700;font-size:15px">${plSign(p.unrealized_pl)}${fmtUsd(p.unrealized_pl)}</span>
+                        <span class="num ${plCls(p.unrealized_pl)}" style="font-size:12px">${plSign(p.unrealized_pl_pct)}${fmt(p.unrealized_pl_pct)}%</span>
+                    </div>
+                    ${candleSvg(p.bars, p.entry, p.current)}
+                    <div class="muted num" style="font-size:11px;margin-top:5px;display:flex;gap:14px">
+                        <span><span style="color:#6ba0db">━━</span> Einstieg ${fmtUsd(p.entry)}</span>
+                        <span style="margin-left:auto">aktuell ${fmtUsd(p.current)}</span>
+                    </div>
                 </div>`;
             }).join('') : '<span class="loading">Keine offenen Positionen.</span>';
 
