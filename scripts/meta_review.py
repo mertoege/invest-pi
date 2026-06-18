@@ -424,10 +424,18 @@ def run(job_source: str, dry_run: bool = False) -> dict:
                          s.get("description"), s.get("effort"), s.get("expected_impact")),
                     )
             high_impact = [s for s in strategic if s.get("expected_impact") == "hoch"]
-            if high_impact:
-                strategic_summary = f"\nStrategisch: {len(strategic)} Empfehlungen ({len(high_impact)} high-impact)"
-            else:
-                strategic_summary = f"\nStrategisch: {len(strategic)} Empfehlungen"
+            # Inhalt (Titel) mitschicken, nicht nur die Anzahl — sonst sieht Mert
+            # die Vorschlaege nie ohne DB-Zugriff. High-impact zuerst, max 5.
+            shown = high_impact or strategic
+            titles = "\n".join(
+                f"  • {s.get('title', '?')}"
+                + (f" [{s.get('effort')}]" if s.get('effort') else "")
+                for s in shown[:5]
+            )
+            strategic_summary = (
+                f"\nStrategisch: {len(strategic)} Empfehlungen "
+                f"({len(high_impact)} high-impact):\n{titles}"
+            )
         except Exception as e:
             log.warning(f"strategic recommendations save failed: {e}")
             strategic_summary = f"\nStrategisch: {len(strategic)} (DB-Save fehlgeschlagen)"
