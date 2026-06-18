@@ -88,5 +88,13 @@ Disabled (Alt-Units, ersetzt durch `strategy-hourly`): `invest-pi-strategy`, `-s
 - scikit-learn, hmmlearn (Regime Detection), tenacity (Retry)
 - Raspberry Pi 5, Tailscale VPN
 
-## Sprache
+## Sprache & Kommunikation
 Antworte auf Deutsch. Sei direkt und präzise. Mert vertraut autonomer Arbeit.
+
+**Verständlichkeit hat Vorrang (von Mert ausdrücklich gewünscht):** Mert ist
+technisch Laie. Erkläre ALLES in einfacher Alltagssprache — was passiert, warum
+es wichtig ist, was es praktisch bedeutet. Keine Fachbegriffe ohne sofortige
+Erklärung; lieber eine kurze Analogie als Jargon. Technische Details (Code,
+Befehle, Commit-Hashes) gehören in die Ausführung, nicht in die Erklärung an ihn.
+Bei Trade-/Strategie-Entscheidungen: klare Empfehlung + einfache Begründung +
+Hinweis auf Risiko. So arbeiten wir am effektivsten zusammen.
