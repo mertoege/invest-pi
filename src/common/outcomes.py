@@ -458,9 +458,12 @@ def detect_drift(job_source: str = "daily_score",
     Vergleicht hit-rate der letzten N Tage mit der davor.
     Liefert Warning-Dict wenn Delta größer als Threshold, sonst None.
     """
-    recent = hit_rate(job_source, days=window_days)
+    # by_measured=True: nach MESS-Datum filtern, nicht Erstell-Datum. Sonst sind
+    # die Predictions der letzten N Tage wegen des 7d-Outcome-Horizonts fast nie
+    # schon gemessen -> measured==0 -> detect_drift liefert immer None ({}).
+    recent = hit_rate(job_source, days=window_days, by_measured=True)
     # Prior window: simulieren über zwei mal window mit Subtraktion
-    full = hit_rate(job_source, days=window_days * 2)
+    full = hit_rate(job_source, days=window_days * 2, by_measured=True)
 
     if recent["measured"] == 0 or full["measured"] == 0:
         return None
