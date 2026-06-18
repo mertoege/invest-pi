@@ -741,19 +741,29 @@
                 <div class="sys-row" id="daypi-kpis">
                     <div class="sys-stat"><span class="label">Equity</span><div class="v" id="daypi-equity">--</div><div class="h" id="daypi-account">Paper</div></div>
                     <div class="sys-stat"><span class="label">Tages-P/L</span><div class="v" id="daypi-daypl">--</div><div class="h" id="daypi-daypl-pct"></div></div>
-                    <div class="sys-stat"><span class="label">Realisiert heute</span><div class="v" id="daypi-realized">--</div><div class="h">geschlossene Trades</div></div>
+                    <div class="sys-stat"><span class="label">Gesamt-P/L</span><div class="v" id="daypi-totalpl">--</div><div class="h" id="daypi-totalpl-pct">seit Start</div></div>
+                    <div class="sys-stat"><span class="label">Realisiert heute</span><div class="v" id="daypi-realized">--</div><div class="h" id="daypi-realized-info">geschlossene Trades</div></div>
                     <div class="sys-stat"><span class="label">Offen (unrealisiert)</span><div class="v" id="daypi-unrealized">--</div><div class="h" id="daypi-openinfo">Positionen</div></div>
                     <div class="sys-stat"><span class="label">Hebel (brutto)</span><div class="v" id="daypi-leverage">--</div><div class="h">Cap ≤ 2×</div></div>
+                </div>
+
+                <div class="card" style="margin-bottom:14px">
+                    <div class="h"><h3>Equity-Verlauf heute</h3><span class="meta" id="daypi-curve-meta"></span></div>
+                    <div class="body"><div id="daypi-equity-curve"><span class="loading">Laden...</span></div></div>
                 </div>
 
                 <div class="card" style="margin-bottom:14px">
                     <div class="h"><h3>Aktive Trades — Live-Charts</h3><span class="meta" id="daypi-active-meta"></span></div>
                     <div class="body"><div id="daypi-active-charts" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px"><span class="loading">Laden...</span></div></div>
                 </div>
-                <div class="charts-row" style="grid-template-columns:1fr">
+                <div class="charts-row" style="grid-template-columns:1fr 1fr">
                     <div class="card">
                         <div class="h"><h3>Abgeschlossen heute</h3><span class="meta" id="daypi-closed-meta"></span></div>
                         <div class="body" id="daypi-closed-body"><span class="loading">Laden...</span></div>
+                    </div>
+                    <div class="card">
+                        <div class="h"><h3>Letzte Signale</h3><span class="meta" id="daypi-signals-meta">Marktzeit (US)</span></div>
+                        <div class="body" id="daypi-signals-body"><span class="loading">Laden...</span></div>
                     </div>
                 </div>
             </div>
@@ -1445,6 +1455,27 @@
         });
         return s + `</svg>`;
     }
+    // Equity-Verlauf als gefüllte SVG-Linie · curve = [{ts, equity}, ...]
+    function equitySvg(curve, dayStart) {
+        if (!curve || curve.length < 2) return '<div class="loading" style="padding:40px 0;text-align:center">Verlauf erscheint, sobald DayPi heute handelt.</div>';
+        const W = 600, H = 170, padT = 10, padB = 10;
+        const vals = curve.map(p => p.equity);
+        let max = Math.max(...vals), min = Math.min(...vals);
+        if (dayStart) { max = Math.max(max, dayStart); min = Math.min(min, dayStart); }
+        const rng = (max - min) || 1; max += rng * 0.10; min -= rng * 0.10;
+        const X = i => (i / (curve.length - 1)) * W;
+        const Y = v => padT + (max - v) / (max - min) * (H - padT - padB);
+        const last = vals[vals.length - 1];
+        const up = dayStart != null ? last >= dayStart : true;
+        const col = up ? '#5cc093' : '#d77163';
+        const line = curve.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(p.equity).toFixed(1)}`).join(' ');
+        let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="display:block">`;
+        s += `<defs><linearGradient id="dpgrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity="0.22"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>`;
+        if (dayStart != null) { const y = Y(dayStart); s += `<line x1="0" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}" stroke="#e8eaed" stroke-width="1" stroke-dasharray="5 3" opacity="0.35"/>`; }
+        s += `<path d="${line} L${W} ${H} L0 ${H} Z" fill="url(#dpgrad)"/>`;
+        s += `<path d="${line}" fill="none" stroke="${col}" stroke-width="1.8"/>`;
+        return s + `</svg>`;
+    }
     async function loadDayPi() {
         try {
             const r = await fetch(`${BASE}/daypi`);
@@ -1467,11 +1498,22 @@
             };
             setPL('daypi-daypl', d.day_pl_usd);
             document.getElementById('daypi-daypl-pct').textContent = `${plSign(d.day_pl_pct || 0)}${fmt(d.day_pl_pct)}%`;
+            setPL('daypi-totalpl', d.total_pl_usd);
+            const tpct = document.getElementById('daypi-totalpl-pct');
+            tpct.textContent = `seit Start · ${plSign(d.total_pl_pct || 0)}${fmt(d.total_pl_pct)}%`;
             setPL('daypi-realized', d.realized_today_usd);
+            document.getElementById('daypi-realized-info').textContent = `${d.trades_today || 0} Einstiege heute`;
             setPL('daypi-unrealized', d.unrealized_pl_usd);
             document.getElementById('daypi-openinfo').textContent = `${d.open_positions || 0} Positionen`;
             document.getElementById('daypi-leverage').textContent = `${fmt(d.leverage_x || 0, 2)}×`;
             document.getElementById('nav-daypi-trades').textContent = d.open_positions || 0;
+
+            // Equity-Verlauf heute (Tagesstart = aktuelle Equity − Tages-P/L)
+            const curve = d.equity_curve || [];
+            const dayStart = (d.equity_usd != null && d.day_pl_usd != null) ? d.equity_usd - d.day_pl_usd : null;
+            document.getElementById('daypi-equity-curve').innerHTML = equitySvg(curve, dayStart);
+            const cmEl = document.getElementById('daypi-curve-meta');
+            cmEl.textContent = curve.length >= 2 ? `${curve.length} Punkte · ${curve[0].ts.slice(11,16)}–${curve[curve.length-1].ts.slice(11,16)}` : '';
 
             // Aktive Trades — Live-Kerzencharts je offener Position
             const ac = document.getElementById('daypi-active-charts'), am = document.getElementById('daypi-active-meta');
@@ -1500,14 +1542,34 @@
             const cb = document.getElementById('daypi-closed-body'), cm = document.getElementById('daypi-closed-meta');
             const cl = d.closed_trades || [];
             const wins = cl.filter(c => c.realized_pl > 0).length;
-            cm.textContent = cl.length ? `${cl.length} · ${wins} im Plus` : '';
+            const winRate = cl.length ? Math.round(wins / cl.length * 100) : 0;
+            cm.textContent = cl.length ? `${cl.length} Trades · ${wins} im Plus · ${winRate}% Trefferquote` : '';
             cb.innerHTML = cl.length ? cl.map(c => {
+                const t = c.closed_at ? c.closed_at.slice(11, 16) : '';
                 return `<div style="display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,.06)">
                     <span style="font-weight:700;min-width:50px">${c.symbol}</span>
                     <span class="muted num" style="font-size:11.5px">${fmt(c.qty, 0)} Stück</span>
+                    ${t ? `<span class="muted num" style="font-size:11px">${t}</span>` : ''}
                     <span class="num ${plCls(c.realized_pl)}" style="margin-left:auto;font-weight:700">${plSign(c.realized_pl)}${fmtUsd(c.realized_pl)}</span>
                 </div>`;
             }).join('') : '<span class="loading">Noch nichts geschlossen.</span>';
+
+            // Letzte Signale — was der Bot zuletzt entschieden hat
+            const sb = document.getElementById('daypi-signals-body');
+            const today = (d.updated || '').slice(0, 10);
+            const sigs = d.signals || [];
+            sb.innerHTML = sigs.length ? sigs.map(s => {
+                const day = (s.ts || '').slice(0, 10);
+                const tm = (s.ts || '').slice(11, 16);
+                const when = (day && day !== today) ? `${day.slice(8,10)}.${day.slice(5,7)} ${tm}` : tm;
+                const det = s.detail || s.kind || '';
+                const tone = /(^|\s)buy(\s|$)/i.test(det) ? 'pos' : /(^|\s)sell(\s|$)/i.test(det) ? 'neg' : '';
+                return `<div style="display:flex;align-items:baseline;gap:8px;padding:7px 2px;border-bottom:1px solid rgba(255,255,255,.06)">
+                    <span class="muted num" style="font-size:11px;min-width:46px">${when || '--'}</span>
+                    <span style="font-weight:700;min-width:46px">${s.symbol}</span>
+                    <span class="num ${tone}" style="font-size:11.5px">${det}</span>
+                </div>`;
+            }).join('') : '<span class="loading">Noch keine Signale.</span>';
         } catch(e) { console.error('DayPi:', e); }
     }
 
