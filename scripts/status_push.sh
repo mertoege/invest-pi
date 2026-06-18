@@ -67,8 +67,10 @@ snap = {
 }
 
 # Services
-for svc in ["score", "strategy", "sync", "outcomes", "auto-pull", "status-push"]:
-    name = f"invest-pi-{svc}.timer"
+for svc, unit in [("score", "score"), ("strategy", "strategy-hourly"),
+                  ("sync", "sync"), ("outcomes", "outcomes"),
+                  ("auto-pull", "auto-pull"), ("status-push", "status-push")]:
+    name = f"invest-pi-{unit}.timer"
     snap["services"][svc] = sh(f"systemctl is-active {name}", default="?")
 
 # Equity (latest snapshot from trading.db)
@@ -121,7 +123,7 @@ snap["predictions"] = {
 
 # Last runs (from systemd journal — last successful run timestamp)
 for svc, label in [("score", "score_portfolio"),
-                    ("strategy", "run_strategy"),
+                    ("strategy-hourly", "run_strategy"),
                     ("sync", "sync_positions"),
                     ("outcomes", "track_outcomes")]:
     last_run = sh(f"systemctl show invest-pi-{svc}.service -p ExecMainExitTimestamp --value")
