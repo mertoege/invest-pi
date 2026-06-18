@@ -273,6 +273,7 @@ def apply_trading_patches(config) -> list[str]:
     patches = pending_patches()
     applied = []
     regime_changes = {}
+    regime_patch_ids = []  # mark_applied erst nach erfolgreicher Persistierung+Commit
 
     for p in patches:
         path = p["path"]
@@ -285,7 +286,7 @@ def apply_trading_patches(config) -> list[str]:
                 profile = config.regime_profiles.get(regime, {})
                 profile[param] = new_val
                 config.regime_profiles[regime] = profile
-            mark_applied(p["id"])
+            regime_patch_ids.append(p["id"])  # deferred: erst nach Commit als applied markieren
             applied.append(f"regime.{regime}.{param}: -> {new_val} ({p['reason']})")
             log.info(f"applied regime patch: {path} -> {new_val}")
 
@@ -302,13 +303,24 @@ def apply_trading_patches(config) -> list[str]:
                     log.warning(f"failed to apply patch {path}: {e}")
 
     if regime_changes:
-        _persist_regime_to_yaml(regime_changes)
+        if _persist_regime_to_yaml(regime_changes):
+            for pid in regime_patch_ids:
+                mark_applied(pid)
+        else:
+            # config.yaml-Schreiben oder Commit fehlgeschlagen -> Patches NICHT als
+            # applied markieren, damit sie beim naechsten Lauf erneut versucht werden.
+            log.error(
+                "regime patches NOT marked applied (persist/commit failed) — retry naechster Lauf"
+            )
 
     return applied
 
 
-def _persist_regime_to_yaml(changes: dict[str, dict]) -> None:
-    """Schreibt Regime-Aenderungen persistent in config.yaml."""
+def _persist_regime_to_yaml(changes: dict[str, dict]) -> bool:
+    """Schreibt Regime-Aenderungen persistent in config.yaml UND committet sie nach
+    GitHub. Ohne Commit revertet der auto_pull-Timer die Aenderung binnen 2 Min
+    (config.yaml ist git-getrackt) — der Patch waere dann verloren, obwohl in der
+    learning.db als 'applied' verbucht. Returns True nur bei vollstaendigem Erfolg."""
     try:
         raw = yaml.safe_load(CONFIG_PATH.read_text())
         profiles = raw.get("settings", {}).get("trading", {}).get("regime_profiles", {})
@@ -325,3 +337,50 @@ def _persist_regime_to_yaml(changes: dict[str, dict]) -> None:
         log.info(f"config.yaml regime_profiles updated: {list(changes.keys())}")
     except Exception as e:
         log.error(f"failed to persist regime changes to config.yaml: {e}")
+        return False
+
+    return _commit_config_yaml(list(changes.keys()))
+
+
+def _commit_config_yaml(regimes: list[str]) -> bool:
+    """Committet+pusht config.yaml nach GitHub, damit auto_pull den Regime-Patch nicht
+    revertet. Spiegelt die bewaehrte Race-Schutz-Routine aus status_push.sh
+    (pull --rebase vor push). Staged ausschliesslich config.yaml. True bei Erfolg."""
+    import subprocess
+
+    repo = CONFIG_PATH.parent
+
+    def git(*args, timeout=60):
+        return subprocess.run(
+            ["git", "-c", "commit.gpgsign=false", *args],
+            cwd=repo, capture_output=True, text=True, timeout=timeout,
+        )
+
+    try:
+        # Nur committen wenn config.yaml tatsaechlich abweicht (Idempotenz)
+        if git("diff", "--quiet", "--", "config.yaml").returncode == 0:
+            log.info("config.yaml unchanged on disk, nothing to commit")
+            return True
+
+        git("add", "config.yaml")
+        msg = f"auto(config): regime-Patch persistiert ({', '.join(regimes)})"
+        if git("commit", "-q", "-m", msg).returncode != 0:
+            log.error("git commit config.yaml failed")
+            return False
+
+        # Race-Schutz vor Push (status_push committet alle 2 Min parallel)
+        if git("pull", "--rebase", "--autostash", "--no-edit", "origin", "main").returncode != 0:
+            git("rebase", "--abort")
+            log.error("git pull --rebase failed for config.yaml — Patch bleibt unmarkiert")
+            return False
+
+        push = git("push", "origin", "main")
+        if push.returncode != 0:
+            log.error(f"git push config.yaml failed: {push.stderr.strip()}")
+            return False
+
+        log.info(f"config.yaml committed+pushed — regime patch durable ({', '.join(regimes)})")
+        return True
+    except Exception as e:
+        log.error(f"_commit_config_yaml error: {e}")
+        return False
