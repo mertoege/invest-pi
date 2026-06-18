@@ -1577,6 +1577,57 @@ def score_llm_context(ticker: str, dimensions: list[DimensionScore]) -> Dimensio
 # ════════════════════════════════════════════════════════════
 #  COMPOSITE SCORING
 # ════════════════════════════════════════════════════════════
+# ── Per-Ticker-Reliability-Adjustment ──────────────────────────────────────
+# Strategic-Recommendation / Audit 2026-06-18: die historische Hit-Rate je Ticker
+# (rolling 90d) als Malus/Bonus in den Composite zurueckfliessen lassen. Ticker,
+# bei denen unser Score nachweislich oft falsch lag (<70%), werden vorsichtiger
+# behandelt (Composite rauf -> seltener Buy); sehr zuverlaessige (>90%) bekommen
+# einen kleinen Abschlag. Gedeckelt + nur ab genug Messdaten (sonst Rauschen).
+# So lernt das System ticker-spezifisch aus eigenen Fehlern (PLTR/SMCI-Schwaeche)
+# statt nur regimeweit. Vorher wurde der Per-Ticker-Lernkontext nur geloggt,
+# nie in den (rein heuristischen) Score eingespeist.
+RELIABILITY_ADJUST_ENABLED = True
+RELIABILITY_MIN_SAMPLES    = 20      # min. gemessene Outcomes, sonst keine Anpassung
+RELIABILITY_LOOKBACK_DAYS  = 90
+RELIABILITY_LOW_THRESH     = 0.70    # darunter: Malus
+RELIABILITY_HIGH_THRESH    = 0.90    # darueber: Bonus
+RELIABILITY_MAX_MALUS      = 8.0     # max. Aufschlag auf Composite (riskanter)
+RELIABILITY_MAX_BONUS      = 5.0     # max. Abschlag (vertrauenswuerdiger), asymmetrisch
+
+
+def _ticker_reliability_adjustment(ticker: str) -> tuple[float, dict]:
+    """Composite-Delta aus der rolling-90d Hit-Rate des Tickers.
+    delta > 0 = Malus (riskanter), < 0 = Bonus. 0.0 wenn aus/zu wenig Daten."""
+    if not RELIABILITY_ADJUST_ENABLED:
+        return 0.0, {}
+    try:
+        from ..common.predictions import hit_rate
+        h = hit_rate("daily_score", days=RELIABILITY_LOOKBACK_DAYS,
+                     subject_id=ticker, by_measured=True)
+    except Exception:
+        return 0.0, {}
+
+    measured = h.get("measured", 0)
+    hr = h.get("hit_rate")
+    if measured < RELIABILITY_MIN_SAMPLES or hr is None:
+        return 0.0, {"reliability_measured": measured, "reliability_applied": False}
+
+    delta = 0.0
+    if hr < RELIABILITY_LOW_THRESH:
+        frac = min(1.0, (RELIABILITY_LOW_THRESH - hr) / 0.20)
+        delta = RELIABILITY_MAX_MALUS * frac
+    elif hr > RELIABILITY_HIGH_THRESH:
+        frac = min(1.0, (hr - RELIABILITY_HIGH_THRESH) / 0.10)
+        delta = -RELIABILITY_MAX_BONUS * frac
+
+    return delta, {
+        "reliability_hit_rate": round(hr, 3),
+        "reliability_measured": measured,
+        "reliability_delta":    round(delta, 2),
+        "reliability_applied":  delta != 0.0,
+    }
+
+
 def score_ticker(
     ticker: str,
     finnhub_key: Optional[str] = None,
@@ -1641,6 +1692,12 @@ def score_ticker(
             composite = min(100.0, composite)
     except Exception:
         pass
+
+    # Per-Ticker-Reliability: Composite anhand der historischen Hit-Rate des
+    # Tickers anpassen (gedeckelt, nur ab genug Messdaten). Siehe Helper oben.
+    _rel_delta, _rel_info = _ticker_reliability_adjustment(ticker)
+    if _rel_delta:
+        composite = max(0.0, min(100.0, composite + _rel_delta))
 
     alert_level = _alert_level_from_score(composite)
     alert_label = {0: "Green", 1: "Watch", 2: "Caution", 3: "Red"}[alert_level]
@@ -1708,6 +1765,7 @@ def score_ticker(
             "triggered_dims":   report.triggered_dimensions,
             "dimensions":       [asdict(d) for d in dimensions],
             "analogs":          analogs,
+            "reliability":      _rel_info,
         },
         confidence=confidence,
         cost_estimate_eur=0.0,
