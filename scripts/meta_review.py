@@ -390,26 +390,21 @@ def run(job_source: str, dry_run: bool = False) -> dict:
         except Exception as e:
             log.warning(f"config patch processing failed: {e}")
 
-    # Code-Evolution verarbeiten
+    # Code-Vorschlaege: NUR erfassen, NICHT automatisch anwenden.
+    # Bewusste Entscheidung (Mert, 2026-06-18): das System soll seinen eigenen
+    # Trading-Code nicht unbeaufsichtigt umschreiben+committen. Die KI-Vorschlaege
+    # werden zur menschlichen Pruefung festgehalten (im Review-Text/Telegram), der
+    # gefaehrliche Auto-Apply-Pfad (code_evolver.evolve) wird nicht mehr aufgerufen.
     code_changes = parsed.get("code_changes", [])
     evolve_summary = ""
     if code_changes:
-        try:
-            from src.learning.code_evolver import evolve
-            evo_result = evolve(code_changes)
-            applied = evo_result["changes_applied"]
-            failed = evo_result["changes_failed"]
-            if applied > 0:
-                if evo_result["tests_passed"]:
-                    evolve_summary = f"\nCode-Evolution: {applied} Aenderung(en) committed"
-                else:
-                    evolve_summary = f"\nCode-Evolution: {applied} angewandt aber Tests FAILED → rollback"
-            if failed > 0:
-                evolve_summary += f" ({failed} abgelehnt)"
-            log.info(f"code-evolution: {evo_result}")
-        except Exception as e:
-            log.warning(f"code evolution failed: {e}")
-            evolve_summary = f"\nCode-Evolution: Fehler ({e})"
+        files = ", ".join(c.get("file", "?") for c in code_changes)
+        evolve_summary = (
+            f"\nCode-Vorschlaege (NICHT auto-angewandt — bitte manuell pruefen): "
+            f"{len(code_changes)} Aenderung(en) in {files}"
+        )
+        log.info(f"code-evolution: {len(code_changes)} Vorschlaege NUR erfasst, "
+                 f"nicht angewandt ({files})")
 
     # Strategische Empfehlungen in DB speichern
     strategic_summary = ""

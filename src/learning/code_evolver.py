@@ -197,6 +197,19 @@ def evolve(code_changes: list[dict]) -> dict:
         return {"changes_applied": 0, "changes_failed": 0,
                 "tests_passed": True, "rolled_back": False, "results": []}
 
+    # SICHERHEIT (Mert, 2026-06-18): Auto-Anwenden von Code-Aenderungen ist
+    # standardmaessig DEAKTIVIERT — das System soll seinen Trading-Code nicht
+    # unbeaufsichtigt umschreiben+committen. Nur mit explizitem Opt-in aktiv.
+    # meta_review ruft evolve() ohnehin nicht mehr auf; dies ist die zweite
+    # Verteidigungslinie, falls evolve() je woanders verdrahtet wird.
+    import os
+    if os.environ.get("INVEST_PI_ENABLE_CODE_EVOLVER") != "1":
+        log.warning(f"code_evolver deaktiviert — {len(code_changes)} Vorschlaege "
+                    f"NICHT angewandt (Opt-in via INVEST_PI_ENABLE_CODE_EVOLVER=1)")
+        return {"changes_applied": 0, "changes_failed": len(code_changes),
+                "tests_passed": True, "rolled_back": False, "results": [],
+                "disabled": True}
+
     # Max 3 Aenderungen
     code_changes = code_changes[:MAX_CODE_CHANGES_PER_RUN]
 
