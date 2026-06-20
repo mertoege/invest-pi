@@ -1,6 +1,6 @@
 {
   "equity": {
-    "as_of": "2026-06-20 18:35:19",
+    "as_of": "2026-06-20 19:35:12",
     "cash_eur": 50836.75,
     "cash_usd": 58305.71,
     "fx_rate": 0.8719,
@@ -13,28 +13,28 @@
   },
   "git": {
     "branch": "main",
-    "commit": "1af5db79",
+    "commit": "fbda526d",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 66.1,
+    "cpu_temp_c": 66.65,
     "disk_pct": 43,
-    "load_1min": 0.6,
+    "load_1min": 0.48,
     "mem_pct": 53
   },
   "last_runs": {
     "run_strategy": "Fri 2026-06-19 21:01:55 CEST",
     "score_portfolio": null,
-    "sync_positions": "Sat 2026-06-20 20:35:20 CEST",
+    "sync_positions": "Sat 2026-06-20 21:35:13 CEST",
     "track_outcomes": "Sat 2026-06-20 02:32:35 CEST"
   },
   "predictions": {
     "correct": 15039,
     "incorrect": 2470,
     "last_24h": 1230,
-    "last_7d": 6910,
-    "pending": 1131,
-    "total": 55210
+    "last_7d": 6926,
+    "pending": 1147,
+    "total": 55226
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-06-20T19:34:47"
+  "timestamp_utc": "2026-06-20T19:36:48"
 }
