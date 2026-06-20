@@ -13,28 +13,28 @@
   },
   "git": {
     "branch": "main",
-    "commit": "cf2fdb94",
+    "commit": "e4adb963",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 65.0,
+    "cpu_temp_c": 67.2,
     "disk_pct": 43,
-    "load_1min": 0.31,
-    "mem_pct": 55
+    "load_1min": 0.46,
+    "mem_pct": 57
   },
   "last_runs": {
     "run_strategy": "Fri 2026-06-19 21:01:55 CEST",
-    "score_portfolio": "Sat 2026-06-20 17:38:11 CEST",
+    "score_portfolio": null,
     "sync_positions": "Sat 2026-06-20 17:35:16 CEST",
     "track_outcomes": "Sat 2026-06-20 02:32:35 CEST"
   },
   "predictions": {
     "correct": 15039,
     "incorrect": 2470,
-    "last_24h": 1228,
-    "last_7d": 6740,
-    "pending": 952,
-    "total": 55031
+    "last_24h": 1229,
+    "last_7d": 6741,
+    "pending": 953,
+    "total": 55032
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-06-20T16:28:47"
+  "timestamp_utc": "2026-06-20T16:30:47"
 }
