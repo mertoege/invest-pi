@@ -13,28 +13,28 @@
   },
   "git": {
     "branch": "main",
-    "commit": "c80d6bad",
+    "commit": "775af8a5",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 63.35,
+    "cpu_temp_c": 62.25,
     "disk_pct": 43,
-    "load_1min": 0.43,
-    "mem_pct": 50
+    "load_1min": 0.23,
+    "mem_pct": 47
   },
   "last_runs": {
     "run_strategy": "Fri 2026-06-19 21:01:55 CEST",
-    "score_portfolio": null,
+    "score_portfolio": "Sat 2026-06-20 08:37:32 CEST",
     "sync_positions": "Sat 2026-06-20 08:35:13 CEST",
     "track_outcomes": "Sat 2026-06-20 02:32:35 CEST"
   },
   "predictions": {
     "correct": 15039,
     "incorrect": 2470,
-    "last_24h": 1215,
-    "last_7d": 6464,
-    "pending": 1469,
-    "total": 54559
+    "last_24h": 1224,
+    "last_7d": 6462,
+    "pending": 1478,
+    "total": 54568
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-06-20T06:36:10"
+  "timestamp_utc": "2026-06-20T06:38:18"
 }
