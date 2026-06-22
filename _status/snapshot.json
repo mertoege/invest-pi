@@ -13,28 +13,28 @@
   },
   "git": {
     "branch": "main",
-    "commit": "85765137",
+    "commit": "cad660e0",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 65.0,
+    "cpu_temp_c": 69.4,
     "disk_pct": 44,
-    "load_1min": 0.15,
-    "mem_pct": 55
+    "load_1min": 0.64,
+    "mem_pct": 59
   },
   "last_runs": {
     "run_strategy": "Mon 2026-06-22 19:00:22 CEST",
-    "score_portfolio": "Mon 2026-06-22 18:36:35 CEST",
+    "score_portfolio": null,
     "sync_positions": "Mon 2026-06-22 18:35:06 CEST",
     "track_outcomes": "Mon 2026-06-22 02:32:12 CEST"
   },
   "predictions": {
     "correct": 15123,
     "incorrect": 2470,
-    "last_24h": 1281,
-    "last_7d": 8840,
-    "pending": 1069,
-    "total": 57593
+    "last_24h": 1284,
+    "last_7d": 8845,
+    "pending": 1074,
+    "total": 57598
   },
   "services": {
     "auto-pull": "active",
@@ -44,5 +44,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-06-22T17:28:57"
+  "timestamp_utc": "2026-06-22T17:31:00"
 }
