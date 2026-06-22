@@ -90,13 +90,13 @@ settings:
         - real_estate
         - materials
         - consumer_disc
+        - energy
         sector_preference:
         - healthcare
         - consumer_staples
-        - technology
         - utilities
         stop_loss_pct: 0.09
-        take_profit_pct: 0.4
+        take_profit_pct: 0.3
         target_invest_pct: 0.8
         trailing_activation: 0.1
         trailing_stop_pct: 0.08
