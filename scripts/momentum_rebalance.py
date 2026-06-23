@@ -141,6 +141,14 @@ def run_due(broker, dry_run: bool = False, force: bool = False) -> int:
     """Monatsziel 1x/Monat fixieren, dann an Ziel angleichen bis converged."""
     if KILL_FILE.exists():
         print("KILL-SWITCH aktiv - kein Rebalance."); return 0
+    # Nicht handeln, solange noch Orders offen sind (verhindert Order-Stapelung,
+    # bis Verkaeufe gefuellt + Cash frei ist). Beim naechsten stuendlichen Lauf erneut.
+    try:
+        oo = broker.list_orders(status="open")
+        if oo:
+            print(f"momentum: {len(oo)} Orders noch offen - warte."); return 0
+    except Exception:
+        pass
     today = dt.date.today(); month = today.isoformat()[:7]
     st = _load_state()
     if force or st.get("month") != month or not st.get("target"):
