@@ -2,8 +2,12 @@
 # REGEL: Aenderungen an Aufbau/Status/Roadmap/Entscheidungen kommen HIER rein, nicht nur in den Chat.
 # Live-Zahlen (KPIs/Positionen) zieht der Generator separat aus DB/Code.
 
-summary: Autonomes Aktien-Trading (Paper über Alpaca). Bewertet jede Aktie laufend mit 20 Kennzahlen,
-  handelt nach Regeln + Sicherheits­bremsen, misst das Ergebnis und lernt daraus — ein geschlossener Kreislauf.
+summary: Autonomes Aktien-Trading (Paper über Alpaca). Kernstrategie seit 2026-06: regelbasiertes
+  MOMENTUM — hält monatlich gleichgewichtet die 5 staerksten Aktien aus breitem Large-Cap-Universum.
+  Fair backgetestet (2018-26, inkl. COVID- + 2022-Crash): schlaegt den Markt netto ~+16%/Jahr bei
+  geringerem Drawdown. Das alte 20-Kennzahlen-Score-/Self-Learning-System wurde abgeloest (schlug den
+  Markt nachweislich NICHT — Risiko-Vorhersage schlechter als ein Dummy). Lernen jetzt auf Strategie-
+  Ebene (Varianten per Backtest validiert), nicht mehr Trade-fuer-Trade.
 flow:
 - - Quellen
   - yfinance · FRED · Google-Trends · Short-Interest
@@ -136,8 +140,9 @@ instances:
 views:
   decision:
     title: Entscheidungs-Engine
-    intro: Jeder Trading-Lauf (stündlich Mo–Fr) durchläuft erst alle Verkauf-Pässe (Schutz zuerst), dann
-      die Kauf-Pipeline. 13 Pässe, jeder mit eigener Logik.
+    intro: 'SEIT 2026-06 AKTIV: Momentum-Engine (strategy_engine=momentum). 1x/Monat halte
+      gleichgewichtet die 5 Aktien mit staerkstem 6-Monats-Momentum, verkaufe den Rest. Die fruehere
+      13-Paesse-Score-Pipeline (unten) ist stillgelegt (no-op), bleibt nur als Referenz/Historie.'
     groups:
     - label: Verkauf-Pässe (zuerst — Schutz)
       color: '#d77163'
@@ -527,4 +532,4 @@ protections:
 - Tages-Verlust-Limit
 notes: 'EUR-denominiert, Paper-Trading. Ziel: maximale absolute Rendite — aber mit Risiko­abwägung, nicht
   gepokert. Die 20 Dimensions-Gewichte werden vom Lern-Loop aus 60-Tage-Attribution laufend auto-optimiert
-   GRUNDAUSRICHTUNG 2026-06-23: Backtests über Auf- (2025/26) und Abschwung (2022) zeigten, dass aktives Verkaufen in KEINEM Regime besser war als ruhiges Halten (Aufwärts +16% aktiv vs +20% halten; Bär -17% vs -15%). Schutz im Abschwung kommt aus Diversifikation, nicht aus häufigem Handeln. Daher momentum_exit (zuvor 63%% aller Verkäufe) entschärft Richtung weniger Handeln / mehr Halten. Universe auf 29 handelbare Werte verbreitert (CAT/TGT/GS/SLB).'
+   GRUNDAUSRICHTUNG 2026-06-23: Backtests über Auf- (2025/26) und Abschwung (2022) zeigten, dass aktives Verkaufen in KEINEM Regime besser war als ruhiges Halten (Aufwärts +16% aktiv vs +20% halten; Bär -17% vs -15%). Schutz im Abschwung kommt aus Diversifikation, nicht aus häufigem Handeln. Daher momentum_exit (zuvor 63%% aller Verkäufe) entschärft Richtung weniger Handeln / mehr Halten. Universe auf 29 handelbare Werte verbreitert (CAT/TGT/GS/SLB). 2026-06-23 SCHARFGESCHALTET: strategy_engine=momentum — Momentum-Top-5 (monatlich) ersetzt die alte Score-Pipeline (no-op), beide alten Handels-Pfade (run_strategy, weekly_rotation) delegieren/beenden. Belegt via champion_duell_fair / robustness_check / tax_check. Weiter Spielgeld; Echtgeld erst nach langem Live-Beweis.'
