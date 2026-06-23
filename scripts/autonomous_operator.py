@@ -166,13 +166,13 @@ def check_recent_crashes() -> list:
     timer-getriggerte oneshot-Services zwischen Laeufen nicht 'failed' bleiben
     und der Operator (13:00, Markt zu) oft genau im sauberen Fenster prueft."""
     try:
+        # Alle invest-pi-Services scannen, nicht nur die 4 Kern-Jobs — sonst bleiben
+        # Crashes in Report-/Wochen-Jobs (rotation, recap, reviews, digest, dca …)
+        # unsichtbar (Lesson 2026-06: Samstags-Rotation crashte wochenlang stumm).
         r = subprocess.run(
             ["journalctl", "--since", "24 hours ago", "--no-pager", "-o", "cat",
-             "-u", "invest-pi-strategy-hourly.service",
-             "-u", "invest-pi-rebalance.service",
-             "-u", "invest-pi-score.service",
-             "-u", "invest-pi-sync.service"],
-            capture_output=True, text=True, timeout=20
+             "-u", "invest-pi-*.service"],
+            capture_output=True, text=True, timeout=30
         )
         markers = ("Traceback (most recent call last)", "UnboundLocalError",
                    "result 'exit-code'", "status=1/FAILURE")
