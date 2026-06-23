@@ -51,6 +51,7 @@ settings:
   telegram_min_level: 2
   trading:
     broker: alpaca_paper
+    strategy_engine: momentum   # legacy|momentum — momentum = neue Kernstrategie (2026-06)
     cash_floor_pct: 0.03
     dca_fallback_ticker: SMH
     enabled: true
