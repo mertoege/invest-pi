@@ -46,11 +46,10 @@ def build_digest() -> str:
     parts = ["🗓️ <b>Monats-Digest — Verbesserungs-Themen</b>", ""]
 
     with connect(LEARNING_DB) as conn:
-        # --- Intern 1: offene strategic_recommendations nach Kategorie ---
+        # --- Intern 1: offene strategic_recommendations MIT Begründung ---
         recs = conn.execute(
-            "SELECT category, effort, title FROM strategic_recommendations "
-            "WHERE status='open' ORDER BY CASE effort WHEN 'high' THEN 0 "
-            "WHEN 'medium' THEN 1 ELSE 2 END"
+            "SELECT id, category, effort, expected_impact, title, description "
+            "FROM strategic_recommendations WHERE status='open'"
         ).fetchall()
         # --- Intern 2: Top-Themen des letzten Meta/Weekly-Reviews ---
         mr = conn.execute(
@@ -59,14 +58,32 @@ def build_digest() -> str:
         ).fetchone()
 
     if recs:
-        by_cat: dict[str, list] = {}
-        for r in recs:
-            by_cat.setdefault(r["category"] or "sonstige", []).append(r)
-        parts.append(f"🔧 <b>Intern: {len(recs)} offene Verbesserungs-ToDos</b>")
-        for cat, items in by_cat.items():
-            high = sum(1 for i in items if i["effort"] == "high")
-            tag = f" ({high}× high)" if high else ""
-            parts.append(f"  • <b>{escape(cat)}</b>{tag}: {escape(_truncate(items[0]['title'], 55))}")
+        # effort/impact sind gemischt deutsch/englisch (low/klein, hoch/high) -> normalisieren
+        def _impact_rank(v):
+            v = (v or "").lower()
+            return 0 if v in ("hoch", "high") else (1 if v in ("mittel", "medium") else 2)
+
+        def _effort_rank(v):
+            v = (v or "").lower()
+            return 0 if v in ("klein", "low", "gering") else (1 if v in ("mittel", "medium") else 2)
+
+        # wichtigste zuerst: hohe Wirkung, dann geringer Aufwand
+        recs = sorted(recs, key=lambda r: (_impact_rank(r["expected_impact"]), _effort_rank(r["effort"])))
+        high = [r for r in recs if _impact_rank(r["expected_impact"]) == 0]
+        parts.append(f"🔧 <b>Intern: {len(recs)} offene Verbesserungs-ToDos</b>"
+                     + (f" — {len(high)}× hohe Wirkung" if high else ""))
+        parts.append("")
+        # Top-5 MIT Begründung — sonst sieht Mert nur Schlagworte und nie das Warum
+        for r in recs[:5]:
+            imp = (r["expected_impact"] or "?").lower()
+            eff = (r["effort"] or "?").lower()
+            star = "⭐ " if _impact_rank(r["expected_impact"]) == 0 else "• "
+            parts.append(f"{star}<b>{escape(_truncate(r['title'], 60))}</b> "
+                         f"<i>[{escape(eff)}, Wirkung {escape(imp)}]</i>")
+            if r["description"]:
+                parts.append(f"   {escape(_truncate(r['description'], 180))}")
+        if len(recs) > 5:
+            parts.append(f"   …+{len(recs) - 5} weitere — Details mit Claude.")
         parts.append("")
 
     if mr:
