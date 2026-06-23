@@ -463,6 +463,12 @@ def run(job_source: str, dry_run: bool = False) -> dict:
 
 
 def main() -> int:
+    try:
+        from src.trading import load_trading_config
+        if load_trading_config().strategy_engine == "momentum":
+            print("strategy_engine=momentum - altes Score-Lernsystem deaktiviert, kein LLM-Call."); return 0
+    except Exception:
+        pass
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", default="daily_score")
     parser.add_argument("--dry-run", action="store_true",
