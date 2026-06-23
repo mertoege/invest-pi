@@ -212,6 +212,17 @@ def _build_daily_msg(data: dict) -> str:
             parts.append(f"🎯 vs SPY: <b>{asign}{metrics.alpha_pct*100:.2f}%</b> "
                          f"(SPY {metrics.spy_return_pct*100:+.2f}%) {verdict}{win}")
 
+    # API-Kosten + offene Messungen — werden in _gather_today berechnet, sollen
+    # auch sichtbar sein (vorher berechnet und im selben Report weggeworfen).
+    cost_today = data.get("cost_today")
+    cost_month = data.get("cost_this_month")
+    if cost_today is not None or cost_month is not None:
+        parts.append(f"\n💸 KI-Kosten: {cost_today or 0:.2f} EUR heute · "
+                     f"{cost_month or 0:.2f} EUR diesen Monat (Limit 50)")
+    pending = data.get("pending_t1d")
+    if pending:
+        parts.append(f"⏳ {pending} Vorhersagen warten noch auf Auswertung")
+
     return "\n".join(parts)
 
 
