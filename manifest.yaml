@@ -158,8 +158,9 @@ views:
         d: Bei Gesamt-Drawdown alle Positionen anteilig trimmen.
         badge: Tier2 -15%→25% · Tier3 -22%→50%
       - t: 6 · Momentum-Exit
-        d: Totes Kapital mit negativem Momentum liquidieren.
-        badge: 20d-Momentum < 0,2%
+        d: Nur bei DEUTLICHEM Abwärtstrend liquidieren; Quality-Werte (Risk<40) gehalten.
+          Entschärft 2026-06-23 — feinfühliger Exit kostete Rendite in Auf- und Abschwung.
+        badge: 20d < -10% + Quality-Schutz
       - t: 7 · Ring-3-Liquidation
         d: Positionen außerhalb der handelbaren Ringe schließen.
         badge: max 5/Lauf
@@ -526,4 +527,4 @@ protections:
 - Tages-Verlust-Limit
 notes: 'EUR-denominiert, Paper-Trading. Ziel: maximale absolute Rendite — aber mit Risiko­abwägung, nicht
   gepokert. Die 20 Dimensions-Gewichte werden vom Lern-Loop aus 60-Tage-Attribution laufend auto-optimiert
-  (heute zuletzt nachjustiert).'
+   GRUNDAUSRICHTUNG 2026-06-23: Backtests über Auf- (2025/26) und Abschwung (2022) zeigten, dass aktives Verkaufen in KEINEM Regime besser war als ruhiges Halten (Aufwärts +16% aktiv vs +20% halten; Bär -17% vs -15%). Schutz im Abschwung kommt aus Diversifikation, nicht aus häufigem Handeln. Daher momentum_exit (zuvor 63%% aller Verkäufe) entschärft Richtung weniger Handeln / mehr Halten. Universe auf 29 handelbare Werte verbreitert (CAT/TGT/GS/SLB).'
