@@ -1322,6 +1322,13 @@ def _run_strategy_locked(args):
     broker = get_broker("mock" if args.mock else t_cfg.broker)
     src = "paper" if broker.is_paper else "live"
 
+    # Strategie-Engine "momentum" delegiert an die neue Kernstrategie; die alte
+    # Score-Pipeline wird dann uebersprungen (no-op). Reversibel via config.
+    if getattr(t_cfg, "strategy_engine", "legacy") == "momentum":
+        from scripts.momentum_rebalance import run_due
+        print("strategy_engine=momentum -> Momentum-Rebalance")
+        return run_due(broker, dry_run=getattr(args, "dry_run", False))
+
     # Regime-Check + Transition
     regime = None
     transition = None

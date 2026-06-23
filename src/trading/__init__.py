@@ -43,6 +43,7 @@ class TradingConfig:
     strategies:                 dict
     long_term_composite_max:    int
     regime_profiles:            dict
+    strategy_engine:            str = "legacy"
 
 
 def load_trading_config(config_path: Optional[Path] = None) -> TradingConfig:
@@ -80,6 +81,7 @@ def load_trading_config(config_path: Optional[Path] = None) -> TradingConfig:
         strategies=dict(t.get("strategies", {})),
         long_term_composite_max=int(t.get("long_term_composite_max", 25)),
         regime_profiles=dict(t.get("regime_profiles", {})),
+        strategy_engine=str(t.get("strategy_engine", "legacy")),
     )
 
 

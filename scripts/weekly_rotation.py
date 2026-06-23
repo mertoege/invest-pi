@@ -270,6 +270,9 @@ def main():
 
     init_all()
     cfg = cfg_mod.load()
+    if getattr(load_trading_config(), "strategy_engine", "legacy") == "momentum":
+        print("strategy_engine=momentum -> weekly_rotation deaktiviert (Momentum uebernimmt)")
+        return
     t_cfg = load_trading_config()
     profile = get_active_profile(t_cfg)
 
