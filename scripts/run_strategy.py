@@ -1144,6 +1144,12 @@ def ring3_liquidation_pass(broker, cfg, t_cfg, source: str, dry_run: bool) -> in
 
 MOMENTUM_EXIT_MIN_HOLD_DAYS = 14
 MOMENTUM_EXIT_MAX_PER_RUN = 4
+# Entschärft 2026-06-23 (Analyse: aktives Verkaufen schadet in Auf- UND Abschwung,
+# momentum_exit verkaufte Quality-Werte in normale Dips hinein -> PG/JNJ stiegen
+# danach +6-7%). Jetzt nur bei DEUTLICHEM Momentum-Verfall verkaufen, und gute
+# Werte (niedriger Risk-Score) bei Momentum-Schwäche halten.
+MOMENTUM_EXIT_RET20_MAX = -0.10        # Stock-Verkauf nur wenn 20d-Rendite < -10% (war: < 0%)
+MOMENTUM_EXIT_KEEP_BELOW_SCORE = 40    # Quality-Werte mit composite < 40 verschonen (war: < 20)
 _SECTOR_ETFS = {"XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
 
 
@@ -1175,11 +1181,15 @@ def momentum_exit_pass(broker, t_cfg, source: str, dry_run: bool) -> int:
             if ret_20d >= 0.02:
                 continue
         else:
-            if ret_20d >= 0 or ret_10d >= -0.01:
+            # Nur bei DEUTLICHEM Abwärtstrend verkaufen — nicht bei jedem milden Dip.
+            # (Backtest+Trade-Historie 2026-06-23: feinfühliger Exit kostete Rendite in
+            #  Auf- UND Abschwung; echte Stops übernimmt der separate stop_loss_pass.)
+            if ret_20d >= MOMENTUM_EXIT_RET20_MAX:
                 continue
-        # Nicht verkaufen wenn Risk-Score niedrig (Position ist fundamental ok, nur Momentum schwach)
+        # Quality-Werte (niedriger Risk-Score) bei Momentum-Schwäche HALTEN — ihre
+        # Schwäche ist meist temporär (Schwelle 20 -> 40 angehoben).
         score = latest_risk_score(pos.ticker)
-        if score and score["composite"] < 20 and not is_etf:
+        if score and score["composite"] < MOMENTUM_EXIT_KEEP_BELOW_SCORE and not is_etf:
             continue
         pnl_pct = (pos.market_price / pos.avg_price) - 1.0
         candidates.append({
