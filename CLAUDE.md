@@ -3,11 +3,30 @@
 > Kontext-Datei für Claude Code. Wird automatisch gelesen wenn du in dieses Verzeichnis wechselst.
 > Letzter Abgleich mit Live-System: 2026-06-18.
 
-## Mission
-Autonomes, 100% KI-gesteuertes Investment-System auf Raspberry Pi 5.
-Ziel: Maximale jaehrliche Rendite bei stabilem System. Kein ETF-Ersatz (6-7%),
-sondern aktive Alpha-Generierung. Alle Entscheidungen trifft die KI autonom.
-Aktuell Paper-Trading via Alpaca, perspektivisch Echtgeld-Nebeneinkommen.
+## Mission — EIN Ziel: den Markt schlagen
+Die Leitfrage des Projekts (Mert): *Kann man mit einem Raspberry Pi + KI + Geduld
+den Aktienmarkt schlagen und damit passives Einkommen erzeugen?* Erfolg = gaengige
+ETFs/Indizes (SPY/QQQ) ueber mehrere Jahre UND mehrere Marktphasen DEUTLICH schlagen
+(nicht +1%), risiko-adjustiert. Aktuell Paper-Trading via Alpaca; Echtgeld erst,
+wenn der Edge ueber Zyklen bewiesen ist.
+
+## Arbeitsweise — volle Autonomie (von Mert ausdruecklich erteilt)
+Mert ist interessierter Laie, **nicht** technisch tief. Er hat Claude ausdruecklich
+die **kompletten technischen Entscheidungen** uebertragen: Architektur, welche Jobs,
+Self-Learning ja/nein, Strategie-Design — **Claude entscheidet, weil Claude es besser
+beurteilen kann.** Nicht mit technischen Detail-Fragen loechern; selbst entscheiden,
+handeln, und das **Ergebnis in Klartext** berichten (was es praktisch bedeutet).
+- **Frag Mert nur**, wenn es (a) um **echtes Geld / Echtgeld-Umstieg** geht, (b) etwas
+  schwer Umkehrbares mit realem Risiko ansteht, oder (c) eine reine Wertentscheidung
+  ist (z.B. wie viel Risiko ihm lieb ist). Technik-Entscheidungen: selbst treffen.
+- **Bewiesene Erkenntnisse (Stand 2026-06, per Backtest belegt):** Das alte komplexe
+  Score-/Self-Learning-System schlug den Markt NICHT (Risiko-Vorhersage schlechter
+  als ein Dummy). Aktives Viel-Handeln schadet. Was WIRKT: regelbasiertes **Momentum**
+  (Top-5, monatlich, breites Universum) — schlug 2018–2026 den Markt in 7/9 Jahren bei
+  geringerem Drawdown. Lernen gehoert auf die **Strategie-/Meta-Ebene** (Varianten per
+  Backtest validieren), NICHT Trade-fuer-Trade. Details: reviews/, champion_duell*.py.
+- **Echtgeld-Regel:** kein echtes Geld, bevor der Ansatz ueber mehrere Jahre + >=1 Crash
+  im Backtest UND live im Paper-Trading ueberzeugt hat.
 
 ## Owner
 Mert Oege · mert.oege@gmail.com · GitHub: mertoege/invest-pi
