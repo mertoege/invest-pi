@@ -134,6 +134,7 @@ settings:
       consumer_disc:
       - XLY
       - AMZN
+      - TGT
       consumer_staples:
       - XLP
       - PG
@@ -143,6 +144,7 @@ settings:
       energy:
       - XLE
       - XOM
+      - SLB
       etfs:
       - SMH
       - SPY
@@ -152,6 +154,7 @@ settings:
       - JPM
       - V
       - BRK-B
+      - GS
       healthcare:
       - XLV
       - UNH
@@ -160,6 +163,7 @@ settings:
       - ABBV
       industrials:
       - XLI
+      - CAT
       materials:
       - XLB
       real_estate:
@@ -279,6 +283,19 @@ universe:
   - name: Berkshire Hathaway B
     note: Buffett-Konglomerat · Cash-Berg · defensiver Anker
     ticker: BRK-B
+  ring_2_diversifier:
+  - name: Caterpillar
+    note: Industrie/Maschinenbau · Bau & Bergbau · neue Nicht-Tech-Branche
+    ticker: CAT
+  - name: Target
+    note: Big-Box-Retail · Consumer Discretionary · neue Nicht-Tech-Branche
+    ticker: TGT
+  - name: Goldman Sachs
+    note: Investmentbank · profitiert von Volatilität & Deal-Aktivität
+    ticker: GS
+  - name: Schlumberger
+    note: Oilfield-Services · Energie-Exposure ergänzend zu XOM
+    ticker: SLB
   ring_2_hyperscaler:
   - name: Microsoft
     note: OpenAI-Partner · Azure-AI · Copilot-Monetarisierung

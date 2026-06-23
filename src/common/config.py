@@ -198,6 +198,7 @@ def load() -> Config:
         "ring_2_defensive":      2,
         "ring_2_hyperscaler":    2,
         "ring_2_growth":         2,
+        "ring_2_diversifier":    2,
         "ring_3_speculative":    3,
         "ring_1_equipment":      1,
         "ring_2_ecosystem":      2,
