@@ -160,30 +160,69 @@ def check_failed_timers() -> list:
         return []
 
 
+# Exit-Codes, die KEIN Fehler sind: 0 = ok, 75 = flock-Skip (Lock belegt, gewollt)
+_OK_EXIT_CODES = {"", "0", "75"}
+
+
 def check_recent_crashes() -> list:
-    """Scanne journalctl der letzten 24h nach Python-Tracebacks in invest-pi
-    Services. Faengt Crashes die der Momentan-Check (--failed) verpasst, weil
-    timer-getriggerte oneshot-Services zwischen Laeufen nicht 'failed' bleiben
-    und der Operator (13:00, Markt zu) oft genau im sauberen Fenster prueft."""
+    """Findet Crashes in ALLEN invest-pi-Services. Zwei Wege, weil der investpi-User
+    auf diesem Pi KEINEN journal-Lesezugriff hat (journalctl liefert dann nichts —
+    der fruehere reine journalctl-Scan war damit dauerhaft wirkungslos):
+
+      Weg 1 (rechtefrei, immer aktiv): systemctl show ExecMainStatus/Result pro
+        Service. Faengt jeden Non-Zero-Exit des letzten Laufs — auch zwischen
+        Timer-Laeufen und auch wenn der Service danach wieder 'inactive' ist.
+      Weg 2 (Bonus, nur mit journal-Zugriff): journalctl-Scan nach Tracebacks —
+        faengt verschluckte Python-Fehler. Stiller No-Op ohne Leserechte.
+    """
+    hits: list[str] = []
+
+    # ── Weg 1: Exit-Status aller invest-pi-Services (kein journal noetig) ──
     try:
-        # Alle invest-pi-Services scannen, nicht nur die 4 Kern-Jobs — sonst bleiben
-        # Crashes in Report-/Wochen-Jobs (rotation, recap, reviews, digest, dca …)
-        # unsichtbar (Lesson 2026-06: Samstags-Rotation crashte wochenlang stumm).
+        listing = subprocess.run(
+            ["systemctl", "list-unit-files", "invest-pi-*.service",
+             "--no-legend", "--no-pager"],
+            capture_output=True, text=True, timeout=20,
+        ).stdout
+        services = [tok for tok in listing.split() if tok.endswith(".service")]
+        for svc in services:
+            info = subprocess.run(
+                ["systemctl", "show", svc, "-p", "ExecMainStatus", "-p", "Result"],
+                capture_output=True, text=True, timeout=10,
+            ).stdout
+            status = result = ""
+            for line in info.splitlines():
+                if line.startswith("ExecMainStatus="):
+                    status = line.split("=", 1)[1].strip()
+                elif line.startswith("Result="):
+                    result = line.split("=", 1)[1].strip()
+            # Echter Crash nur wenn BEIDES auf Fehler deutet: systemd-Result != success
+            # UND Exit-Code nicht harmlos. Faengt outcomes(exit=2,exit-code), ignoriert
+            # aber terminal(exit=15,SIGTERM,result=success) und flock-Skip(exit=75).
+            if result not in ("", "success") and status not in _OK_EXIT_CODES:
+                hits.append(f"{svc.replace('invest-pi-','').replace('.service','')}: "
+                            f"exit={status or '?'} result={result or '?'}")
+    except Exception:
+        pass
+
+    # ── Weg 2: journal-Tracebacks (nur falls lesbar) ──
+    try:
         r = subprocess.run(
             ["journalctl", "--since", "24 hours ago", "--no-pager", "-o", "cat",
              "-u", "invest-pi-*.service"],
-            capture_output=True, text=True, timeout=30
+            capture_output=True, text=True, timeout=30,
         )
-        markers = ("Traceback (most recent call last)", "UnboundLocalError",
-                   "result 'exit-code'", "status=1/FAILURE")
-        hits = {}
+        markers = ("Traceback (most recent call last)", "UnboundLocalError")
+        jhits: dict[str, int] = {}
         for line in r.stdout.splitlines():
             for m in markers:
                 if m in line:
-                    hits[m] = hits.get(m, 0) + 1
-        return [f"{m} x{n}" for m, n in hits.items()]
+                    jhits[m] = jhits.get(m, 0) + 1
+        hits += [f"journal: {m} x{n}" for m, n in jhits.items()]
     except Exception:
-        return []
+        pass
+
+    return hits
 
 
 def fix_dedup() -> int:
