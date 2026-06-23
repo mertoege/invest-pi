@@ -74,8 +74,19 @@ def main() -> None:
         drift = detect_drift(args.source)
         if drift:
             print(f"\n⚠ DRIFT WARNING: {drift['message']}")
-            # TODO Phase 2: Telegram-Push hier
-            sys.exit(2)
+            # Drift an Mert melden statt den Lauf mit sys.exit(2) als 'Crash' zu
+            # beenden. Frueher: exit(2) -> Service galt als failed UND die Warnung
+            # kam nie an (TODO nie gebaut). Die Outcome-Messung oben war da laengst
+            # erfolgreich — ein erkannter Drift ist ein WARN-Signal, kein Prozessfehler.
+            try:
+                from src.alerts import notifier
+                if notifier.is_configured():
+                    notifier.send_info(
+                        f"⚠️ <b>Drift-Warnung</b> ({args.source})\n{drift['message']}",
+                        label="drift_warning",
+                    )
+            except Exception as e:
+                print(f"  Drift-Telegram fehlgeschlagen: {e}")
         else:
             print("\n  Drift-Check: ok")
 
