@@ -67,7 +67,7 @@ snap = {
 }
 
 # Services
-for svc, unit in [("score", "score"), ("strategy", "strategy-hourly"),
+for svc, unit in [("strategy", "strategy-hourly"),
                   ("sync", "sync"), ("outcomes", "outcomes"),
                   ("auto-pull", "auto-pull"), ("status-push", "status-push")]:
     name = f"invest-pi-{unit}.timer"
@@ -122,8 +122,8 @@ snap["predictions"] = {
 }
 
 # Last runs (from systemd journal — last successful run timestamp)
-for svc, label in [("score", "score_portfolio"),
-                    ("strategy-hourly", "run_strategy"),
+# Score-System abgeschaltet (engine=momentum) -> nicht mehr ueberwacht.
+for svc, label in [("strategy-hourly", "run_strategy"),
                     ("sync", "sync_positions"),
                     ("outcomes", "track_outcomes")]:
     last_run = sh(f"systemctl show invest-pi-{svc}.service -p ExecMainExitTimestamp --value")

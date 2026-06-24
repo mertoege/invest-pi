@@ -1,9 +1,0 @@
-[Unit]
-Description=Invest-Pi · Strategy-Run Mo-Fr 21:00 (Late Session, vor US-Schluss)
-
-[Timer]
-OnCalendar=Mon..Fri *-*-* 21:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
