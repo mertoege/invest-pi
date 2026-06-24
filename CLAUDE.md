@@ -66,7 +66,7 @@ Mert Oege · mert.oege@gmail.com · GitHub: mertoege/invest-pi
 | invest-pi-telegram-callbacks | ~60s | Inline-Button-Klicks → feedback_reasons |
 | invest-pi-score | stündlich :30 | Risk-Scoring der Watchlist |
 | invest-pi-sync | stündlich :35 | Broker→DB Sync + Equity (EUR+USD) + peak_price |
-| invest-pi-strategy-hourly | Mo-Fr stündlich | **Trading-Run** (`run_strategy.py`) — Sell-Pässe + Buy-Pass |
+| invest-pi-strategy-hourly | Mo-Fr stündlich | **Momentum-Rebalance** (engine=momentum: `run_strategy.py`→`momentum_rebalance.run_due`; 1×/Monat Ziel + Konvergenz). Alte Score-Pipeline + `weekly_rotation` stillgelegt (no-op). |
 | invest-pi-hardware | alle 30 Min | CPU/Disk/Mem-Alerts |
 | invest-pi-operator | täglich 13:00 | Autonomer System-Check + Auto-Fix vor Marktöffnung |
 | invest-pi-dca-watchdog | täglich 18:00 | DCA-Überwachung |
