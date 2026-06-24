@@ -36,7 +36,7 @@ if _env.exists():
 from src.broker import get_broker
 from src.common.data_loader import get_prices
 from src.common.fx import eur_per_usd
-from scripts.champion_duell_fair import UNIVERSE
+from src.common.universe import UNIVERSE
 
 MOM_LOOKBACK = 126
 TOP_N = 5

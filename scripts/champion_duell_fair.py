@@ -28,27 +28,8 @@ COST = 0.001
 MOM_LOOKBACK = 126
 VOL_LOOKBACK = 126
 
-# Breites 2018er-Large-Cap-Universum — INKL. der bekannten Nieten der letzten 8 Jahre
-UNIVERSE = [
-    # Tech (Gewinner UND Verlierer)
-    "AAPL","MSFT","GOOGL","AMZN","META","NVDA","ADBE","CRM","ORCL","CSCO",
-    "INTC","IBM","QCOM","TXN","AVGO","MU","AMD","NFLX","ACN","HPQ",
-    # Financials
-    "JPM","BAC","WFC","C","GS","MS","AXP","USB","PNC","SCHW","COF","BLK","BRK-B",
-    # Healthcare (inkl. Underperformer PFE/BMY/GILD/CVS/WBA)
-    "JNJ","UNH","PFE","MRK","ABBV","TMO","ABT","LLY","BMY","AMGN","GILD","CVS","MDT","BIIB",
-    # Staples (inkl. KHC/MO/PM/WBA Verlierer)
-    "PG","KO","PEP","WMT","COST","CL","MO","PM","MDLZ","KHC","GIS","KMB",
-    # Consumer Disc (inkl. F/GM/M Verlierer)
-    "HD","MCD","NKE","SBUX","LOW","DIS","BKNG","F","GM",
-    # Industrials (inkl. GE/BA/MMM Verlierer)
-    "BA","HON","UNP","MMM","GE","CAT","LMT","DE","FDX","UPS","EMR",
-    # Energy (lange schwach, 2022 stark)
-    "XOM","CVX","SLB","COP","OXY","EOG","KMI",
-    # Comm/Materials (inkl. T/VZ Verlierer)
-    "T","VZ","CMCSA","LIN",
-]
-BENCH = ["SPY","QQQ"]
+# Universum + Benchmarks kommen aus der EINZIGEN Wahrheitsquelle (auch vom Live-Handel genutzt)
+from src.common.universe import UNIVERSE, BENCH
 
 
 def load_all():
