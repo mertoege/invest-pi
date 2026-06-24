@@ -517,8 +517,9 @@ views:
       badge: erledigt
     - t: Momentum-Crash-Schutz (offen)
       d: 200d-MA-Regime-Schalter GETESTET und VERWORFEN (whipsaw). Restrisiko 'echter Momentum-Crash'
-        (2009-Typ) bleibt ungetestet, da 2018-26 keinen enthielt — billige Absicherung dafuer noch nicht
-        gefunden. Mitigation bis dahin — Paper bleiben, Live-Beweis ueber echten Zyklus abwarten.
+        (2009-Typ) bleibt ungetestet, da 2018-26 keinen enthielt — billige Absicherung dafuer noch nicht gefunden
+        (auch Low-Vol-Beimischung geprueft: diversifiziert echt (Korr 0,26), aber teuer an Rendite und im echten
+        Crash-Fall mangels Daten ungetestet). Mitigation bis dahin — Paper bleiben, Live-Beweis ueber echten Zyklus abwarten.
       badge: ungeloest
     - t: Kosten-/Steuer-Realismus
       d: DE-Steuer + Spreads/Slippage im Backtest haerter ansetzen, bevor die Echtgeld-Frage ernst wird.
@@ -571,6 +572,15 @@ views:
       d: tax_check.py - Momentum Top-5 netto +27,1%/J vs SPY +11,4%/J, also +15,8%/J Vorsprung NACH
         deutscher Abgeltungssteuer. Steuer frisst nur ~6 Punkte; Edge ueberlebt klar. Robustness - 7/9
         Jahre und 70% der 12M-Fenster ueber Markt, MaxDD niedriger als SPY.
+      badge: 2026-06-24
+    - t: Zweiter Faktor (Low-Vol) geprueft - echte Diversifikation, aber teuer
+      d: Low-Vol als zweiten, von Momentum unabhaengigen Faktor backtestet (scripts/factor2_lowvol_study.py,
+        Train/Test-Split + Korrelation). Korrelation der Monatsrenditen nur 0,26 - also echt unkorreliert. Eine
+        60/40-Mischung Momentum+LowVol senkt den MaxDD 2018-26 von -18% auf -13% bei minimal besserer Sharpe
+        (1,15 vs 1,13) und besteht Out-of-Sample in BEIDEN Haelften. ABER kostet viel Rendite (21,6% vs 30,8%/J),
+        weil LowVol in starken Momentum-Jahren hart bremst (2023 Momentum +58% vs Blend +26%). Und 2018-26 enthielt
+        KEINEN Momentum-Crash - der eigentliche Schutznutzen bleibt ungetestet. Fazit - kein Selbstlaeufer, sondern
+        Rendite-gegen-Ruhe-Abwaegung; Entscheidung vertagt auf Merts Risiko-Toleranz. Live unveraendert (pur Momentum).
       badge: 2026-06-24
     - t: Strategie-Varianten getestet, keine robuste Verbesserung
       d: 12-1-Momentum, Quartals-Rebalance und Ranking-Puffer geprueft (variant_check / turnover_buffer).
