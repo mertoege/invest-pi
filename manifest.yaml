@@ -515,9 +515,11 @@ views:
     - t: Cruft entfernen
       d: no-op-Pfade ausmustern (rotation-Timer, tote Score-Pipeline), damit nichts Totes mehr mitlaeuft.
       badge: naechster Schritt
-    - t: Regime-Schalter pruefen
-      d: Lohnt ein simpler Markt-Aus-Filter fuer Momentum (z.B. SPY unter MA200 → Cash)? Per Backtest testen.
-      badge: Idee
+    - t: Momentum-Crash-Schutz (offen)
+      d: 200d-MA-Regime-Schalter GETESTET und VERWORFEN (whipsaw). Restrisiko 'echter Momentum-Crash'
+        (2009-Typ) bleibt ungetestet, da 2018-26 keinen enthielt — billige Absicherung dafuer noch nicht
+        gefunden. Mitigation bis dahin — Paper bleiben, Live-Beweis ueber echten Zyklus abwarten.
+      badge: ungeloest
     - t: Kosten-/Steuer-Realismus
       d: DE-Steuer + Spreads/Slippage im Backtest haerter ansetzen, bevor die Echtgeld-Frage ernst wird.
       badge: geplant
@@ -548,6 +550,16 @@ views:
       d: Auf breite handelbare Large-Caps erweitert (u.a. CAT/TGT/GS/SLB) — mehr Auswahl fuer das
         Momentum-Ranking, weniger Klumpenrisiko.
       badge: 2026-06-23
+    - t: Regime-Schalter verworfen
+      d: 200d-MA-Filter (SPY unter Trend, dann Cash) per Backtest getestet (regime_overlay_check.py) —
+        macht ALLES schlechter (2018-26 Rendite +30,5% auf +16,4%, MaxDD -18% auf -32%; Whipsaw - verkauft
+        im Dip, verpasst Bounce). Bestaetigt - Timing schadet, Halten gewinnt. Momentum bleibt PUR.
+      badge: 2026-06-24
+    - t: Edge nach Steuer bestaetigt
+      d: tax_check.py - Momentum Top-5 netto +27,1%/J vs SPY +11,4%/J, also +15,8%/J Vorsprung NACH
+        deutscher Abgeltungssteuer. Steuer frisst nur ~6 Punkte; Edge ueberlebt klar. Robustness - 7/9
+        Jahre und 70% der 12M-Fenster ueber Markt, MaxDD niedriger als SPY.
+      badge: 2026-06-24
     - t: Echtgeld bleibt gesperrt
       d: Kein echtes Geld vor Live-Beweis ueber mehrere Jahre + mind. 1 Crash. Bewusst konservativ.
       badge: Dauerregel
