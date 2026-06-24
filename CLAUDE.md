@@ -85,7 +85,7 @@ Mert Oege · mert.oege@gmail.com · GitHub: mertoege/invest-pi
 | invest-pi-monthly-digest | monatl. 3. 09:00 | Verbesserungs-Digest (Telegram) |
 
 Plus `invest-pi-error-alert@.service` (Template-Unit für OnFailure-Telegram-Push).
-Aus dem Repo entfernt (2026-06-24, tote/deaktivierte Units): `strategy`, `-strategy-open`, `-strategy-close` (durch `strategy-hourly` ersetzt) + Score-System-Timer `train-regime`, `patterns`, `meta-review`. `invest-pi-score` bleibt deaktiviert im Repo (Referenz). `/etc`-Altlasten + `rotation`-Timer noch per sudo am Pi abzuraeumen.
+Cruft-Bereinigung 2026-06-24: tote Units `strategy`/`-open`/`-close` (durch `strategy-hourly` ersetzt) + Score-Timer `train-regime`, `patterns`, `meta-review` aus Repo UND /etc entfernt; `rotation` abgeschaltet. `invest-pi-score` bleibt deaktiviert als Referenz. Lebende Units `operator`, `monthly-digest`, `webapp`, `terminal` NEU ins Repo aufgenommen (lagen nur in /etc - Sicherungsluecke). Offen: tote `universe-screener` + `weekly-mini-review` noch per sudo aus /etc loeschen.
 
 ## Deployment
 - **auto_pull** Timer holt alle 2 Min von GitHub

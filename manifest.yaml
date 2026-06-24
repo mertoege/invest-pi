@@ -535,6 +535,12 @@ views:
         Momentum-Timer korrigiert. Nichts Aktives betroffen (Smoke gruen). Score-Code bleibt Referenz.
         Live am Pi nachgezogen - rotation-Timer abgeschaltet + 13 /etc-Altlast-Dateien geloescht (sudo durch Mert).
       badge: 2026-06-24
+    - t: Sicherungsluecke geschlossen
+      d: Lebende Units operator, monthly-digest, webapp, terminal lagen nur in /etc, NICHT im Repo - bei
+        Neuaufsetzen via setup_pi.sh waeren sie verloren gewesen; jetzt byte-identisch versioniert. Dabei
+        zwei weitere tote Score-/etc-Units gefunden (universe-screener, weekly-mini-review) - deaktiviert,
+        schaden nicht, /etc-Purge per sudo noch offen.
+      badge: 2026-06-24
     - t: Momentum scharfgeschaltet
       d: engine=momentum ersetzt das Score-System. Grund - Score schlug den Markt nachweislich nicht
         (Risiko-Vorhersage schlechter als Dummy); Momentum lag 2018–2026 in 7/9 Jahren vorn bei geringerem
