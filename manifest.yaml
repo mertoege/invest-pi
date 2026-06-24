@@ -512,12 +512,11 @@ views:
       d: Momentum im Paper-Trading ueber Monate sauber gegen SPY/QQQ tracken — der Edge muss live halten,
         nicht nur im Backtest.
       badge: laufend
-    - t: Universum entkurateln (HEBEL)
-      d: Live-Universum (~41 Werte) ist handverlesen KI-/Halbleiter-lastig — backtestet traumhaft, aber
-        nur durch Rueckschau-Auswahl (Gewinner von 2026 reingepackt). Auf REGEL-basiertes, branchen-breites
-        Large-Cap-Universum umstellen - entfernt die Selektions-Verzerrung und stellt die Streuung wieder
-        her, die im ehrlichen Backtest den Drawdown senkte. Mit Mert klaeren (verwirft seine Thesen-Liste).
-      badge: empfohlen
+    - t: Universum bereits breit (geklaert)
+      d: Annahme 'Live-Universum eng/KI-lastig' war FALSCH - das galt der config.yaml-Ringliste, die nur
+        Monats-DCA + tote Score-Engine speist. Die Live-Momentum-Engine handelt laengst den breiten
+        90-Namen-Korb. Erledigt - als einzige Quelle src/common/universe.py verankert; kein Wechsel noetig.
+      badge: erledigt
     - t: Cruft entfernen
       d: no-op-Pfade ausmustern (rotation-Timer, tote Score-Pipeline), damit nichts Totes mehr mitlaeuft.
       badge: naechster Schritt
@@ -572,11 +571,11 @@ views:
         ist Mess-Artefakt, Puffer nicht-monoton (Rauschen). Lookback-Sweep 3-12M bestaetigt - Grundedge
         ist breit/robust. Live-Stand (6M Top-5 monatl.) bleibt - die 'Verbesserungen' waeren Overfitting.
       badge: 2026-06-24
-    - t: Eigentlicher Hebel = Universum, nicht Parameter
-      d: Live-Universum eng (~41) und KI-thesen-kuratiert. Backtest darauf +46,8%/J ist Rueckschau-Bias
-        (Gewinner vorausgewaehlt) - nicht echt. ABER Drawdown trotz geschoentem Korb schlechter (-22% vs
-        breit -18%) = Konzentration kostet Krisenfestigkeit. Echter Hebel - Universum regel-basiert
-        verbreitern, nicht an Strategie-Parametern drehen.
+    - t: Universum war nie der Hebel (Korrektur)
+      d: Erst vermutet - Live-Universum eng/KI-kuratiert (~41). FALSCH - das ist die config.yaml-Ringliste
+        (nur DCA + tote Score-Engine). Die Live-Momentum-Engine nutzt seit jeher den breiten, branchen-
+        gestreuten 90-Namen-Korb; Diversifikation also schon da. Einzige reale Schwaeche - der Korb lag in
+        einer Backtest-Datei; jetzt eigene Quelle src/common/universe.py (Live+Backtest identisch). Verhalten unveraendert.
       badge: 2026-06-24
     - t: Echtgeld bleibt gesperrt
       d: Kein echtes Geld vor Live-Beweis ueber mehrere Jahre + mind. 1 Crash. Bewusst konservativ.
