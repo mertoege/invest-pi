@@ -85,7 +85,7 @@ Mert Oege · mert.oege@gmail.com · GitHub: mertoege/invest-pi
 | invest-pi-monthly-digest | monatl. 3. 09:00 | Verbesserungs-Digest (Telegram) |
 
 Plus `invest-pi-error-alert@.service` (Template-Unit für OnFailure-Telegram-Push).
-Disabled (Alt-Units, ersetzt durch `strategy-hourly`): `invest-pi-strategy`, `-strategy-open`, `-strategy-close`.
+Aus dem Repo entfernt (2026-06-24, tote/deaktivierte Units): `strategy`, `-strategy-open`, `-strategy-close` (durch `strategy-hourly` ersetzt) + Score-System-Timer `train-regime`, `patterns`, `meta-review`. `invest-pi-score` bleibt deaktiviert im Repo (Referenz). `/etc`-Altlasten + `rotation`-Timer noch per sudo am Pi abzuraeumen.
 
 ## Deployment
 - **auto_pull** Timer holt alle 2 Min von GitHub

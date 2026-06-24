@@ -109,9 +109,9 @@ jobs:
   - ok
   - läuft
 - - Rotation
-  - invest-pi-rotation · Sa 12:00 — Timer an, Skript unter Momentum no-op
+  - invest-pi-rotation · no-op unter Momentum — Abschaltung am Pi ausstehend (sudo)
   - idle
-  - leerlauf
+  - stilllegen
 - - Self-Learning (Score-System)
   - score/regime/patterns/meta-review/mini-review/screener — Timer deaktiviert
   - paused
@@ -517,9 +517,11 @@ views:
         Monats-DCA + tote Score-Engine speist. Die Live-Momentum-Engine handelt laengst den breiten
         90-Namen-Korb. Erledigt - als einzige Quelle src/common/universe.py verankert; kein Wechsel noetig.
       badge: erledigt
-    - t: Cruft entfernen
-      d: no-op-Pfade ausmustern (rotation-Timer, tote Score-Pipeline), damit nichts Totes mehr mitlaeuft.
-      badge: naechster Schritt
+    - t: Cruft entfernt (Repo)
+      d: 6 tote, deaktivierte Alt-Timer-Units aus dem Repo entfernt (strategy/-open/-close, train-regime,
+        patterns, meta-review); Status-Monitoring von Score-Geistern befreit. Score-Code bleibt als Referenz.
+        Offen nur noch ein manueller sudo-Handgriff am Pi - rotation-Timer abschalten + tote /etc-Units loeschen.
+      badge: erledigt (Repo)
     - t: Momentum-Crash-Schutz (offen)
       d: 200d-MA-Regime-Schalter GETESTET und VERWORFEN (whipsaw). Restrisiko 'echter Momentum-Crash'
         (2009-Typ) bleibt ungetestet, da 2018-26 keinen enthielt — billige Absicherung dafuer noch nicht
@@ -534,6 +536,12 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Cruft entfernt (Repo-Seite)
+      d: Tote Alt-Timer-Units (strategy/-open/-close, train-regime, patterns, meta-review) aus dem Repo
+        ausgemustert, Status-Snapshot von toten 'score'-Eintraegen bereinigt, setup-Hinweis auf lebende
+        Momentum-Timer korrigiert. Nichts Aktives betroffen (Smoke gruen). Score-Code bleibt Referenz.
+        Rest - rotation-Timer + /etc-Altlasten brauchen einen sudo-Handgriff am Pi.
+      badge: 2026-06-24
     - t: Momentum scharfgeschaltet
       d: engine=momentum ersetzt das Score-System. Grund - Score schlug den Markt nachweislich nicht
         (Risiko-Vorhersage schlechter als Dummy); Momentum lag 2018–2026 in 7/9 Jahren vorn bei geringerem
