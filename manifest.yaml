@@ -530,6 +530,13 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Risiko-Toleranz festgelegt - pur Momentum (kein Low-Vol-Blend)
+      d: Mert wuerde einen zwischenzeitlichen Drawdown von ~-35% aushalten ohne zu verkaufen. Daher bleibt es
+        bei PUREM Momentum (volle Rendite), keine Low-Vol-Beimischung - die haette ~9 Punkte Rendite/J gegen
+        ~5 Punkte weniger Drawdown getauscht, was sich nur lohnt, wenn man im Crash NICHT ruhig haelt. Caveat -
+        auf Spielgeld leicht gesagt; echter Test ist ein echter Crash. Low-Vol-Werkzeug (factor2_lowvol_study.py)
+        bleibt als Option im Schrank, falls sich das Verhalten live anders zeigt.
+      badge: 2026-06-24
     - t: Cruft entfernt (Repo-Seite)
       d: Tote Alt-Timer-Units (strategy/-open/-close, train-regime, patterns, meta-review) aus dem Repo
         ausgemustert, Status-Snapshot von toten 'score'-Eintraegen bereinigt, setup-Hinweis auf lebende
@@ -629,11 +636,6 @@ protections:
 - Korrelations-Check
 - Tages-Verlust-Limit
 tasks:
-- title: Risiko-Toleranz festlegen
-  art: einmalig
-  prioritaet: mittel
-  was: 'Entscheiden, welcher maximale Depot-Drawdown fuer dich noch ok ist (z.B. -20% vs -35%). Reine
-    Wertentscheidung — steuert, wie defensiv Momentum eingestellt wird.'
 - title: Monats-Check lesen
   art: routine
   turnus: monatlich
