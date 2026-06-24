@@ -512,6 +512,12 @@ views:
       d: Momentum im Paper-Trading ueber Monate sauber gegen SPY/QQQ tracken — der Edge muss live halten,
         nicht nur im Backtest.
       badge: laufend
+    - t: Universum entkurateln (HEBEL)
+      d: Live-Universum (~41 Werte) ist handverlesen KI-/Halbleiter-lastig — backtestet traumhaft, aber
+        nur durch Rueckschau-Auswahl (Gewinner von 2026 reingepackt). Auf REGEL-basiertes, branchen-breites
+        Large-Cap-Universum umstellen - entfernt die Selektions-Verzerrung und stellt die Streuung wieder
+        her, die im ehrlichen Backtest den Drawdown senkte. Mit Mert klaeren (verwirft seine Thesen-Liste).
+      badge: empfohlen
     - t: Cruft entfernen
       d: no-op-Pfade ausmustern (rotation-Timer, tote Score-Pipeline), damit nichts Totes mehr mitlaeuft.
       badge: naechster Schritt
@@ -559,6 +565,18 @@ views:
       d: tax_check.py - Momentum Top-5 netto +27,1%/J vs SPY +11,4%/J, also +15,8%/J Vorsprung NACH
         deutscher Abgeltungssteuer. Steuer frisst nur ~6 Punkte; Edge ueberlebt klar. Robustness - 7/9
         Jahre und 70% der 12M-Fenster ueber Markt, MaxDD niedriger als SPY.
+      badge: 2026-06-24
+    - t: Strategie-Varianten getestet, keine robuste Verbesserung
+      d: 12-1-Momentum, Quartals-Rebalance und Ranking-Puffer geprueft (variant_check / turnover_buffer).
+        Headline-Zahlen hoeher, aber nicht robust - 12-1 lumpy (schlaegt Markt nur 6/9 J vs 7/9), Quartal
+        ist Mess-Artefakt, Puffer nicht-monoton (Rauschen). Lookback-Sweep 3-12M bestaetigt - Grundedge
+        ist breit/robust. Live-Stand (6M Top-5 monatl.) bleibt - die 'Verbesserungen' waeren Overfitting.
+      badge: 2026-06-24
+    - t: Eigentlicher Hebel = Universum, nicht Parameter
+      d: Live-Universum eng (~41) und KI-thesen-kuratiert. Backtest darauf +46,8%/J ist Rueckschau-Bias
+        (Gewinner vorausgewaehlt) - nicht echt. ABER Drawdown trotz geschoentem Korb schlechter (-22% vs
+        breit -18%) = Konzentration kostet Krisenfestigkeit. Echter Hebel - Universum regel-basiert
+        verbreitern, nicht an Strategie-Parametern drehen.
       badge: 2026-06-24
     - t: Echtgeld bleibt gesperrt
       d: Kein echtes Geld vor Live-Beweis ueber mehrere Jahre + mind. 1 Crash. Bewusst konservativ.
