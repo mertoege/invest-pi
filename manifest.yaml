@@ -45,7 +45,7 @@ loop:
     - den Monat ueber ruhig halten — kein Hin-und-Her-Handeln
   - - Pruefen
     - Strategie-Varianten per Backtest gegen den Markt testen → naechster Zyklus
-# Stand 2026-06-24: 16 Timer aktiv. Self-Learning-Timer des alten Score-Systems
+# Stand 2026-06-24: 15 Timer aktiv (rotation stillgelegt). Self-Learning-Timer des alten Score-Systems
 # (score/regime/patterns/meta-review/mini-review/screener) sind DEAKTIVIERT (engine=momentum).
 jobs:
 - - Strategie — Momentum-Rebalance
@@ -108,10 +108,6 @@ jobs:
   - invest-pi-telegram-callbacks · ~60s
   - ok
   - läuft
-- - Rotation
-  - invest-pi-rotation · no-op unter Momentum — Abschaltung am Pi ausstehend (sudo)
-  - idle
-  - stilllegen
 - - Self-Learning (Score-System)
   - score/regime/patterns/meta-review/mini-review/screener — Timer deaktiviert
   - paused
@@ -418,8 +414,8 @@ views:
       d: Alle Broker-Calls mit 3 Versuchen (exponentielles Warten).
       badge: '@api_retry'
   jobs2:
-    title: Automatisierung — 16 aktive Timer
-    intro: 'systemd-Timer orchestrieren alles cron-artig. Stand 2026-06-24: 16 aktiv. DEAKTIVIERT unter
+    title: Automatisierung — 15 aktive Timer
+    intro: 'systemd-Timer orchestrieren alles cron-artig. Stand 2026-06-24: 15 aktiv (rotation stillgelegt). DEAKTIVIERT unter
       engine=momentum (Score-System): score, train-regime, patterns, meta-review, weekly-mini-review,
       universe-screener; rotation laeuft als no-op. Die ''Lernen''-Karten unten beschreiben das ruhende
       Score-System (Referenz/Historie), nicht den Live-Betrieb.'
@@ -439,9 +435,6 @@ views:
       - t: dca-watchdog
         d: Überwacht DCA-Positionen auf Probleme.
         badge: täglich 18:00
-      - t: rotation
-        d: 'Alt-Pfad: unter Momentum no-op (Timer an, Skript inaktiv).'
-        badge: Sa 12:00 · LEERLAUF
     - label: Lernen (DEAKTIVIERT — Score-System)
       color: '#c98fd0'
       cards:
@@ -517,11 +510,11 @@ views:
         Monats-DCA + tote Score-Engine speist. Die Live-Momentum-Engine handelt laengst den breiten
         90-Namen-Korb. Erledigt - als einzige Quelle src/common/universe.py verankert; kein Wechsel noetig.
       badge: erledigt
-    - t: Cruft entfernt (Repo)
-      d: 6 tote, deaktivierte Alt-Timer-Units aus dem Repo entfernt (strategy/-open/-close, train-regime,
-        patterns, meta-review); Status-Monitoring von Score-Geistern befreit. Score-Code bleibt als Referenz.
-        Offen nur noch ein manueller sudo-Handgriff am Pi - rotation-Timer abschalten + tote /etc-Units loeschen.
-      badge: erledigt (Repo)
+    - t: Cruft entfernt
+      d: Tote Alt-Timer-Units aus Repo UND /etc entfernt (strategy/-open/-close, train-regime, patterns,
+        meta-review, rotation = 13 Dateien); rotation-Timer abgeschaltet; Status-Monitoring von Score-Geistern
+        befreit. Nichts Totes laeuft mehr - 15 aktive Timer, alle lebend. Score-Code bleibt als Referenz.
+      badge: erledigt
     - t: Momentum-Crash-Schutz (offen)
       d: 200d-MA-Regime-Schalter GETESTET und VERWORFEN (whipsaw). Restrisiko 'echter Momentum-Crash'
         (2009-Typ) bleibt ungetestet, da 2018-26 keinen enthielt — billige Absicherung dafuer noch nicht
@@ -540,7 +533,7 @@ views:
       d: Tote Alt-Timer-Units (strategy/-open/-close, train-regime, patterns, meta-review) aus dem Repo
         ausgemustert, Status-Snapshot von toten 'score'-Eintraegen bereinigt, setup-Hinweis auf lebende
         Momentum-Timer korrigiert. Nichts Aktives betroffen (Smoke gruen). Score-Code bleibt Referenz.
-        Rest - rotation-Timer + /etc-Altlasten brauchen einen sudo-Handgriff am Pi.
+        Live am Pi nachgezogen - rotation-Timer abgeschaltet + 13 /etc-Altlast-Dateien geloescht (sudo durch Mert).
       badge: 2026-06-24
     - t: Momentum scharfgeschaltet
       d: engine=momentum ersetzt das Score-System. Grund - Score schlug den Markt nachweislich nicht
@@ -594,7 +587,7 @@ tech:
 - - Datenhaltung
   - 5× SQLite — trading, learning, market, alerts, patterns
 - - Scheduling
-  - 16 aktive systemd-Timer · User investpi (Score-System-Timer deaktiviert)
+  - 15 aktive systemd-Timer · User investpi (Score-System + rotation deaktiviert)
 - - Marktdaten
   - yfinance · fredapi (FRED)
 - - ML / Regime
