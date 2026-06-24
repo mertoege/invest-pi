@@ -11,104 +11,111 @@ summary: >-
   Ebene (Varianten per Backtest validiert), nicht mehr Trade-fuer-Trade.
 flow:
 - - Quellen
-  - yfinance · FRED · Google-Trends · Short-Interest
+  - yfinance (Kurse/Volumen) · FRED (Makro) — breites Large-Cap-Universum
   - source
-- - heuristic-v5
-  - 20 Dimensionen → Risiko-Score 0–100 (live gewichtet)
+- - Momentum-Ranking
+  - 6-Monats-Momentum je Aktie · Daten-Sanity + Mindestabdeckung + Cross-Check
   - engine
-- - Decision Engine
-  - Score + HMM-Regime → Kaufen/Halten/Verkaufen + Positionsgröße
+- - Top-5-Auswahl
+  - 1×/Monat die 5 staerksten Titel, gleichgewichtet → Monatsziel
   - decision
 - - Risk-Limits
-  - Stop-Loss · Cash-Floor · Sektor-Cap · Korrelation · Daily-Loss · Kill-Switch
+  - Cash-Floor · Sektor-Cap · Korrelation · Daily-Loss · Kill-Switch · Circuit-Breaker
   - guard
 - - Alpaca (Paper)
-  - Order-Ausführung, hält die Positionen
+  - Konvergenz-Orders auf das Monatsziel, haelt die Positionen
   - broker
-- - Outcome-Messung
-  - 'nach 7 Tagen: war der Score richtig?'
+- - Monats-Check
+  - automatischer Momentum-Report (monthly-digest) — Ziel eingehalten?
   - measure
-- - Attribution
-  - welche der 20 Dimensionen haben getroffen?
-  - learn
-- - Weight-Optimizer
-  - Gewichte aus 60-Tage-Attribution anpassen ↺ zurück zu heuristic-v5
+- - Strategie-Lernen
+  - Varianten per Backtest validieren (champion_duell / robustness) statt Trade-fuer-Trade
   - learn
 loop:
-  title: Self-Learning
-  center: Risiko-Modell
+  title: Momentum-Zyklus (monatlich)
+  center: Momentum-Engine
   steps:
-  - - Bewerten
-    - jeder Aktie alle 30 Sek eine Risiko-Note geben (19 Kennzahlen, reine Mathematik)
-  - - Handeln
-    - nach den Noten + Sicherheitsregeln kaufen/verkaufen
-  - - Messen
-    - nach 7 Tagen prüfen, ob die Note stimmte
-  - - Auswerten
-    - welche der 19 Kennzahlen haben WIRKLICH gut vorhergesagt?
-  - - Lernen
-    - gute Kennzahlen zählen künftig mehr → Kreislauf beginnt von vorn
+  - - Ranken
+    - alle handelbaren Titel nach 6-Monats-Momentum sortieren (reine Mathematik)
+  - - Auswaehlen
+    - die Top 5 gleichgewichtet als Monatsziel fixieren
+  - - Angleichen
+    - Depot per Orders an das Ziel konvergieren (schwach raus, stark rein)
+  - - Halten
+    - den Monat ueber ruhig halten — kein Hin-und-Her-Handeln
+  - - Pruefen
+    - Strategie-Varianten per Backtest gegen den Markt testen → naechster Zyklus
+# Stand 2026-06-24: 16 Timer aktiv. Self-Learning-Timer des alten Score-Systems
+# (score/regime/patterns/meta-review/mini-review/screener) sind DEAKTIVIERT (engine=momentum).
 jobs:
-- - Scoring — Aktien bewerten
-  - invest-pi-score · alle 30 Sek
-  - ok
-  - läuft
-- - Strategie — kaufen/verkaufen
-  - invest-pi-strategy-hourly · stündlich
+- - Strategie — Momentum-Rebalance
+  - invest-pi-strategy-hourly · stuendl. Mo–Fr (Monatsziel + Konvergenz)
   - ok
   - läuft
 - - Rebalance (sell-only)
   - invest-pi-rebalance · Mo–Fr 21:30
   - ok
   - aktiv
-- - Daten-Refresh
-  - invest-pi-sync · alle 30 Min
+- - Daten-Sync (Broker→DB + Equity)
+  - invest-pi-sync · stuendl. :35
   - ok
   - läuft
-- - Outcome-Messung (7-Tage)
-  - invest-pi-outcomes · täglich
-  - ok
-  - läuft
-- - Gewichts-Optimierung
-  - Lern-Zyklus · aus 60-Tage-Attribution
-  - ok
-  - läuft
-- - Pattern-Mining
-  - invest-pi-patterns
-  - ok
-  - läuft
-- - Regime-Training (HMM)
-  - invest-pi-train-regime
-  - ok
-  - aktiv
-- - Universe-Screener
-  - invest-pi-universe-screener
+- - Outcome-Messung (1/7/30 T)
+  - invest-pi-outcomes · taeglich 02:30
   - ok
   - aktiv
 - - Monats-Sparplan (DCA)
-  - invest-pi-monthly-dca · monatlich
+  - invest-pi-monthly-dca · 1. d. Monats
   - ok
   - aktiv
-- - Wochen-Mini-Review (Opus)
-  - invest-pi-weekly-mini-review
-  - ok
-  - aktiv
-- - Meta-Review (Opus)
-  - invest-pi-meta-review · monatlich
+- - Monats-Digest / Momentum-Check
+  - invest-pi-monthly-digest · 3. d. Monats (Telegram)
   - ok
   - aktiv
 - - Tagesbericht (Telegram)
-  - invest-pi-daily-report · 18:00
+  - invest-pi-daily-report · 21:30
   - ok
   - aktiv
-- - Monats-Digest (Telegram)
-  - invest-pi-monthly-digest
+- - Wochen-Recap (Telegram)
+  - invest-pi-weekly-recap · So 19:00
+  - ok
+  - aktiv
+- - DCA-Watchdog
+  - invest-pi-dca-watchdog · taeglich 18:00
+  - ok
+  - aktiv
+- - System-Operator (Health + Auto-Fix)
+  - invest-pi-operator · taeglich 13:00
+  - ok
+  - aktiv
+- - Hardware-Check
+  - invest-pi-hardware · alle 30 Min
   - ok
   - aktiv
 - - Backup
-  - invest-pi-backup · täglich
+  - invest-pi-backup · taeglich 03:30
   - ok
   - aktiv
+- - Auto-Deploy (git pull)
+  - invest-pi-auto-pull · alle 2 Min (Smoke-Test + Rollback)
+  - ok
+  - läuft
+- - Status-Push (GitHub)
+  - invest-pi-status-push · alle 2 Min
+  - ok
+  - läuft
+- - Telegram-Callbacks
+  - invest-pi-telegram-callbacks · ~60s
+  - ok
+  - läuft
+- - Rotation
+  - invest-pi-rotation · Sa 12:00 — Timer an, Skript unter Momentum no-op
+  - idle
+  - leerlauf
+- - Self-Learning (Score-System)
+  - score/regime/patterns/meta-review/mini-review/screener — Timer deaktiviert
+  - paused
+  - schlummert
 sources:
 - - yfinance
   - Kurse, Volumen & Fundamentaldaten
@@ -116,27 +123,21 @@ sources:
 - - FRED
   - Makro-/Zinsdaten (Wirtschaftslage)
   - extern
-- - Google Trends
-  - Aufmerksamkeits-Signale
-  - extern
-- - Short-Interest
-  - Leerverkaufs-Quote
-  - extern
 - - Alpaca (Paper)
   - Broker — führt Trades aus, hält Positionen
   - broker
-- - 19 Risiko-Dimensionen
-  - intern aus Kursen berechnet
-  - intern
+notes_sources: >-
+  Google-Trends, Short-Interest und die 19 Risiko-Dimensionen speisten das alte Score-System
+  und sind unter engine=momentum nicht mehr im Handels-Pfad (Code bleibt als Referenz).
 instances:
-- - heuristic-v5
-  - 'Regel-Engine: 19 Kennzahlen, gratis, im Sekundentakt'
+- - Momentum-Engine
+  - 'Regel-Engine: 6-Monats-Momentum, Top-5 monatlich, gratis, keine LLM-Kosten'
   - regel
 - - Opus 4.8
-  - strategische Reviews, Pattern-Mining, Meta-Analyse
+  - Strategie-Backtests + Audits (ad-hoc); autom. Meta-Reviews unter Momentum aus
   - ki
 - - Claude-Operator
-  - setzt tiefere Verbesserungen mit Mert um
+  - setzt tiefere Verbesserungen autonom um, berichtet an Mert
   - mensch
 views:
   decision:
@@ -287,9 +288,11 @@ views:
         d: Bei Datenfehler konservativ blocken.
         badge: default = blockieren
   learning:
-    title: Self-Learning-System
-    intro: '12 Module bilden den Lern-Kreislauf: Bewerten → Messen → Attribution → Gewichte/Config/Code
-      anpassen. Sicher durch Backtest-Gate, pytest und Auto-Rollback.'
+    title: Self-Learning-System (RUHEND seit 2026-06)
+    intro: 'HISTORIE/REFERENZ — NICHT LIVE: Diese 12 Module bildeten den Trade-fuer-Trade-Lern-Kreislauf
+      des alten Score-Systems. Per Backtest belegt: schlug den Markt nicht. Seit engine=momentum sind die
+      zugehoerigen Timer DEAKTIVIERT. Gelernt wird jetzt auf Strategie-/Meta-Ebene (Varianten per Backtest).
+      Bleibt dokumentiert, falls Teile (z.B. Regime-Filter) spaeter in Momentum einfliessen.'
     groups:
     - label: Messen & Auswerten
       color: '#c98fd0'
@@ -415,64 +418,66 @@ views:
       d: Alle Broker-Calls mit 3 Versuchen (exponentielles Warten).
       badge: '@api_retry'
   jobs2:
-    title: Automatisierung — 22 Timer
-    intro: systemd-Timer orchestrieren alles cron-artig — vom Sekundentakt bis monatlich. Gruppiert nach
-      Funktion.
+    title: Automatisierung — 16 aktive Timer
+    intro: 'systemd-Timer orchestrieren alles cron-artig. Stand 2026-06-24: 16 aktiv. DEAKTIVIERT unter
+      engine=momentum (Score-System): score, train-regime, patterns, meta-review, weekly-mini-review,
+      universe-screener; rotation laeuft als no-op. Die ''Lernen''-Karten unten beschreiben das ruhende
+      Score-System (Referenz/Historie), nicht den Live-Betrieb.'
     groups:
-    - label: Trading
+    - label: Trading (aktiv)
       color: '#6aa98c'
       cards:
       - t: strategy-hourly
-        d: 'Autonomes Handeln: Buy/Sell/Stops.'
+        d: 'Momentum-Rebalance: Monatsziel + Konvergenz.'
         badge: Mo–Fr stündl. 10–21
       - t: rebalance
         d: Sell-only Pass (Stop/TP) zum Close.
         badge: Mo–Fr 21:30
-      - t: rotation
-        d: 'Portfolio-Rotation: schwach raus, stark rein.'
-        badge: Sa 12:00
       - t: monthly-dca
         d: Monatlicher Sparplan-Pick.
         badge: 1. d. Monats 14:00
       - t: dca-watchdog
         d: Überwacht DCA-Positionen auf Probleme.
         badge: täglich 18:00
-    - label: Lernen
+      - t: rotation
+        d: 'Alt-Pfad: unter Momentum no-op (Timer an, Skript inaktiv).'
+        badge: Sa 12:00 · LEERLAUF
+    - label: Lernen (DEAKTIVIERT — Score-System)
       color: '#c98fd0'
       cards:
+      - t: outcomes
+        d: Outcome-Messung + Drift-Erkennung (laeuft noch).
+        badge: täglich 02:30 · aktiv
       - t: score
         d: Risk-Scoring aller Titel + Universe-Scan.
-        badge: stündlich :30
-      - t: outcomes
-        d: Outcome-Messung + Drift-Erkennung.
-        badge: täglich 02:30
+        badge: AUS
       - t: train-regime
         d: HMM-Regime-Modell neu trainieren.
-        badge: Sa 05:00
+        badge: AUS
       - t: patterns
         d: Drawdown-Muster-Bibliothek aktualisieren.
-        badge: 1. d. Monats 03:00
+        badge: AUS
       - t: meta-review
         d: Opus-Tiefenanalyse + Config/Code-Patches.
-        badge: 2. d. Monats 04:00
+        badge: AUS
       - t: universe-screener
         d: Neue Kandidaten screenen.
-        badge: 1. d. Monats 06:00
+        badge: AUS
     - label: Reports
       color: '#d8ab5e'
       cards:
       - t: daily-report
         d: Tages-Performance via Telegram.
         badge: täglich 21:30
-      - t: weekly-mini-review
-        d: Sonnet-Wochenanalyse.
-        badge: So 10:00
       - t: weekly-recap
         d: Wochen-Recap (Hit-Rate, Best/Worst).
         badge: So 19:00
       - t: monthly-digest
-        d: Monatlicher Verbesserungs-Digest.
+        d: Monatlicher Momentum-/Verbesserungs-Digest.
         badge: 3. d. Monats 09:00
+      - t: weekly-mini-review
+        d: Sonnet-Wochenanalyse (Score-System).
+        badge: AUS
     - label: Daten
       color: '#6ba0db'
       cards:
@@ -500,25 +505,71 @@ views:
       - t: telegram-callbacks
         d: Verarbeitet Telegram-Eingaben.
         badge: alle 60s
+  roadmap:
+    title: Roadmap
+    cards:
+    - t: Live-Beweis sammeln
+      d: Momentum im Paper-Trading ueber Monate sauber gegen SPY/QQQ tracken — der Edge muss live halten,
+        nicht nur im Backtest.
+      badge: laufend
+    - t: Cruft entfernen
+      d: no-op-Pfade ausmustern (rotation-Timer, tote Score-Pipeline), damit nichts Totes mehr mitlaeuft.
+      badge: naechster Schritt
+    - t: Regime-Schalter pruefen
+      d: Lohnt ein simpler Markt-Aus-Filter fuer Momentum (z.B. SPY unter MA200 → Cash)? Per Backtest testen.
+      badge: Idee
+    - t: Kosten-/Steuer-Realismus
+      d: DE-Steuer + Spreads/Slippage im Backtest haerter ansetzen, bevor die Echtgeld-Frage ernst wird.
+      badge: geplant
+    - t: Echtgeld-Entscheid
+      d: Erst nach ueberzeugendem Live-Lauf ueber Zyklen inkl. >=1 Crash — Wertentscheidung von Mert.
+      badge: offen · Mert
+  decisions:
+    title: Entscheidungen (Log)
+    cards:
+    - t: Momentum scharfgeschaltet
+      d: engine=momentum ersetzt das Score-System. Grund - Score schlug den Markt nachweislich nicht
+        (Risiko-Vorhersage schlechter als Dummy); Momentum lag 2018–2026 in 7/9 Jahren vorn bei geringerem
+        Drawdown.
+      badge: 2026-06-23
+    - t: Weniger handeln, mehr halten
+      d: Backtest ueber Auf- und Abschwung — aktives Verkaufen war in KEINEM Regime besser als ruhiges
+        Halten. Schutz kommt aus Diversifikation, nicht aus haeufigem Handeln. momentum_exit entschaerft.
+      badge: 2026-06-23
+    - t: Score-/Lern-Timer abgeschaltet
+      d: Self-Learning-Timer (score, regime, patterns, meta/mini-review, screener) deaktiviert — sie
+        optimierten ein totes System und kosteten LLM-Geld.
+      badge: 2026-06-24
+    - t: Momentum produktions-gehaertet
+      d: Audit-Haertung - Daten-Sanity, Cross-Check, Mindestabdeckung, Circuit-Breaker, Market-Orders,
+        Stale-Cleanup, atomarer State; nicht handeln solange Orders offen.
+      badge: 2026-06-24
+    - t: Universum verbreitert
+      d: Auf breite handelbare Large-Caps erweitert (u.a. CAT/TGT/GS/SLB) — mehr Auswahl fuer das
+        Momentum-Ranking, weniger Klumpenrisiko.
+      badge: 2026-06-23
+    - t: Echtgeld bleibt gesperrt
+      d: Kein echtes Geld vor Live-Beweis ueber mehrere Jahre + mind. 1 Crash. Bewusst konservativ.
+      badge: Dauerregel
 tech:
 - - Sprache
   - Python 3.11 (nativ, kein Docker)
 - - Datenhaltung
   - 5× SQLite — trading, learning, market, alerts, patterns
 - - Scheduling
-  - 17 systemd-Timer · User investpi
+  - 16 aktive systemd-Timer · User investpi (Score-System-Timer deaktiviert)
 - - Marktdaten
   - yfinance · fredapi (FRED)
 - - ML / Regime
-  - hmmlearn (HMM) · scikit-learn · Hurst/VaR eigen
+  - hmmlearn (HMM) · scikit-learn — unter Momentum ruhend (train-regime aus)
 - - Broker
   - Alpaca SDK (Paper-Account)
 - - Alerts
   - Telegram Bot API
-- - Risiko-Engine
-  - heuristic-v5 · 20 gewichtete Dimensionen
+- - Strategie-Engine
+  - Momentum (6-Mon, Top-5 monatl.) + Risk-Limits aus config.yaml
 - - KI-Reviews
-  - Claude Opus 4.8 (wöchentlich/monatlich)
+  - Claude Opus 4.8 (ad-hoc Backtests/Audits; autom. Reviews unter Momentum aus)
 - - Deploy
   - git auto-pull alle 2 Min → push = Live in <2 Min
 protections:
@@ -531,6 +582,22 @@ protections:
 - Sektor-Limit
 - Korrelations-Check
 - Tages-Verlust-Limit
+tasks:
+- title: Risiko-Toleranz festlegen
+  art: einmalig
+  prioritaet: mittel
+  was: 'Entscheiden, welcher maximale Depot-Drawdown fuer dich noch ok ist (z.B. -20% vs -35%). Reine
+    Wertentscheidung — steuert, wie defensiv Momentum eingestellt wird.'
+- title: Monats-Check lesen
+  art: routine
+  turnus: monatlich
+  prioritaet: niedrig
+  was: 'Den automatischen Momentum-Monatsbericht (Telegram, 3. d. Monats) kurz anschauen — laeuft die
+    Strategie gegen den Markt wie erwartet?'
+- title: Echtgeld-Umstieg entscheiden
+  art: einmalig
+  prioritaet: hoch
+  was: 'Wenn Momentum live ueber Zyklen inkl. mind. 1 Crash ueberzeugt hat — entscheiden, ob/mit wieviel
+    echtem Geld gestartet wird. Erst dann, nicht frueher.'
 notes: 'EUR-denominiert, Paper-Trading. Ziel: maximale absolute Rendite — aber mit Risiko­abwägung, nicht
-  gepokert. Die 20 Dimensions-Gewichte werden vom Lern-Loop aus 60-Tage-Attribution laufend auto-optimiert
-   GRUNDAUSRICHTUNG 2026-06-23: Backtests über Auf- (2025/26) und Abschwung (2022) zeigten, dass aktives Verkaufen in KEINEM Regime besser war als ruhiges Halten (Aufwärts +16% aktiv vs +20% halten; Bär -17% vs -15%). Schutz im Abschwung kommt aus Diversifikation, nicht aus häufigem Handeln. Daher momentum_exit (zuvor 63%% aller Verkäufe) entschärft Richtung weniger Handeln / mehr Halten. Universe auf 29 handelbare Werte verbreitert (CAT/TGT/GS/SLB). 2026-06-23 SCHARFGESCHALTET: strategy_engine=momentum — Momentum-Top-5 (monatlich) ersetzt die alte Score-Pipeline (no-op), beide alten Handels-Pfade (run_strategy, weekly_rotation) delegieren/beenden. Belegt via champion_duell_fair / robustness_check / tax_check. Weiter Spielgeld; Echtgeld erst nach langem Live-Beweis.'
+  gepokert. GRUNDAUSRICHTUNG 2026-06-23: Backtests über Auf- (2025/26) und Abschwung (2022) zeigten, dass aktives Verkaufen in KEINEM Regime besser war als ruhiges Halten (Aufwärts +16% aktiv vs +20% halten; Bär -17% vs -15%). Schutz im Abschwung kommt aus Diversifikation, nicht aus häufigem Handeln. Daher momentum_exit (zuvor 63% aller Verkäufe) entschärft Richtung weniger Handeln / mehr Halten. Universe auf 29 handelbare Werte verbreitert (CAT/TGT/GS/SLB). 2026-06-23 SCHARFGESCHALTET: strategy_engine=momentum — Momentum-Top-5 (monatlich) ersetzt die alte Score-Pipeline (no-op), beide alten Handels-Pfade (run_strategy, weekly_rotation) delegieren/beenden. Belegt via champion_duell_fair / robustness_check / tax_check. Das alte Self-Learning des Score-Systems ist ruhend (Timer aus). Weiter Spielgeld; Echtgeld erst nach langem Live-Beweis.'
