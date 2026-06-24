@@ -131,7 +131,7 @@ def build_momentum_report() -> str:
         parts.append("\U0001F4CA Noch zu wenig Verlauf fuer den Markt-Vergleich (kommt naechsten Monat).")
     try:
         st = _json.loads((Path(__file__).resolve().parents[1] / "data" / ".momentum_state.json").read_text())
-        parts += ["", f"\U0001F4CC Aktuelle Top-5: {', '.join(st.get('top', [])) or '—'}",
+        parts += ["", f"\U0001F4CC Aktuelle Top-5: {', '.join(st.get('target', [])) or '—'}",
                   f"\U0001F504 Letztes Rebalance: {st.get('last_rebalance', '—')}"]
     except Exception:
         pass
