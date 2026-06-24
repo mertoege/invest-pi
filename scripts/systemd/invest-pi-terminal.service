@@ -1,0 +1,18 @@
+[Unit]
+Description=Invest-Pi · Web Terminal (Token-Auth, localhost only)
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/investpi/invest-pi
+EnvironmentFile=/home/investpi/invest-pi/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONPATH=/home/investpi/invest-pi
+Environment=ROOT_PATH=/terminal
+ExecStart=/usr/bin/python3 /home/investpi/invest-pi/terminal/main.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · Monatlicher Verbesserungs-Digest (Telegram)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+ExecStart=/usr/bin/python3 -B scripts/monthly_digest.py

@@ -1,0 +1,17 @@
+[Unit]
+Description=Invest-Pi · Web Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi/webapp
+EnvironmentFile=/home/investpi/invest-pi/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -B main.py
+Restart=always
+RestartSec=5
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

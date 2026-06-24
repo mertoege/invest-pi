@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · Autonomous Operator (taeglich 13:00 CET, vor Marktoeffnung)
+
+[Timer]
+OnCalendar=*-*-* 13:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

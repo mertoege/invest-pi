@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · Monats-Digest Timer (3. des Monats 09:00, nach Meta-Review)
+
+[Timer]
+OnCalendar=*-*-03 09:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
