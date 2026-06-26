@@ -137,8 +137,12 @@ Niederlage gebaut:
   Hit-Rate IMMER gekoppelt mit avg_win/avg_loss, Turnover, Information Coefficient, Kalibrierung (Brier/Reliability).
 - **Dauer:** Minimum 12 Monate (nur Zwischenstand!), **Urteil „behalten" frühestens 24–36 Monate** (MinTRL).
   Alles < 3 Monate = nur Crash-/Plausibilitätstest.
-- **Erfolgskriterium (UND-verknüpft, VOR Start einzufrieren):** (a) Information Ratio vs. SPY UND vs. Momentum > 0,5
-  (ambitioniert > 0,75); (b) PSR(0) > 0,95; (c) positives Netto-Alpha nach Kosten+Steuer; (d) Max-Drawdown ≤ Benchmark;
+- **Erfolgskriterium — 🔒 EINGEFROREN (von Mert bestätigt 2026-06-26, wird NICHT nachträglich aufgeweicht):**
+  Der KI-Trader gilt nur als Erfolg, wenn er nach **24–36 Monaten netto (nach Kosten + Steuer) sowohl den
+  Index (SPY) als auch das Momentum-Konto risiko-adjustiert schlägt.** Schafft er das nicht → abgeschaltet,
+  ohne Schönrechnen, ohne die Latte zu senken.
+  Operationalisiert (UND-verknüpft): (a) Information Ratio vs. SPY UND vs. Momentum > 0,5 (ambitioniert > 0,75);
+  (b) PSR(0) > 0,95; (c) positives Netto-Alpha nach Kosten+Steuer; (d) Max-Drawdown ≤ Benchmark;
   (e) schlägt das Momentum-Konto netto; (f) Lern-Kriterium: Kalibrierung verbessert sich messbar — sonst Lern-Schicht abschalten.
 - **Stationaritäts-Freeze:** Während des Pre-Reg-Tracks werden Prompt, Caps, Sizer, K NICHT angefasst.
   Die Lern-Schicht wird separat NACH einem ersten Verdikt als eigenes Experiment getestet.
