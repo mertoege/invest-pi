@@ -501,7 +501,7 @@ views:
   roadmap:
     title: Roadmap
     cards:
-    - t: KI-Swing-Trader (2. Paper-Konto) — geplant
+    - t: KI-Swing-Trader (2. Paper-Konto) — Phase 1 Schatten laeuft
       d: 'Eigener KI-Trader (LLM-Tilt) parallel zur Momentum-Engine, fair gemessen gegen Momentum + SPY/QQQ.
         Phasen - 0 Konto/Trennung, 0.5 News-Coverage-Test (Go/No-Go), 1 Schatten-Signal-Test (IC>0?),
         2 det. Sicherheitskaefig, 3 Live-Paper >=3 Mon, 4 vorregistriertes Urteil nach 24-36 Mon. Lern-System
@@ -546,7 +546,9 @@ views:
         schlagen) -> breit nach Liquiditaet/Sektor; (2) billiger Schatten-Signal-Test (IC>0?) ZUERST, Kaefig
         erst danach; Lern-System erst wenn Phase 3 Puls zeigt, NICHT waehrend des Mess-Fensters
         (Stationaritaets-Freeze). Erfolgskriterium vorab einfrieren, Urteil erst nach 24-36 Mon. Volldetails:
-        AI_SWING_TRADER_CONCEPT.md. Noch nicht gebaut; Blocker = 2. Alpaca-Konto durch Mert.'
+        AI_SWING_TRADER_CONCEPT.md. STAND - 2. Konto angelegt+getestet, Erfolgskriterium eingefroren,
+        News-Coverage-Test bestanden, Phase-1-Schatten gebaut (scripts/ai_swing_shadow.py + _outcomes.py,
+        eigene DB data/ai_swing.db) und Tag-0-Entscheidung gesetzt. Offen - systemd-Timer per sudo aktivieren.'
       badge: 2026-06-26
     - t: Risiko-Toleranz festgelegt - pur Momentum (kein Low-Vol-Blend)
       d: Mert wuerde einen zwischenzeitlichen Drawdown von ~-35% aushalten ohne zu verkaufen. Daher bleibt es
@@ -654,13 +656,13 @@ protections:
 - Korrelations-Check
 - Tages-Verlust-Limit
 tasks:
-- title: KI-Swing-Trader — 2. Alpaca-Paper-Konto anlegen
+- title: KI-Swing-Trader — Timer aktivieren (sudo)
   art: einmalig
   prioritaet: mittel
-  was: 'Fuer den geplanten KI-Trader ein zweites Alpaca-Paper-Konto anlegen und die Zugangsschluessel als
-    ALPACA_API_KEY_2 / ALPACA_API_SECRET_2 in die .env legen. Einziger harter Blocker fuer den Projektstart.
-    Dazu vorab freigeben - Startkapital identisch zum Momentum-Konto? und das Erfolgskriterium (schlaegt
-    Index UND Momentum netto) VOR Live-Start einfrieren. Details - AI_SWING_TRADER_CONCEPT.md.'
+  was: 'Konto + Erfolgskriterium erledigt, Schatten-Lauf laeuft manuell. Damit er automatisch woechentlich
+    laeuft, die zwei systemd-Timer einmalig per sudo installieren: sudo cp scripts/systemd/invest-pi-ai-swing*.{service,timer}
+    /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now invest-pi-ai-swing.timer
+    invest-pi-ai-swing-outcomes.timer. Details - AI_SWING_TRADER_CONCEPT.md.'
 - title: Monats-Check lesen
   art: routine
   turnus: monatlich
