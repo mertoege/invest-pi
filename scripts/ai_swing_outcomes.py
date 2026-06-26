@@ -18,6 +18,7 @@ Aufruf:
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import sys
 from pathlib import Path
 
@@ -31,6 +32,7 @@ from src.common.storage import DATA_DIR, connect    # noqa: E402
 AI_DB = DATA_DIR / "ai_swing.db"
 HORIZONS = [5, 10, 20]            # Handelstage
 CONV_SCORE = {"high": 3, "medium": 2, "low": 1}
+REVIEW_AFTER_DECISIONS = 6        # ab so vielen voll (20T) ausgewerteten Wochen-Picks -> Telegram-Wecker
 
 
 def _ensure_table() -> None:
@@ -47,6 +49,10 @@ def _ensure_table() -> None:
                 excess       REAL,
                 measured_at  TEXT DEFAULT (datetime('now')),
                 UNIQUE(decision_id, ticker, horizon_days)
+            );
+            CREATE TABLE IF NOT EXISTS meta (
+                key   TEXT PRIMARY KEY,
+                value TEXT
             );
             """
         )
@@ -157,6 +163,41 @@ def scoreboard() -> None:
           "Aussagekraeftig erst ab vielen Outcome-Punkten ueber Monate, NICHT jetzt.")
 
 
+def maybe_notify_review() -> None:
+    """Einmaliger Telegram-Wecker, sobald genug Wochen-Picks voll (20T) ausgewertet sind.
+
+    Nicht jede Woche spammen — eine Nachricht, wenn ein erster ehrlicher Zwischen-Check
+    moeglich ist (kein Endurteil). Flag in meta verhindert Wiederholung.
+    """
+    with connect(AI_DB) as c:
+        already = c.execute("SELECT value FROM meta WHERE key='review_notified'").fetchone()
+        if already:
+            return
+        n = c.execute(
+            "SELECT COUNT(DISTINCT decision_id) n FROM outcomes WHERE horizon_days=20"
+        ).fetchone()["n"]
+        if n < REVIEW_AFTER_DECISIONS:
+            return
+        sent = False
+        try:
+            from src.alerts.notifier import send_info, is_configured
+            if is_configured():
+                send_info(
+                    "🔬 <b>KI-Swing-Trader: Zwischen-Check moeglich</b>\n"
+                    f"{n} Wochen-Vorschlaege sind jetzt voll ausgewertet (20 Handelstage) — genug fuer eine "
+                    "erste ehrliche Lese, ob ein Signal da ist. <b>Noch kein Endurteil</b> (das braucht Monate).\n"
+                    "Sag Claude: „wie steht der KI-Swing-Trader?“ — dann gehen wir die Roadmap weiter oder beerdigen ihn.",
+                    label="ai_swing_review",
+                )
+                sent = True
+        except Exception as e:
+            print(f"[ai_swing_outcomes] Review-Telegram fehlgeschlagen: {e}")
+        if sent:
+            c.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('review_notified',?)",
+                      (dt.date.today().isoformat(),))
+            print(f"[ai_swing_outcomes] Review-Ready-Telegram gesendet (n={n}).")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", action="store_true", help="nur Scoreboard, nicht neu messen")
@@ -164,6 +205,7 @@ def main() -> int:
     if not args.board:
         st = measure()
         print(f"[ai_swing_outcomes] geprueft {st['checked']}, gemessen {st['measured']}, ausstehend {st['pending']}")
+        maybe_notify_review()
     scoreboard()
     return 0
 
