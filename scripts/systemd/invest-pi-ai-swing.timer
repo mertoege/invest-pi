@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · KI-Swing-Trader Entscheidung — So 16:00 (vor Wochenstart)
+
+[Timer]
+OnCalendar=Sun *-*-* 16:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
