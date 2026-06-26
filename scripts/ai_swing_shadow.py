@@ -290,11 +290,16 @@ def run(test: bool = False, no_llm: bool = False) -> int:
     # Validierung: nur Whitelist-Ticker, conviction normalisieren, Einstiegspreis aus Features
     cand_map = {c['ticker']: c for c in cands}
     valid = []
+    seen: set[str] = set()
     for p in raw_picks:
         t = (p.get("ticker") or "").strip().upper()
         if t not in cand_map:
             print(f"[ai_swing] VERWORFEN (nicht in Whitelist): {t!r}")
             continue
+        if t in seen:
+            print(f"[ai_swing] VERWORFEN (Duplikat): {t!r}")
+            continue
+        seen.add(t)
         conv = (p.get("conviction") or "medium").strip().lower()
         if conv not in ("high", "medium", "low"):
             conv = "medium"
