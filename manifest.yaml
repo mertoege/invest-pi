@@ -501,6 +501,12 @@ views:
   roadmap:
     title: Roadmap
     cards:
+    - t: KI-Swing-Trader (2. Paper-Konto) — geplant
+      d: 'Eigener KI-Trader (LLM-Tilt) parallel zur Momentum-Engine, fair gemessen gegen Momentum + SPY/QQQ.
+        Phasen - 0 Konto/Trennung, 0.5 News-Coverage-Test (Go/No-Go), 1 Schatten-Signal-Test (IC>0?),
+        2 det. Sicherheitskaefig, 3 Live-Paper >=3 Mon, 4 vorregistriertes Urteil nach 24-36 Mon. Lern-System
+        nachgelagert. Konzept - AI_SWING_TRADER_CONCEPT.md. Blocker - 2. Alpaca-Konto durch Mert.'
+      badge: geplant
     - t: Live-Beweis sammeln
       d: Momentum im Paper-Trading ueber Monate sauber gegen SPY/QQQ tracken — der Edge muss live halten,
         nicht nur im Backtest.
@@ -530,6 +536,18 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: KI-Swing-Trader als 2. Paper-Konto geplant (Konzept festgehalten)
+      d: 'Ein zweiter, getrennter KI-Trader (LLM-Tilt) auf eigenem Alpaca-Paper-Konto soll fair gegen die
+        Momentum-Engine UND SPY/QQQ antreten - Swing/Position (Tage-Wochen), abgegrenzt vom Intraday-DayPi.
+        KI gibt NUR Namen+conviction+These aus, alle Zahlen/Stops/Caps macht deterministischer Code (kein
+        LLM als Sicherheits-Gate). Ehrliche Erwartung: schlaegt Markt wahrscheinlich NICHT (Score-Aera +
+        Forschungslage) -> billig bauen, fair messen, ohne Reue verwerfen. Bauplan korrigiert nach
+        adversarialer Kritik: (1) Whitelist NICHT momentum-vorgefiltert (sonst Momentum-Klon, kann ihn nicht
+        schlagen) -> breit nach Liquiditaet/Sektor; (2) billiger Schatten-Signal-Test (IC>0?) ZUERST, Kaefig
+        erst danach; Lern-System erst wenn Phase 3 Puls zeigt, NICHT waehrend des Mess-Fensters
+        (Stationaritaets-Freeze). Erfolgskriterium vorab einfrieren, Urteil erst nach 24-36 Mon. Volldetails:
+        AI_SWING_TRADER_CONCEPT.md. Noch nicht gebaut; Blocker = 2. Alpaca-Konto durch Mert.'
+      badge: 2026-06-26
     - t: Risiko-Toleranz festgelegt - pur Momentum (kein Low-Vol-Blend)
       d: Mert wuerde einen zwischenzeitlichen Drawdown von ~-35% aushalten ohne zu verkaufen. Daher bleibt es
         bei PUREM Momentum (volle Rendite), keine Low-Vol-Beimischung - die haette ~9 Punkte Rendite/J gegen
@@ -636,6 +654,13 @@ protections:
 - Korrelations-Check
 - Tages-Verlust-Limit
 tasks:
+- title: KI-Swing-Trader — 2. Alpaca-Paper-Konto anlegen
+  art: einmalig
+  prioritaet: mittel
+  was: 'Fuer den geplanten KI-Trader ein zweites Alpaca-Paper-Konto anlegen und die Zugangsschluessel als
+    ALPACA_API_KEY_2 / ALPACA_API_SECRET_2 in die .env legen. Einziger harter Blocker fuer den Projektstart.
+    Dazu vorab freigeben - Startkapital identisch zum Momentum-Konto? und das Erfolgskriterium (schlaegt
+    Index UND Momentum netto) VOR Live-Start einfrieren. Details - AI_SWING_TRADER_CONCEPT.md.'
 - title: Monats-Check lesen
   art: routine
   turnus: monatlich
