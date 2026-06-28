@@ -73,20 +73,11 @@ def main() -> None:
     if not args.no_drift:
         drift = detect_drift(args.source)
         if drift:
-            print(f"\n⚠ DRIFT WARNING: {drift['message']}")
-            # Drift an Mert melden statt den Lauf mit sys.exit(2) als 'Crash' zu
-            # beenden. Frueher: exit(2) -> Service galt als failed UND die Warnung
-            # kam nie an (TODO nie gebaut). Die Outcome-Messung oben war da laengst
-            # erfolgreich — ein erkannter Drift ist ein WARN-Signal, kein Prozessfehler.
-            try:
-                from src.alerts import notifier
-                if notifier.is_configured():
-                    notifier.send_info(
-                        f"⚠️ <b>Drift-Warnung</b> ({args.source})\n{drift['message']}",
-                        label="drift_warning",
-                    )
-            except Exception as e:
-                print(f"  Drift-Telegram fehlgeschlagen: {e}")
+            # Nur noch ins Log — KEIN Telegram mehr. Mert-Entscheidung 2026-06-28:
+            # Drift ist reine Info aus dem (legacy) Risiko-Scoring, erfordert kein
+            # Handeln -> Push war nur Laerm. Telegram bleibt fuer Dinge reserviert,
+            # bei denen Mert wirklich aktiv werden muss. Messung laeuft normal weiter.
+            print(f"\n⚠ DRIFT WARNING (nur Log): {drift['message']}")
         else:
             print("\n  Drift-Check: ok")
 
