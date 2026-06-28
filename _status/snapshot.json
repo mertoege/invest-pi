@@ -13,14 +13,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "faac13ca",
+    "commit": "ea6d8d48",
     "dirty": true
   },
   "hardware": {
     "cpu_temp_c": 66.1,
     "disk_pct": 49,
-    "load_1min": 0.35,
-    "mem_pct": 63
+    "load_1min": 0.15,
+    "mem_pct": 62
   },
   "last_runs": {
     "run_strategy": "Fri 2026-06-26 21:00:14 CEST",
@@ -31,7 +31,7 @@
     "correct": 15221,
     "incorrect": 2561,
     "last_24h": 6,
-    "last_7d": 3585,
+    "last_7d": 3572,
     "pending": 572,
     "total": 59792
   },
@@ -42,5 +42,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-06-28T15:30:50"
+  "timestamp_utc": "2026-06-28T15:32:59"
 }
