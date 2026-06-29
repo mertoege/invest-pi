@@ -13,13 +13,13 @@
   },
   "git": {
     "branch": "main",
-    "commit": "bd20eada",
+    "commit": "bd99f672",
     "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 67.75,
+    "cpu_temp_c": 66.1,
     "disk_pct": 49,
-    "load_1min": 0.32,
+    "load_1min": 0.75,
     "mem_pct": 63
   },
   "last_runs": {
@@ -31,7 +31,7 @@
     "correct": 15242,
     "incorrect": 2584,
     "last_24h": 6,
-    "last_7d": 2314,
+    "last_7d": 2312,
     "pending": 524,
     "total": 59798
   },
@@ -42,5 +42,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-06-29T15:00:41"
+  "timestamp_utc": "2026-06-29T15:02:47"
 }
