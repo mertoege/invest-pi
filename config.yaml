@@ -32,6 +32,14 @@ portfolio:
     note: Consumer Staples · 67 Jahre Dividenden-Wachstum
     ring: 2
     shares: 0.411627
+  XLV:
+    avg_buy_price: 158.66
+    currency: USD
+    date_first: 2026-07
+    invested_eur: 50.0
+    note: Gesundheit · UNH, JNJ, LLY · defensiv
+    ring: 0
+    shares: 0.358929
 settings:
   alert_stufe2_trigger: 50
   alert_stufe3_trigger: 75
@@ -51,7 +59,6 @@ settings:
   telegram_min_level: 2
   trading:
     broker: alpaca_paper
-    strategy_engine: momentum   # legacy|momentum — momentum = neue Kernstrategie (2026-06)
     cash_floor_pct: 0.03
     dca_fallback_ticker: SMH
     enabled: true
@@ -203,6 +210,7 @@ settings:
         take_profit_pct: 0.4
         trailing_activation_pct: 0.1
         trailing_stop_pct: 0.1
+    strategy_engine: momentum
     take_profit_pct: 0.25
     tradeable_rings:
     - 1
@@ -259,6 +267,19 @@ universe:
   - name: Eli Lilly
     note: Pharma-Wachstum · GLP-1/Ozempic-Boom
     ticker: LLY
+  ring_2_diversifier:
+  - name: Caterpillar
+    note: Industrie/Maschinenbau · Bau & Bergbau · neue Nicht-Tech-Branche
+    ticker: CAT
+  - name: Target
+    note: Big-Box-Retail · Consumer Discretionary · neue Nicht-Tech-Branche
+    ticker: TGT
+  - name: Goldman Sachs
+    note: Investmentbank · profitiert von Volatilität & Deal-Aktivität
+    ticker: GS
+  - name: Schlumberger
+    note: Oilfield-Services · Energie-Exposure ergänzend zu XOM
+    ticker: SLB
   ring_2_growth:
   - name: Visa
     note: Payments-Monopol · stabiles Wachstum · PE 22
@@ -284,19 +305,6 @@ universe:
   - name: Berkshire Hathaway B
     note: Buffett-Konglomerat · Cash-Berg · defensiver Anker
     ticker: BRK-B
-  ring_2_diversifier:
-  - name: Caterpillar
-    note: Industrie/Maschinenbau · Bau & Bergbau · neue Nicht-Tech-Branche
-    ticker: CAT
-  - name: Target
-    note: Big-Box-Retail · Consumer Discretionary · neue Nicht-Tech-Branche
-    ticker: TGT
-  - name: Goldman Sachs
-    note: Investmentbank · profitiert von Volatilität & Deal-Aktivität
-    ticker: GS
-  - name: Schlumberger
-    note: Oilfield-Services · Energie-Exposure ergänzend zu XOM
-    ticker: SLB
   ring_2_hyperscaler:
   - name: Microsoft
     note: OpenAI-Partner · Azure-AI · Copilot-Monetarisierung
