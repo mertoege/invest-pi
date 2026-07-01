@@ -139,6 +139,34 @@ def build_momentum_report() -> str:
     return "\n".join(parts)
 
 
+def build_digest_teaser() -> str:
+    """Grober Anstoss statt Voll-Digest: nur WIE VIELE Verbesserungs-Themen offen
+    sind + 1-2 Schlagworte als Koeder. Bewusst OHNE Details — soll Mert nur daran
+    erinnern, Claude drauf anzusprechen; das Anschauen/Umsetzen passiert dann im
+    Chat. Leerer String, wenn nichts offen ist (dann kein Anhang)."""
+    with connect(LEARNING_DB) as conn:
+        recs = conn.execute(
+            "SELECT expected_impact, title FROM strategic_recommendations "
+            "WHERE status='open'"
+        ).fetchall()
+    if not recs:
+        return ""
+
+    def _high(v):
+        return (v or "").lower() in ("hoch", "high")
+
+    high = [r for r in recs if _high(r["expected_impact"])]
+    head = f"🔧 <b>{len(recs)} offene Verbesserungs-Themen</b>"
+    if high:
+        head += f" — {len(high)}× hohe Wirkung"
+    parts = [head]
+    for r in (high[:2] if high else recs[:2]):
+        parts.append(f"• {escape(_truncate(r['title'], 55))}")
+    parts.append("<i>Nur als Anstoss — sprich mich an, dann schau ich's an "
+                 "und setze je nach Nutzen um.</i>")
+    return "\n".join(parts)
+
+
 def main() -> int:
     try:
         from src.trading import load_trading_config
@@ -146,7 +174,13 @@ def main() -> int:
     except Exception:
         engine = "legacy"
     if engine == "momentum":
+        # Momentum-Check (Zahlen) + grober Anstoss zu den Verbesserungs-Themen.
+        # Sonst wuerde Teil 2 nie automatisch bei Mert landen (toter Pfad seit
+        # dem Momentum-Umbau) und er saehe die offenen ToDos nie ungefragt.
         msg, label = build_momentum_report(), "momentum_monthly"
+        teaser = build_digest_teaser()
+        if teaser:
+            msg += "\n\n" + teaser
     else:
         msg, label = build_digest(), "monthly_digest"
     if not notifier.is_configured():
