@@ -1,6 +1,7 @@
 [Unit]
 Description=Invest-Pi · Trading-Strategy-Run (Hourly)
 After=invest-pi-score.service
+OnFailure=invest-pi-error-alert@%n.service
 
 [Service]
 Type=oneshot
