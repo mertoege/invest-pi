@@ -20,7 +20,8 @@ flow:
   - 1×/Monat die 5 staerksten Titel, gleichgewichtet → Monatsziel
   - decision
 - - Risk-Limits
-  - Cash-Floor · Sektor-Cap · Korrelation · Daily-Loss · Kill-Switch · Circuit-Breaker
+  - AKTIV unter Momentum nur Kill-Switch + Circuit-Breaker (-30% v. 90-Tage-Hoch). Cash-Floor/Sektor-Cap/
+    Korrelation/Daily-Loss/Stop-Loss liegen im uebersprungenen Alt-Pfad — vor Echtgeld zu klaeren (s. tasks)
   - guard
 - - Alpaca (Paper)
   - Konvergenz-Orders auf das Monatsziel, haelt die Positionen
@@ -674,5 +675,20 @@ tasks:
   prioritaet: hoch
   was: 'Wenn Momentum live ueber Zyklen inkl. mind. 1 Crash ueberzeugt hat — entscheiden, ob/mit wieviel
     echtem Geld gestartet wird. Erst dann, nicht frueher.'
+- title: Momentum — Abweichung vom Backtest pruefen (Gewinner trimmen?)
+  art: einmalig
+  prioritaet: hoch
+  was: 'Code-Audit (Fable 5, 2026-07-02) fand: die Live-Engine stutzt uebergewichtete Gewinner NICHT zurueck
+    und hat Sanity-Filter (Kappung +200%/>45%-Tag) + einen Kurs-Cache-Bug (Splits werfen Ticker ~18 Monate
+    aus dem Ranking), die der validierte Backtest (champion_duell_fair, monatliches Gleichgewicht) nicht hat.
+    Folge: live gehandelte Strategie != bewiesene Strategie. Entscheiden: angleichen + per Backtest neu
+    validieren ODER Abweichung bewusst akzeptieren + dokumentieren. Details: reviews/2026-07-02_fable5_audit.md.'
+- title: Echtgeld-Gate — welche Risiko-Grenzen soll Momentum durchsetzen?
+  art: einmalig
+  prioritaet: hoch
+  was: 'Audit-Befund: im Momentum-Betrieb greifen aktuell NUR Kill-Switch + -30%-Circuit-Breaker; Stop-Loss,
+    Trailing, Daily-Loss, Cash-Floor, Sektor-Cap, Korrelation aus limits.py laufen im uebersprungenen Alt-Pfad
+    = derzeit Scheinsicherheit. Fuer Spielgeld ok, vor Echtgeld PFLICHT: festlegen, welche Grenzen die
+    Momentum-Engine aktiv pruefen soll (+ Circuit-Breaker auf USD statt EUR). Voraussetzung fuer Echtgeld-Umstieg.'
 notes: 'EUR-denominiert, Paper-Trading. Ziel: maximale absolute Rendite — aber mit Risiko­abwägung, nicht
   gepokert. GRUNDAUSRICHTUNG 2026-06-23: Backtests über Auf- (2025/26) und Abschwung (2022) zeigten, dass aktives Verkaufen in KEINEM Regime besser war als ruhiges Halten (Aufwärts +16% aktiv vs +20% halten; Bär -17% vs -15%). Schutz im Abschwung kommt aus Diversifikation, nicht aus häufigem Handeln. Daher momentum_exit (zuvor 63% aller Verkäufe) entschärft Richtung weniger Handeln / mehr Halten. Universe auf 29 handelbare Werte verbreitert (CAT/TGT/GS/SLB). 2026-06-23 SCHARFGESCHALTET: strategy_engine=momentum — Momentum-Top-5 (monatlich) ersetzt die alte Score-Pipeline (no-op), beide alten Handels-Pfade (run_strategy, weekly_rotation) delegieren/beenden. Belegt via champion_duell_fair / robustness_check / tax_check. Das alte Self-Learning des Score-Systems ist ruhend (Timer aus). Weiter Spielgeld; Echtgeld erst nach langem Live-Beweis.'
