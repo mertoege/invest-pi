@@ -112,16 +112,21 @@ def _save_state(d: dict) -> None:
 
 
 def _drawdown_from_peak(broker) -> float:
+    # Audit-Fix (Fable5 2026-07-02): Drawdown in USD (Konto-Waehrung) statt EUR -> der
+    # Wechselkurs verzerrt die Notbremse nicht mehr. Fehlt der Peak (Sync tot), WARNEN
+    # statt still 0 zurueckzugeben (sonst waere der Circuit-Breaker unbemerkt blind).
     try:
         from src.common.storage import TRADING_DB, connect
         with connect(TRADING_DB) as c:
-            peak = c.execute("SELECT MAX(total_eur) FROM equity_snapshots "
-                             "WHERE source='paper' AND timestamp >= datetime('now','-90 day')").fetchone()[0]
-        eq = broker.get_account().equity_eur
+            peak = c.execute("SELECT MAX(total_usd) FROM equity_snapshots "
+                             "WHERE source='paper' AND total_usd IS NOT NULL "
+                             "AND timestamp >= datetime('now','-90 day')").fetchone()[0]
+        eq = broker.get_account().equity_usd
         if peak and peak > 0:
             return eq / peak - 1
-    except Exception:
-        pass
+        print("  WARN: kein USD-Equity-Peak (Sync?) -> Circuit-Breaker blind, dd=0")
+    except Exception as e:
+        print(f"  WARN: drawdown-Berechnung fehlgeschlagen: {e}")
     return 0.0
 
 
