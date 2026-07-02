@@ -204,20 +204,30 @@ def rebalance_to(broker, target: list, live: bool) -> dict:
     target_set = set(target)
 
     sells = [(tk, p) for tk, p in positions.items() if tk not in target_set and p.qty > 0]
-    buys = []
+    buys, trims = [], []
+    # Audit-Fix (Fable5 2026-07-02): auf EXAKTES Gleichgewicht rebalancen wie im validierten
+    # Backtest (champion_duell_fair s_momentum: je Ziel 1/n = target_eur). Vorher wurden nur
+    # Untergewichte gekauft, uebergewichtete Gewinner NIE getrimmt -> Depot driftete von der
+    # bewiesenen Equal-Weight-Strategie weg und konvergierte nie (Untergewichte mangels Cash
+    # unfuellbar). Trim-Erloese finanzieren die Kaeufe (ueber die stuendlichen Konvergenz-Laeufe).
+    trim_thresh = max(MIN_TRADE_EUR, REBAL_BAND * target_eur)   # kleine Drift ignorieren (kein Churn)
     for tk in target:
         cur = positions[tk].market_value_eur if tk in positions else 0.0
         diff = target_eur - cur
-        if diff > MIN_TRADE_EUR:                        # Audit: nur MIN_TRADE_EUR, kein Band-Loch
+        if diff > MIN_TRADE_EUR:
             buys.append((tk, diff))
+        elif -diff > trim_thresh and tk in positions:
+            trims.append((tk, -diff))                # EUR ueber Ziel -> anteilig verkaufen
 
-    converged = not sells and not buys
+    converged = not sells and not buys and not trims
     print(f"\n=== Momentum-Rebalance -> Ziel {target} [{'LIVE' if live else 'PLAN'}] ===")
     print(f"Equity {acct.equity_eur:.0f} EUR | Cash {acct.cash_eur:.0f} EUR | je Position {target_eur:.0f} EUR")
-    print("Status: " + ("Depot = Ziel (converged)" if converged else f"{len(sells)} Verkaeufe, {len(buys)} Kaeufe offen"))
+    print("Status: " + ("Depot = Ziel (converged)" if converged
+                        else f"{len(sells)} Verkaeufe, {len(trims)} Trims, {len(buys)} Kaeufe offen"))
 
     if not live or converged:
         for tk, p in sells: print(f"  VERKAUF {tk:5} ~{p.market_value_eur:.0f} EUR")
+        for tk, eur in trims: print(f"  TRIM    {tk:5} ~{eur:.0f} EUR ueber Ziel")
         for tk, eur in buys: print(f"  KAUF    {tk:5} ~{eur:.0f} EUR")
         return {"converged": converged, "orders": 0}
 
@@ -230,6 +240,20 @@ def rebalance_to(broker, target: list, live: bool) -> dict:
             _log_trade(tk, "sell", p.qty, p.market_value_eur, p.market_price, r.status, r.order_id, src)
         except Exception as e:
             print(f"    SELL {tk} FEHLER: {e}")
+    # Trims: uebergewichtete Ziel-Positionen anteilig zurueckschneiden (Equal-Weight).
+    for tk, eur in trims:
+        p = positions[tk]
+        if p.market_value_eur <= 0:
+            continue
+        qty = round(eur * p.qty / p.market_value_eur, 4)   # EUR-ueber-Ziel -> Stueck
+        if qty <= 0:
+            continue
+        try:
+            r = broker.place_order(ticker=tk, side="sell", qty=qty, order_type="market")
+            print(f"    TRIM {tk}: -{qty} ({eur:.0f} EUR) -> {r.status}"); n += 1
+            _log_trade(tk, "sell", qty, eur, p.market_price, r.status, r.order_id, src)
+        except Exception as e:
+            print(f"    TRIM {tk} FEHLER: {e}")
     fx = eur_per_usd()
     avail = broker.get_account().cash_eur
     for tk, eur in buys:
