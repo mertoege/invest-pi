@@ -159,6 +159,19 @@ def _incremental_update(ticker: str, cached: pd.DataFrame) -> Optional[pd.DataFr
     fresh.index = pd.to_datetime(fresh.index).tz_localize(None).normalize()
     fresh.index.name = "date"
 
+    # Audit-Fix (Fable5 2026-07-02): Adjustierungs-Bruch erkennen. yfinance liefert
+    # rueckwirkend split-/dividenden-adjustierte Kurse; der alte Cache bleibt auf alter
+    # Basis. Weicht ein Overlap-Tag (gleicher Handelstag in Cache UND frischem Fetch) um
+    # >0.5% ab, wurde neu adjustiert -> mergen erzeugt einen Fake-Sprung (Split -> der
+    # MAX_DAY_JUMP-Filter wirft den Ticker ~18 Monate aus dem Momentum-Ranking; Dividende
+    # -> verzerrtes 6M-Momentum). Dann None -> Aufrufer laedt die Historie voll neu.
+    overlap = cached.index.intersection(fresh.index)
+    if len(overlap):
+        c_last, f_last = cached.loc[overlap[-1], "close"], fresh.loc[overlap[-1], "close"]
+        if c_last and float(c_last) > 0 and abs(float(f_last) / float(c_last) - 1) > 0.005:
+            log.warning(f"{ticker}: Adjustierungs-Bruch ({float(c_last):.2f}->{float(f_last):.2f}) - full refresh")
+            return None
+
     # Merge: neue Tage anhaengen, bestehende ueberschreiben
     combined = pd.concat([cached, fresh])
     combined = combined[~combined.index.duplicated(keep="last")]
