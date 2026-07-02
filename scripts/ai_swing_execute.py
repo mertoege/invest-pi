@@ -101,10 +101,15 @@ def build_basket(decision: dict) -> list:
     """Return sortierte, gleichgewichtete Ticker-Liste (nach Conviction), <= MAX_POSITIONS.
     Verwirft Picks, die NICHT in der Whitelist stehen (Halluzinations-Schutz)."""
     whitelist = decision["whitelist"]
+    # FAIL-CLOSED: ohne gueltige Whitelist koennen Halluzinationen nicht ausgeschlossen werden
+    # -> lieber GAR NICHT handeln als ungeprueft. Leere/kaputte candidates_json = kein Korb.
+    if not whitelist:
+        print("  WHITELIST leer/ungueltig -> Sicherheits-Stopp, kein Korb (fail-closed).")
+        return []
     clean = []
     seen = set()
     for tk, conv in decision["picks"]:
-        if whitelist and tk not in whitelist:
+        if tk not in whitelist:
             print(f"  WHITELIST: {tk} verworfen (nicht in candidates_json der Entscheidung)")
             continue
         if tk in seen:
@@ -149,6 +154,18 @@ def compute_plan(broker, basket: list) -> dict:
     positions = {p.ticker: p for p in broker.get_positions()}
     target_set = set(basket)
 
+    # Idempotenz-Schutz: Ticker mit OFFENER (queued) Order NICHT erneut anfassen.
+    # Alpaca-Market-Orders bei geschlossener Boerse werden nur eingereiht, nicht gefuellt ->
+    # aendern weder Position noch Cash. Ohne diesen Check wuerde jeder Lauf denselben Kauf
+    # neu absenden und die Orders stapeln sich (Ueber-Deployment beim naechsten Open).
+    # list_orders-Fehler = fail-closed (lieber Abbruch als blind doppelt kaufen).
+    try:
+        open_tickers = {o.ticker for o in broker.list_orders(status="open")}
+    except Exception as e:
+        raise RuntimeError(f"Offene Orders nicht abrufbar - Sicherheits-Abbruch: {e}")
+    if open_tickers:
+        print(f"  OFFENE ORDERS aktiv fuer {sorted(open_tickers)} - diesen Lauf uebersprungen.")
+
     # Sizing: gleichgewichtet, dann harte Einzel-Kappe.
     per_name = equity * INVEST_PCT / len(basket) if basket else 0.0
     per_name = min(per_name, equity * MAX_POS_PCT)
@@ -158,11 +175,13 @@ def compute_plan(broker, basket: list) -> dict:
 
     # 1. Halten, aber NICHT im neuen Korb -> voll verkaufen.
     for tk, p in positions.items():
-        if tk not in target_set and p.qty > 0:
+        if tk not in target_set and p.qty > 0 and tk not in open_tickers:
             sells.append((tk, p.qty, p.market_value_eur))
 
     # 2. Korb-Ticker: gegen Ziel angleichen (20%-No-Trade-Band).
     for tk in basket:
+        if tk in open_tickers:
+            continue                              # offene Order laeuft -> nicht nachlegen
         cur = positions[tk].market_value_eur if tk in positions else 0.0
         tgt = target_eur[tk]
         drift = (cur - tgt) / tgt if tgt > 0 else 0.0
