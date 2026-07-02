@@ -151,7 +151,9 @@ def _open_orders_block(broker) -> bool:
     try:
         oo = broker.list_orders(status="open")
     except Exception:
-        return False
+        return True   # Audit-Fix (Fable5 2026-07-02): im Zweifel BLOCKEN statt handeln.
+                      # Vorher "fail open" -> bei API-Blip sah der Lauf keine offenen
+                      # Orders und konnte dieselben Kaeufe ein zweites Mal platzieren.
     if not oo:
         return False
     st = _load_state()

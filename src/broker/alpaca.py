@@ -208,7 +208,11 @@ class AlpacaPaperBroker(BrokerAdapter):
         mins = et.hour * 60 + et.minute
         return mins < 9 * 60 + 30 or mins >= 16 * 60
 
-    @api_retry(attempts=3, min_wait=2, max_wait=10)
+    # Audit-Fix (Fable5 2026-07-02): KEIN @api_retry auf place_order. Order-Submit ist
+    # NICHT idempotent -> bei Timeout (POST erreicht Alpaca, Antwort geht verloren) haette
+    # der Retry dieselbe Order ein zweites Mal geschickt = doppelte Position. Bei echtem
+    # Netzfehler schlaegt die Order jetzt sauber fehl; der naechste stuendliche Lauf
+    # bewertet den Zustand neu. Reads/idempotente Calls behalten den Retry.
     def place_order(
         self,
         ticker:     str,
@@ -290,6 +294,8 @@ def _from_alpaca_order(order) -> OrderResult:
     """Konvertiert alpaca-py Order -> OrderResult."""
     side_str = "buy" if str(order.side).lower().endswith("buy") else "sell"
     status_str = str(order.status).lower().split(".")[-1]  # 'orderstatus.filled' -> 'filled'
+    if status_str == "canceled":   # Audit-Fix (Fable5): Alpaca (US) liefert 'canceled' (ein L);
+        status_str = "cancelled"   # DB/Contract (base.py, sync_orders) erwartet 'cancelled'
     avg_fill = float(order.filled_avg_price) if getattr(order, "filled_avg_price", None) else None
     filled_qty = float(order.filled_qty) if getattr(order, "filled_qty", None) else 0.0
     return OrderResult(

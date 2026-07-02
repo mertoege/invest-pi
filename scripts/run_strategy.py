@@ -1284,10 +1284,15 @@ def main() -> None:
     lock_fp.flush()
 
     try:
-        _run_strategy_locked(args)
+        rc = _run_strategy_locked(args)
     finally:
         fcntl.flock(lock_fp, fcntl.LOCK_UN)
         lock_fp.close()
+    # Audit-Fix (Fable5 2026-07-02): Exit-Code durchreichen. Vorher wurde der
+    # Rueckgabewert von _run_strategy_locked verworfen -> jeder Fehlschlag (z.B.
+    # run_due liefert 1 bei Daten-Coverage <70%) exitete mit 0 und systemd sah
+    # "Erfolg". So konnte die Strategie einen Monat lang nicht handeln, ohne Alarm.
+    raise SystemExit(rc or 0)
 
 
 def _run_strategy_locked(args):
