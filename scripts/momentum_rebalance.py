@@ -180,6 +180,22 @@ def _open_orders_block(broker) -> bool:
     return True
 
 
+def _log_trade(ticker, side, qty, eur_value, price, status, order_id, source):
+    """Audit-Fix (Fable5 2026-07-02): Momentum-Orders in die trades-Tabelle
+    protokollieren, damit sync_orders sie nachverfolgen kann. Vorher schrieb die
+    aktive Engine ihre Orders NIRGENDS -> kein Audit-Trail, Order-Sync lief leer."""
+    from src.common.storage import TRADING_DB, connect
+    try:
+        with connect(TRADING_DB) as conn:
+            conn.execute(
+                "INSERT INTO trades (ticker, side, qty, eur_value, price, order_type, "
+                "status, broker_order_id, strategy_label, source) "
+                "VALUES (?,?,?,?,?, 'market', ?,?, 'momentum', ?)",
+                (ticker, side, qty, eur_value, price, status, order_id, source))
+    except Exception as e:
+        print(f"    WARN: trade-log {ticker} fehlgeschlagen: {e}")
+
+
 def rebalance_to(broker, target: list, live: bool) -> dict:
     """Gleicht Depot an die Ziel-Liste an. MARKET-Orders, Kaeufe nur aus Cash."""
     acct = broker.get_account()
@@ -206,10 +222,12 @@ def rebalance_to(broker, target: list, live: bool) -> dict:
         return {"converged": converged, "orders": 0}
 
     n = 0
+    src = "paper" if getattr(broker, "is_paper", True) else "live"
     for tk, p in sells:
         try:
             r = broker.place_order(ticker=tk, side="sell", qty=p.qty, order_type="market")
             print(f"    SELL {tk}: {r.status}"); n += 1
+            _log_trade(tk, "sell", p.qty, p.market_value_eur, p.market_price, r.status, r.order_id, src)
         except Exception as e:
             print(f"    SELL {tk} FEHLER: {e}")
     fx = eur_per_usd()
@@ -225,6 +243,7 @@ def rebalance_to(broker, target: list, live: bool) -> dict:
             qty = round(amt / (q.last * fx), 4)
             r = broker.place_order(ticker=tk, side="buy", qty=qty, order_type="market")
             print(f"    BUY {tk}: {qty} ({amt:.0f} EUR) -> {r.status}")
+            _log_trade(tk, "buy", qty, amt, q.last, r.status, r.order_id, src)
             avail -= amt; n += 1
         except Exception as e:
             print(f"    BUY {tk} FEHLER: {e}")
