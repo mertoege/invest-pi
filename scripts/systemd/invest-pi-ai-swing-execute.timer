@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · KI-Swing-Trader Execute — sonntags 16:30 (30 Min nach der Schatten-Entscheidung um 16:00)
+
+[Timer]
+OnCalendar=Sun *-*-* 16:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

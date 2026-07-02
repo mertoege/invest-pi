@@ -416,6 +416,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
             DayPi<span class="badge" id="nav-daypi-trades">--</span>
         </div>
+        <div class="nav-item" data-page="ai-swing" onclick="switchPage('ai-swing')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 1 5 5c0 1.6-.8 2.7-1.6 3.6-.6.7-1.4 1.5-1.4 2.4v1h-4v-1c0-.9-.8-1.7-1.4-2.4C7.8 9.7 7 8.6 7 7a5 5 0 0 1 5-5z"/><path d="M9 18h6"/><path d="M10 21h4"/></svg>
+            KI-Swing<span class="badge" id="nav-aiswing-pos">--</span>
+        </div>
         <div class="nav-section">System</div>
         <a class="nav-item" href="/" style="text-decoration:none;color:inherit">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M9 21V12h6v9"/></svg>
@@ -768,6 +772,70 @@
                 </div>
             </div>
 
+            <!-- ====== KI-SWING (Schwester-System · Wochen-Swing) ====== -->
+            <div class="page" id="page-ai-swing">
+                <div class="page-h">
+                    <div>
+                        <h2>KI-Swing · Wochenkorb (Paper)</h2>
+                        <div class="sub" id="aiswing-sub">Laden...</div>
+                    </div>
+                    <div class="actions">
+                        <div class="btn" onclick="loadAiSwing()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            Refresh
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-row" style="grid-template-columns:1.6fr 1fr 1fr 1fr 1fr" id="aiswing-kpis">
+                    <div class="stat primary"><span class="label">Equity (USD)</span><div class="v num" id="aiswing-equity">--</div><div class="h" id="aiswing-account">2. Alpaca-Paper-Konto</div></div>
+                    <div class="stat"><span class="label">Rendite seit Start</span><div class="v num" id="aiswing-return">--</div><div class="h">normalisiert</div></div>
+                    <div class="stat"><span class="label">vs. Momentum</span><div class="v num" id="aiswing-alpha-mom">--</div><div class="h">Alpha</div></div>
+                    <div class="stat"><span class="label">vs. SPY</span><div class="v num" id="aiswing-alpha-spy">--</div><div class="h">Alpha</div></div>
+                    <div class="stat"><span class="label">IC</span><div class="v num" id="aiswing-ic">--</div><div class="h">Trefferschärfe</div></div>
+                </div>
+
+                <div class="card" style="margin-bottom:18px">
+                    <div class="h">
+                        <div>
+                            <h3>KI-Swing vs. Momentum vs. SPY</h3>
+                            <div class="meta" id="aiswing-chart-meta">normalisiert auf %</div>
+                        </div>
+                        <div class="meta num" id="aiswing-chart-alpha"></div>
+                    </div>
+                    <div class="body">
+                        <div class="chart-container"><canvas id="ai-swing-chart"></canvas></div>
+                        <div class="legend-row">
+                            <span><span class="sw" style="background:#a78bfa"></span>KI-Swing</span>
+                            <span><span class="sw" style="background:#3b82f6"></span>Momentum</span>
+                            <span><span class="sw dashed"></span>SPY (Benchmark)</span>
+                        </div>
+                        <div id="aiswing-chart-empty" class="loading" style="display:none;padding:30px 0;text-align:center"></div>
+                    </div>
+                </div>
+
+                <div class="charts-row" style="grid-template-columns:1fr 1fr">
+                    <div class="card">
+                        <div class="h"><h3>Positionen</h3><span class="meta" id="aiswing-pos-meta"></span></div>
+                        <div class="body" style="padding:0">
+                            <table class="tbl">
+                                <thead><tr><th>Ticker</th><th class="r">Menge</th><th class="r">Ø-Preis</th><th class="r">Wert</th></tr></thead>
+                                <tbody id="aiswing-positions-body"><tr><td colspan="4" class="loading" style="padding:16px">Laden...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="h"><h3>KI-Picks (Wochenkorb)</h3><span class="meta" id="aiswing-picks-meta"></span></div>
+                        <div class="body" style="padding:0">
+                            <table class="tbl">
+                                <thead><tr><th>Datum</th><th>Ticker</th><th>Conviction</th><th>These</th><th class="r">Einstieg</th><th class="r">Fwd 20T</th></tr></thead>
+                                <tbody id="aiswing-picks-body"><tr><td colspan="6" class="loading" style="padding:16px">Laden...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 </div>
@@ -794,6 +862,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
         <span class="mlbl">DayPi</span>
     </div>
+    <div class="mtab" data-page="ai-swing" onclick="switchPage('ai-swing')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 1 5 5c0 1.6-.8 2.7-1.6 3.6-.6.7-1.4 1.5-1.4 2.4v1h-4v-1c0-.9-.8-1.7-1.4-2.4C7.8 9.7 7 8.6 7 7a5 5 0 0 1 5-5z"/><path d="M9 18h6"/><path d="M10 21h4"/></svg>
+        <span class="mlbl">KI-Swing</span>
+    </div>
     <div class="mtab" data-page="system" onclick="switchPage('system')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
         <span class="mlbl">System</span>
@@ -814,6 +886,7 @@
         trades: 'Trade History',
         dca: '50 €/Monat · Sparplan aktiv',
         daypi: 'Intraday · ORB-Breakout',
+        'ai-swing': 'Swing · KI-Wochenkorb (Paper)',
         system: 'Raspberry Pi 5'
     };
 
@@ -830,10 +903,11 @@
         const mtab = document.querySelector(`.mtab[data-page="${page}"]`);
         if (mtab) mtab.classList.add('active');
         const crumb = document.getElementById('topbar-crumb');
-        const pageName = page.charAt(0).toUpperCase() + page.slice(1);
+        const pageName = page === 'ai-swing' ? 'KI-Swing' : page.charAt(0).toUpperCase() + page.slice(1);
         crumb.innerHTML = `<b>${pageName}</b><i>·</i><span id="topbar-sub">${crumbTexts[page] || ''}</span>`;
         localStorage.setItem('invest-pi-page', page);
         if (page === 'daypi') loadDayPi();
+        if (page === 'ai-swing') loadAiSwing();
     }
     const savedPage = localStorage.getItem('invest-pi-page');
     if (savedPage) switchPage(savedPage);
@@ -1573,10 +1647,198 @@
         } catch(e) { console.error('DayPi:', e); }
     }
 
+    // ─── KI-Swing (Schwester-System · Wochen-Swing auf 2. Paper-Konto) ───
+    let aiSwingChart = null;
+
+    // Tagesreduktion: letzter Snapshot je Kalendertag → [{date, val}]
+    function aiSwingDaily(snaps) {
+        if (!snaps || !snaps.length) return [];
+        const byDay = {};
+        snaps.forEach(s => { const day = (s.timestamp || '').slice(0, 10); if (day) byDay[day] = (s.total_usd != null ? s.total_usd : s.total_eur); });
+        return Object.keys(byDay).sort().map(day => ({ date: day, val: byDay[day] }));
+    }
+
+    // Serie (date→Wert) auf die Label-Achse mappen, Basis = erster Wert ab startDate, Forward-Fill.
+    function aiSwingAlign(dateVal, dateKeys, startDate) {
+        const dates = Object.keys(dateVal).sort();
+        let base = null;
+        for (const dt of dates) { if (dt >= startDate) { base = dateVal[dt]; break; } }
+        if (base == null || !base) return null;
+        const out = []; let last = base;
+        for (const lb of dateKeys) {
+            if (dateVal[lb] != null) last = dateVal[lb];
+            else { let v = null; for (const dt of dates) { if (dt <= lb) v = dateVal[dt]; else break; } if (v != null) last = v; }
+            out.push(((last / base) - 1) * 100);
+        }
+        return out;
+    }
+
+    // 3-Serien-Vergleichschart (KI-Swing / Momentum / SPY), normalisiert auf %.
+    function renderAiSwingChart(aiSnaps) {
+        const empty = document.getElementById('aiswing-chart-empty');
+        const cont = document.querySelector('#page-ai-swing .chart-container');
+        try {
+            const aiDaily = aiSwingDaily(aiSnaps);
+            if (aiDaily.length < 2) {
+                if (aiSwingChart) { aiSwingChart.destroy(); aiSwingChart = null; }
+                if (cont) cont.style.display = 'none';
+                if (empty) { empty.style.display = 'block'; empty.textContent = 'Live-Paper startet — erste Orders am kommenden Sonntag / nach erstem Lauf.'; }
+                document.getElementById('aiswing-chart-alpha').textContent = '';
+                return;
+            }
+            if (cont) cont.style.display = '';
+            if (empty) empty.style.display = 'none';
+
+            const dateKeys = aiDaily.map(p => p.date);
+            const startDate = aiDaily[0].date;
+            const labels = aiDaily.map(p => { const dt = new Date(p.date); return dt.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' }); });
+
+            const aiFirst = aiDaily[0].val;
+            const aiReturns = aiDaily.map(p => ((p.val / aiFirst) - 1) * 100);
+            const datasets = [{
+                label: 'KI-Swing', data: aiReturns,
+                borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.08)',
+                fill: true, tension: 0.35, pointRadius: aiReturns.length < 20 ? 3 : 0,
+                borderWidth: 2.4, pointBackgroundColor: '#a78bfa',
+            }];
+
+            const momMap = {};
+            (cachedAllSnapshots || []).forEach(s => { const day = (s.timestamp || '').slice(0, 10); if (day) momMap[day] = s.total_usd; });
+            const momReturns = aiSwingAlign(momMap, dateKeys, startDate);
+            if (momReturns) datasets.push({
+                label: 'Momentum', data: momReturns,
+                borderColor: '#3b82f6', borderWidth: 1.8, tension: 0.35, pointRadius: 0, fill: false,
+            });
+
+            let spyReturns = null;
+            if (benchmarkData && benchmarkData.spy_daily) {
+                const spyMap = {}; benchmarkData.spy_daily.forEach(s => { spyMap[s.date] = s.price; });
+                spyReturns = aiSwingAlign(spyMap, dateKeys, startDate);
+                if (spyReturns) datasets.push({
+                    label: 'SPY', data: spyReturns,
+                    borderColor: '#f59e0b', borderWidth: 1.8, borderDash: [6, 4], tension: 0.35, pointRadius: 0, fill: false,
+                });
+            }
+
+            const alphaEl = document.getElementById('aiswing-chart-alpha');
+            if (spyReturns) {
+                const alpha = (aiReturns[aiReturns.length - 1] || 0) - (spyReturns[spyReturns.length - 1] || 0);
+                alphaEl.textContent = `${plSign(alpha)}${fmt(alpha, 2)}% Alpha vs SPY`;
+                alphaEl.className = `meta num ${plCls(alpha)}`;
+            } else alphaEl.textContent = '';
+            document.getElementById('aiswing-chart-meta').textContent = `${aiDaily.length} Tage · normalisiert auf %`;
+
+            const ctx = document.getElementById('ai-swing-chart').getContext('2d');
+            if (aiSwingChart) aiSwingChart.destroy();
+            aiSwingChart = new Chart(ctx, {
+                type: 'line', data: { labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    plugins: { legend: { display: true, labels: { color: '#9ca3af', font: { size: 10, weight: '600' }, boxWidth: 10, padding: 10, usePointStyle: true, pointStyle: 'circle' } } },
+                    scales: {
+                        x: { grid: { color: 'rgba(42,45,58,0.5)' }, ticks: { color: '#6b7280', maxTicksLimit: 8, font: { size: 10 } } },
+                        y: { grid: { color: 'rgba(42,45,58,0.5)' }, ticks: { color: '#6b7280', callback: v => v.toFixed(2) + '%', font: { size: 10 } } }
+                    }
+                }
+            });
+        } catch (e) { console.error('KI-Swing Chart:', e); }
+    }
+
+    function aiSwingConvBadge(c) {
+        const k = (c || '').toString().toLowerCase();
+        if (k === 'high') return '<span class="badge" style="color:var(--pos);background:rgba(52,211,153,.1)">High</span>';
+        if (k === 'medium') return '<span class="badge" style="color:var(--warn);background:rgba(245,181,74,.1)">Medium</span>';
+        if (k === 'low') return '<span class="badge" style="color:var(--muted);background:rgba(107,114,128,.12)">Low</span>';
+        return `<span class="badge" style="color:var(--muted);background:rgba(107,114,128,.12)">${c || '--'}</span>`;
+    }
+
+    async function loadAiSwing() {
+        const sub = document.getElementById('aiswing-sub');
+        try {
+            const r = await fetch(`${BASE}/ai-swing/performance`);
+            const p = await r.json();
+            const equity = p.equity_usd != null ? p.equity_usd : p.equity;
+            const warmup = p.has_data === false || equity == null;
+            if (warmup) {
+                sub.textContent = 'Live-Paper startet — erste Orders am kommenden Sonntag / nach erstem Lauf.';
+            } else {
+                sub.textContent = `${p.strategy_label || 'ai_swing-v1'} · Stand ${p.updated ? p.updated.slice(11, 16) : '--'}`;
+            }
+            document.getElementById('aiswing-account').textContent = p.account || '2. Alpaca-Paper-Konto';
+            document.getElementById('aiswing-equity').textContent = equity != null ? fmtUsd(equity) : '--';
+
+            const ret = p.return_pct != null ? p.return_pct : p.total_return_pct;
+            const retEl = document.getElementById('aiswing-return');
+            retEl.textContent = ret != null ? `${plSign(ret)}${fmt(ret)}%` : '--';
+            retEl.className = `v num ${plCls(ret || 0)}`;
+
+            const aMom = p.alpha_vs_momentum != null ? p.alpha_vs_momentum : p.alpha_momentum;
+            const aMomEl = document.getElementById('aiswing-alpha-mom');
+            aMomEl.textContent = aMom != null ? `${plSign(aMom)}${fmt(aMom)}%` : '--';
+            aMomEl.className = `v num ${plCls(aMom || 0)}`;
+
+            const aSpy = p.alpha_vs_spy != null ? p.alpha_vs_spy : p.alpha_spy;
+            const aSpyEl = document.getElementById('aiswing-alpha-spy');
+            aSpyEl.textContent = aSpy != null ? `${plSign(aSpy)}${fmt(aSpy)}%` : '--';
+            aSpyEl.className = `v num ${plCls(aSpy || 0)}`;
+
+            const ic = p.ic != null ? p.ic : p.information_coefficient;
+            document.getElementById('aiswing-ic').textContent = ic != null ? fmt(ic, 3) : '--';
+        } catch (e) { console.error('KI-Swing perf:', e); sub.textContent = 'Live-Paper startet — erste Orders am kommenden Sonntag / nach erstem Lauf.'; }
+
+        try {
+            const r = await fetch(`${BASE}/ai-swing/equity-history?days=0`);
+            const d = await r.json();
+            renderAiSwingChart(d.snapshots || []);
+        } catch (e) { console.error('KI-Swing equity:', e); renderAiSwingChart([]); }
+
+        try {
+            const r = await fetch(`${BASE}/ai-swing/positions`);
+            const d = await r.json();
+            const pos = d.positions || [];
+            document.getElementById('nav-aiswing-pos').textContent = pos.length;
+            document.getElementById('aiswing-pos-meta').textContent = pos.length ? `${pos.length} offen` : '';
+            const body = document.getElementById('aiswing-positions-body');
+            body.innerHTML = pos.length ? pos.map(p => {
+                const val = p.market_value_usd != null ? p.market_value_usd : (p.value != null ? p.value : p.market_value_eur);
+                const avg = p.avg_price != null ? p.avg_price : p.avg_price_eur;
+                return `<tr>
+                    <td class="tk">${p.ticker}</td>
+                    <td class="r num">${fmt(p.qty, 4)}</td>
+                    <td class="r num">${avg != null ? fmtUsd(avg) : '--'}</td>
+                    <td class="r num">${val != null ? fmtUsd(val) : '--'}</td>
+                </tr>`;
+            }).join('') : '<tr><td colspan="4" class="loading" style="padding:16px">Noch keine Positionen — Live-Paper startet nach erstem Lauf.</td></tr>';
+        } catch (e) { console.error('KI-Swing pos:', e); }
+
+        try {
+            const r = await fetch(`${BASE}/ai-swing/picks?weeks=4`);
+            const d = await r.json();
+            const picks = d.picks || [];
+            document.getElementById('aiswing-picks-meta').textContent = picks.length ? `${picks.length} Picks` : '';
+            const body = document.getElementById('aiswing-picks-body');
+            body.innerHTML = picks.length ? picks.map(pk => {
+                const date = (pk.run_date || pk.date || pk.created_at || '').slice(0, 10);
+                const dShort = date ? `${date.slice(8, 10)}.${date.slice(5, 7)}` : '--';
+                const fwd = pk.fwd_return != null ? pk.fwd_return : pk.fwd_return_20d;
+                const thesis = pk.thesis || '';
+                return `<tr>
+                    <td class="num">${dShort}</td>
+                    <td class="tk">${pk.ticker}</td>
+                    <td>${aiSwingConvBadge(pk.conviction)}</td>
+                    <td style="max-width:260px;white-space:normal;color:var(--muted);font-size:12px" title="${(thesis || '').replace(/"/g, '&quot;')}">${thesis}</td>
+                    <td class="r num">${pk.entry_price != null ? fmtUsd(pk.entry_price) : '--'}</td>
+                    <td class="r num ${plCls(fwd || 0)}">${fwd != null ? plSign(fwd) + fmt(fwd) + '%' : '—'}</td>
+                </tr>`;
+            }).join('') : '<tr><td colspan="6" class="loading" style="padding:16px">Noch keine Picks — erster KI-Wochenkorb erscheint nach dem nächsten Lauf.</td></tr>';
+        } catch (e) { console.error('KI-Swing picks:', e); }
+    }
+
     // ─── Init ───
     async function loadAll() {
         await Promise.allSettled([loadDashboard(), loadBenchmark()]);
-        await Promise.allSettled([loadPositions(), loadEquityChart(), loadAllocation(), loadPerformance(), loadTrades(), loadDCA(), loadSystem(), loadDayPi()]);
+        await Promise.allSettled([loadPositions(), loadEquityChart(), loadAllocation(), loadPerformance(), loadTrades(), loadDCA(), loadSystem(), loadDayPi(), loadAiSwing()]);
     }
     loadAll();
     setInterval(loadAll, 60000);

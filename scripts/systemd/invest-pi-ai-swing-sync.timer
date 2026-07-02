@@ -1,0 +1,9 @@
+[Unit]
+Description=Invest-Pi · KI-Swing-Trader Sync — stuendlich :40 (versetzt zum Momentum-Sync :35)
+
+[Timer]
+OnCalendar=*-*-* *:40:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

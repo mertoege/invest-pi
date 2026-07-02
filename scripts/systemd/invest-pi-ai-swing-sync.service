@@ -1,0 +1,13 @@
+[Unit]
+Description=Invest-Pi · KI-Swing-Trader Sync — 2. Paper-Konto -> DB (Equity + Positions, source=ai_swing)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=investpi
+WorkingDirectory=/home/investpi/invest-pi
+EnvironmentFile=/home/investpi/invest-pi/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -B scripts/ai_swing_sync.py
+MemoryMax=1G
+CPUQuota=30%

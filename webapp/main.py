@@ -40,6 +40,7 @@ app.add_middleware(
 # ─── DB Helpers ──────────────────────────────────────────────
 TRADING_DB = PROJECT_DIR / "data" / "trading.db"
 LEARNING_DB = PROJECT_DIR / "data" / "learning.db"
+AI_SWING_DB = PROJECT_DIR / "data" / "ai_swing.db"
 
 
 @contextmanager
@@ -645,6 +646,257 @@ def daypi():
             return _json.load(f)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ─── KI-Swing (Schwester-Strategie · 2. Paper-Konto, source='ai_swing') ──
+# WICHTIG: Alle Queries filtern strikt auf source='ai_swing'. Die Momentum-Zahlen
+# (source='paper') werden NIE angefasst — getrennte Ledger, getrennte Konten.
+_ai_swing_perf_cache: dict = {"data": None, "expires": 0}
+
+
+def _spearman(xs: list, ys: list):
+    """Tie-aware Spearman rank correlation. scipy wenn da, sonst manueller Fallback."""
+    n = len(xs)
+    if n < 3:
+        return None
+    try:
+        from scipy.stats import spearmanr  # type: ignore
+        rho, _ = spearmanr(xs, ys)
+        if rho != rho:  # NaN
+            return None
+        return float(rho)
+    except Exception:
+        pass
+
+    def _ranks(vals):
+        order = sorted(range(len(vals)), key=lambda i: vals[i])
+        ranks = [0.0] * len(vals)
+        i = 0
+        while i < len(vals):
+            j = i
+            while j + 1 < len(vals) and vals[order[j + 1]] == vals[order[i]]:
+                j += 1
+            avg = (i + j) / 2.0 + 1.0  # 1-based average rank for ties
+            for k in range(i, j + 1):
+                ranks[order[k]] = avg
+            i = j + 1
+        return ranks
+
+    rx, ry = _ranks(xs), _ranks(ys)
+    mx = sum(rx) / n
+    my = sum(ry) / n
+    cov = sum((rx[i] - mx) * (ry[i] - my) for i in range(n))
+    vx = sum((rx[i] - mx) ** 2 for i in range(n))
+    vy = sum((ry[i] - my) ** 2 for i in range(n))
+    if vx <= 0 or vy <= 0:
+        return None
+    return cov / (vx ** 0.5 * vy ** 0.5)
+
+
+@app.get("/api/ai-swing/equity-history")
+def ai_swing_equity_history(days: int = 0):
+    try:
+        if not TRADING_DB.exists():
+            return {"snapshots": []}
+        where_clause = "source = 'ai_swing' AND total_usd IS NOT NULL"
+        params: list = []
+        if days > 0:
+            cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+            where_clause += " AND timestamp >= ?"
+            params.append(cutoff)
+        with db_connect(TRADING_DB) as conn:
+            rows = conn.execute(
+                f"""SELECT timestamp, total_usd, total_eur, cash_usd, positions_value_usd
+                   FROM equity_snapshots
+                   WHERE {where_clause}
+                   ORDER BY timestamp ASC""",
+                params,
+            ).fetchall()
+            result = [
+                {
+                    "timestamp": r["timestamp"],
+                    "total_usd": r["total_usd"],
+                    "total_eur": r["total_eur"],
+                    "cash_usd": r["cash_usd"],
+                    "positions_value_usd": r["positions_value_usd"],
+                }
+                for r in rows
+            ]
+        return {"snapshots": result}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/api/ai-swing/positions")
+def ai_swing_positions():
+    try:
+        if not TRADING_DB.exists():
+            return {"positions": []}
+        with db_connect(TRADING_DB) as conn:
+            rows = conn.execute(
+                """SELECT ticker, qty, avg_price_eur, last_updated
+                   FROM positions
+                   WHERE source = 'ai_swing' AND qty > 0
+                   ORDER BY qty * COALESCE(avg_price_eur, 0) DESC"""
+            ).fetchall()
+            result = [
+                {
+                    "ticker": r["ticker"],
+                    "qty": r["qty"],
+                    "avg_price_eur": r["avg_price_eur"],
+                    "last_updated": r["last_updated"],
+                }
+                for r in rows
+            ]
+        return {"positions": result}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/api/ai-swing/picks")
+def ai_swing_picks(weeks: int = 4):
+    try:
+        if not AI_SWING_DB.exists():
+            return {"picks": []}
+        with db_connect(AI_SWING_DB) as conn:
+            decisions = conn.execute(
+                """SELECT id, run_date FROM decisions
+                   ORDER BY run_date DESC, id DESC LIMIT ?""",
+                (max(1, weeks),),
+            ).fetchall()
+            result = []
+            for d in decisions:
+                picks = conn.execute(
+                    """SELECT ticker, conviction, entry_price, thesis
+                       FROM picks WHERE decision_id = ? ORDER BY id ASC""",
+                    (d["id"],),
+                ).fetchall()
+                for pk in picks:
+                    fwd = conn.execute(
+                        """SELECT fwd_return FROM outcomes
+                           WHERE decision_id = ? AND ticker = ? AND horizon_days = 20
+                           ORDER BY measured_at DESC LIMIT 1""",
+                        (d["id"], pk["ticker"]),
+                    ).fetchone()
+                    result.append({
+                        "date": (d["run_date"] or "")[:10],
+                        "ticker": pk["ticker"],
+                        "conviction": pk["conviction"],
+                        "entry_price": pk["entry_price"],
+                        "thesis": pk["thesis"],
+                        "fwd_20d_return": fwd["fwd_return"] if fwd else None,
+                    })
+        return {"picks": result}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/api/ai-swing/performance")
+def ai_swing_performance():
+    """Nie 500 — bei Fehler/leerer DB gueltiger Null-Default mit phase=warmup."""
+    global _ai_swing_perf_cache
+    now = time.time()
+    if _ai_swing_perf_cache["expires"] > now and _ai_swing_perf_cache["data"]:
+        return _ai_swing_perf_cache["data"]
+
+    default = {
+        "current_equity_usd": None,
+        "total_eur": None,
+        "return_pct_since_start": None,
+        "n_positions": 0,
+        "n_picks_total": 0,
+        "phase": "live_paper_warmup",
+        "alpha_vs_momentum": None,
+        "alpha_vs_spy": None,
+        "ic": None,
+        "data_since": None,
+    }
+    try:
+        result = dict(default)
+
+        # ai_swing equity window (trading.db)
+        first = last = None
+        if TRADING_DB.exists():
+            with db_connect(TRADING_DB) as conn:
+                first = conn.execute(
+                    """SELECT timestamp, total_usd FROM equity_snapshots
+                       WHERE source='ai_swing' AND total_usd IS NOT NULL
+                       ORDER BY timestamp ASC LIMIT 1"""
+                ).fetchone()
+                last = conn.execute(
+                    """SELECT timestamp, total_usd, total_eur FROM equity_snapshots
+                       WHERE source='ai_swing' AND total_usd IS NOT NULL
+                       ORDER BY timestamp DESC LIMIT 1"""
+                ).fetchone()
+                result["n_positions"] = conn.execute(
+                    "SELECT COUNT(*) c FROM positions WHERE source='ai_swing' AND qty > 0"
+                ).fetchone()["c"]
+
+        ai_ret = None
+        if first and last and first["total_usd"]:
+            result["phase"] = "live_paper"
+            result["current_equity_usd"] = round(last["total_usd"], 2)
+            result["total_eur"] = round(last["total_eur"], 2) if last["total_eur"] is not None else None
+            ai_ret = (last["total_usd"] / first["total_usd"] - 1) * 100
+            result["return_pct_since_start"] = round(ai_ret, 3)
+            result["data_since"] = first["timestamp"][:10]
+
+        # picks + IC (ai_swing.db)
+        conv_map = {"high": 3, "medium": 2, "low": 1}
+        if AI_SWING_DB.exists():
+            with db_connect(AI_SWING_DB) as conn:
+                result["n_picks_total"] = conn.execute(
+                    "SELECT COUNT(*) c FROM picks"
+                ).fetchone()["c"]
+                ic_rows = conn.execute(
+                    """SELECT p.conviction AS conviction, o.fwd_return AS fwd
+                       FROM picks p
+                       JOIN outcomes o
+                         ON o.decision_id = p.decision_id AND o.ticker = p.ticker
+                       WHERE o.horizon_days = 20 AND o.fwd_return IS NOT NULL
+                         AND p.conviction IS NOT NULL"""
+                ).fetchall()
+            if len(ic_rows) >= 3:
+                xs = [conv_map.get(r["conviction"], 0) for r in ic_rows]
+                ys = [r["fwd"] for r in ic_rows]
+                v = _spearman(xs, ys)
+                result["ic"] = round(v, 4) if v is not None else None
+
+        # alpha vs momentum (same window, source='paper')
+        if ai_ret is not None and first and TRADING_DB.exists():
+            with db_connect(TRADING_DB) as conn:
+                m_first = conn.execute(
+                    """SELECT total_usd FROM equity_snapshots
+                       WHERE source='paper' AND total_usd IS NOT NULL AND timestamp >= ?
+                       ORDER BY timestamp ASC LIMIT 1""",
+                    (first["timestamp"],),
+                ).fetchone()
+                m_last = conn.execute(
+                    """SELECT total_usd FROM equity_snapshots
+                       WHERE source='paper' AND total_usd IS NOT NULL
+                       ORDER BY timestamp DESC LIMIT 1"""
+                ).fetchone()
+            if m_first and m_last and m_first["total_usd"]:
+                m_ret = (m_last["total_usd"] / m_first["total_usd"] - 1) * 100
+                result["alpha_vs_momentum"] = round(ai_ret - m_ret, 3)
+
+        # alpha vs SPY (same window, yfinance)
+        if ai_ret is not None and result["data_since"]:
+            try:
+                import yfinance as yf
+                spy_hist = yf.Ticker("SPY").history(start=result["data_since"])
+                if not spy_hist.empty:
+                    spy_start = float(spy_hist["Close"].iloc[0])
+                    spy_now = float(spy_hist["Close"].iloc[-1])
+                    spy_ret = (spy_now / spy_start - 1) * 100
+                    result["alpha_vs_spy"] = round(ai_ret - spy_ret, 3)
+            except Exception:
+                pass
+
+        _ai_swing_perf_cache = {"data": result, "expires": now + 300}
+        return result
+    except Exception:
+        return default
 
 
 # ─── Static Files & Frontend ─────────────────────────────────
