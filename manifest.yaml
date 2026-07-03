@@ -53,6 +53,14 @@ jobs:
   - invest-pi-strategy-hourly · stuendl. Mo–Fr (Monatsziel + Konvergenz)
   - ok
   - läuft
+- - KI-Swing — Wochenkorb (2. Paper-Konto)
+  - invest-pi-ai-swing-execute · So 16:30 (KI-Picks → Orders, Sicherheits-Käfig)
+  - ok
+  - live-paper
+- - KI-Swing — Konto-Sync (2. Konto)
+  - invest-pi-ai-swing-sync · stuendl. :40 (Equity/Positionen → DB, source=ai_swing)
+  - ok
+  - läuft
 - - Rebalance (sell-only)
   - invest-pi-rebalance · Mo–Fr 21:30
   - ok
@@ -537,6 +545,20 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: KI-Swing live auf 2. Paper-Konto gegangen (Phase 3, mit Sicherheits-Käfig)
+      d: 'Ausfuehrungs-Adapter (scripts/ai_swing_execute.py) nimmt die juengste KI-Wochenentscheidung,
+        baut einen gleichgewichteten Korb (max 12 Titel) und ordert aufs 2. Alpaca-Paper-Konto,
+        strikt getrennt vom Momentum (source=ai_swing, strategy_label=ai_swing-v1). Sicherheits-Kaefig
+        rein deterministisch, KI liefert KEINE Zahlen: Whitelist-Gate (fail-closed), 95% Invest /
+        5% Cash-Floor, 15%-Einzel-Kappe, nur aus Cash (nie Margin), Not-Aus .KILL_ai, Open-Order-Guard
+        (keine gestapelten Orders bei geschlossener Boerse), Konto-DB-Abgleich vor jeder Order. Eigener
+        Sync (ai_swing_sync.py) + Webapp-Ansicht KI-Swing (3-Wege-Vergleich vs Momentum vs SPY).
+        BEWUSSTE Abweichung vom Konzept: live-paper VOR dem Schatten-IC-Nachweis gestartet, weil Mert
+        echte Vorwaerts-Daten sehen will (Spielgeld, kein Geld-Risiko) - die Schatten-Messung laeuft
+        parallel weiter. V1-Vereinfachung: gleichgewichtet statt ATR-Risiko-Sizing; voller Fuzzing-
+        Haertetest (Konzept-Phase 2) noch OFFEN. Erster echter Kauf 2026-07-03 (9 Titel, Orders queued
+        ueber Feiertags-Wochenende -> Fill Montag). Timer: execute So 16:30, sync stuendl. :40.'
+      badge: 2026-07-03
     - t: KI-Swing-Trader als 2. Paper-Konto geplant (Konzept festgehalten)
       d: 'Ein zweiter, getrennter KI-Trader (LLM-Tilt) auf eigenem Alpaca-Paper-Konto soll fair gegen die
         Momentum-Engine UND SPY/QQQ antreten - Swing/Position (Tage-Wochen), abgegrenzt vom Intraday-DayPi.
@@ -549,7 +571,7 @@ views:
         (Stationaritaets-Freeze). Erfolgskriterium vorab einfrieren, Urteil erst nach 24-36 Mon. Volldetails:
         AI_SWING_TRADER_CONCEPT.md. STAND - 2. Konto angelegt+getestet, Erfolgskriterium eingefroren,
         News-Coverage-Test bestanden, Phase-1-Schatten gebaut (scripts/ai_swing_shadow.py + _outcomes.py,
-        eigene DB data/ai_swing.db) und Tag-0-Entscheidung gesetzt. Offen - systemd-Timer per sudo aktivieren.'
+        eigene DB data/ai_swing.db) und Tag-0-Entscheidung gesetzt. Umgesetzt 2026-07-03: live-paper aktiv, Timer scharf (s. neue Karte oben).'
       badge: 2026-06-26
     - t: Risiko-Toleranz festgelegt - pur Momentum (kein Low-Vol-Blend)
       d: Mert wuerde einen zwischenzeitlichen Drawdown von ~-35% aushalten ohne zu verkaufen. Daher bleibt es
