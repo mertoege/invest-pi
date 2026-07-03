@@ -1,6 +1,7 @@
 [Unit]
 Description=Invest-Pi · KI-Swing-Trader Sync — 2. Paper-Konto -> DB (Equity + Positions, source=ai_swing)
 After=network-online.target
+OnFailure=invest-pi-error-alert@%n.service
 
 [Service]
 Type=oneshot
