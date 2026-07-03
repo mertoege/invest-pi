@@ -729,25 +729,31 @@ def ai_swing_equity_history(days: int = 0):
 
 @app.get("/api/ai-swing/positions")
 def ai_swing_positions():
+    # Live vom 2. Paper-Konto (wie /api/positions fuer Momentum) -> USD-native Felder,
+    # damit die Anzeige keine EUR-Werte mit $-Zeichen mehr zeigt.
     try:
-        if not TRADING_DB.exists():
+        import os
+        from src.broker import get_broker
+        key2 = os.environ.get("ALPACA_API_KEY_2")
+        sec2 = os.environ.get("ALPACA_API_SECRET_2")
+        if not (key2 and sec2):
             return {"positions": []}
-        with db_connect(TRADING_DB) as conn:
-            rows = conn.execute(
-                """SELECT ticker, qty, avg_price_eur, last_updated
-                   FROM positions
-                   WHERE source = 'ai_swing' AND qty > 0
-                   ORDER BY qty * COALESCE(avg_price_eur, 0) DESC"""
-            ).fetchall()
-            result = [
-                {
-                    "ticker": r["ticker"],
-                    "qty": r["qty"],
-                    "avg_price_eur": r["avg_price_eur"],
-                    "last_updated": r["last_updated"],
-                }
-                for r in rows
-            ]
+        broker = get_broker("alpaca_paper", api_key=key2, api_secret=sec2)
+        result = []
+        for p in broker.get_positions():
+            pct_change = 0.0
+            if p.avg_price and p.avg_price > 0:
+                pct_change = ((p.market_price - p.avg_price) / p.avg_price) * 100
+            result.append({
+                "ticker": p.ticker,
+                "qty": p.qty,
+                "avg_price": round(p.avg_price, 2),
+                "market_price": round(p.market_price, 2),
+                "market_value_usd": round(p.qty * p.market_price, 2),
+                "market_value_eur": round(p.market_value_eur, 2),
+                "pct_change": round(pct_change, 2),
+            })
+        result.sort(key=lambda x: x["market_value_usd"], reverse=True)
         return {"positions": result}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -761,6 +767,7 @@ def ai_swing_picks(weeks: int = 4):
         with db_connect(AI_SWING_DB) as conn:
             decisions = conn.execute(
                 """SELECT id, run_date FROM decisions
+                   WHERE mode='shadow'
                    ORDER BY run_date DESC, id DESC LIMIT ?""",
                 (max(1, weeks),),
             ).fetchall()
@@ -784,7 +791,7 @@ def ai_swing_picks(weeks: int = 4):
                         "conviction": pk["conviction"],
                         "entry_price": pk["entry_price"],
                         "thesis": pk["thesis"],
-                        "fwd_20d_return": fwd["fwd_return"] if fwd else None,
+                        "fwd_return": fwd["fwd_return"] if fwd else None,
                     })
         return {"picks": result}
     except Exception as e:
@@ -863,7 +870,7 @@ def ai_swing_performance():
                 result["ic"] = round(v, 4) if v is not None else None
 
         # alpha vs momentum (same window, source='paper')
-        if ai_ret is not None and first and TRADING_DB.exists():
+        if ai_ret is not None and result["n_positions"] > 0 and first and TRADING_DB.exists():
             with db_connect(TRADING_DB) as conn:
                 m_first = conn.execute(
                     """SELECT total_usd FROM equity_snapshots
@@ -873,15 +880,16 @@ def ai_swing_performance():
                 ).fetchone()
                 m_last = conn.execute(
                     """SELECT total_usd FROM equity_snapshots
-                       WHERE source='paper' AND total_usd IS NOT NULL
-                       ORDER BY timestamp DESC LIMIT 1"""
+                       WHERE source='paper' AND total_usd IS NOT NULL AND timestamp <= ?
+                       ORDER BY timestamp DESC LIMIT 1""",
+                    (last["timestamp"],),
                 ).fetchone()
             if m_first and m_last and m_first["total_usd"]:
                 m_ret = (m_last["total_usd"] / m_first["total_usd"] - 1) * 100
                 result["alpha_vs_momentum"] = round(ai_ret - m_ret, 3)
 
         # alpha vs SPY (same window, yfinance)
-        if ai_ret is not None and result["data_since"]:
+        if ai_ret is not None and result["n_positions"] > 0 and result["data_since"]:
             try:
                 import yfinance as yf
                 spy_hist = yf.Ticker("SPY").history(start=result["data_since"])

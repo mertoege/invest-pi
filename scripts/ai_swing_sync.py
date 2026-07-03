@@ -115,11 +115,37 @@ def sync() -> dict:
                     (p.ticker, p.qty, avg_eur, now, now, "ai_swing-v1", SOURCE),
                 )
 
+        # 4. Order-Status abgleichen: 'accepted' -> 'filled'/'rejected'. Eigener Reconciler,
+        #    weil der Momentum-sync_orders auf Konto 1 laeuft und diese Order-IDs (Konto 2)
+        #    dort nie findet. Fail-soft bei Lookup-Fehler (nicht-terminal lassen).
+        pending = conn.execute(
+            "SELECT rowid AS rid, broker_order_id FROM trades "
+            "WHERE source = ? AND status NOT IN ('filled','cancelled','rejected','expired') "
+            "AND broker_order_id IS NOT NULL AND broker_order_id != ''",
+            (SOURCE,),
+        ).fetchall()
+        n_reconciled = 0
+        for r in pending:
+            try:
+                o = broker.get_order(r["broker_order_id"])
+            except Exception:
+                continue
+            if o.status == "filled":
+                conn.execute(
+                    "UPDATE trades SET status='filled', fill_ts=?, fill_price=? WHERE rowid=?",
+                    (o.filled_at or now, o.avg_fill_price, r["rid"]),
+                )
+                n_reconciled += 1
+            elif o.status in ("cancelled", "rejected", "expired"):
+                conn.execute("UPDATE trades SET status=? WHERE rowid=?", (o.status, r["rid"]))
+                n_reconciled += 1
+
     return {
         "broker":     str(broker),
         "cash_eur":   account.cash_eur,
         "equity_eur": account.equity_eur,
         "positions":  len(positions),
+        "reconciled": n_reconciled,
         "source":     SOURCE,
     }
 
@@ -131,6 +157,7 @@ def main() -> None:
     print(f"  cash:      {result['cash_eur']:>10.2f} EUR")
     print(f"  equity:    {result['equity_eur']:>10.2f} EUR")
     print(f"  positions: {result['positions']}")
+    print(f"  reconciled:{result['reconciled']:>3} Order(s) -> terminal")
     print(f"  source:    {result['source']}")
 
 
