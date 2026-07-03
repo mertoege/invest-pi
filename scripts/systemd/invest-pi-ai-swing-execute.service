@@ -1,6 +1,7 @@
 [Unit]
 Description=Invest-Pi · KI-Swing-Trader (Live-Paper) — Basket auf 2. Paper-Konto ausfuehren
 After=network-online.target
+OnFailure=invest-pi-error-alert@%n.service
 
 [Service]
 Type=oneshot
