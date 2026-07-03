@@ -58,6 +58,7 @@ def _gather_today() -> dict:
               FROM trades
              WHERE date(created_at, 'localtime') = date('now', 'localtime')
                AND status IN ('filled', 'accepted', 'partially_filled')
+               AND source = 'paper'
             """
         ).fetchone()
         out["trades_today"]   = int(row["n"])
@@ -70,6 +71,7 @@ def _gather_today() -> dict:
               FROM trades
              WHERE date(created_at, 'localtime') = date('now', 'localtime')
                AND status IN ('filled', 'accepted', 'partially_filled')
+               AND source = 'paper'
              GROUP BY side
             """
         ).fetchall()

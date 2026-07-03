@@ -53,13 +53,13 @@ def _kelly_multiplier(confidence="medium"):
         with connect(TRADING_DB) as conn:
             sells = conn.execute(
                 "SELECT ticker, fill_price, price FROM trades "
-                "WHERE side = 'sell' AND status = 'filled' "
+                "WHERE side = 'sell' AND status = 'filled' AND source = 'paper' "
                 "AND fill_price IS NOT NULL "
                 "AND created_at >= datetime('now', '-90 days')"
             ).fetchall()
             buys = conn.execute(
                 "SELECT ticker, AVG(price) AS avg_buy FROM trades "
-                "WHERE side = 'buy' AND status IN ('filled', 'accepted') "
+                "WHERE side = 'buy' AND status IN ('filled', 'accepted') AND source = 'paper' "
                 "AND created_at >= datetime('now', '-90 days') GROUP BY ticker"
             ).fetchall()
         if len(sells) < _KELLY_MIN_TRADES:

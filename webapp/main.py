@@ -83,7 +83,7 @@ def dashboard():
         if TRADING_DB.exists():
             with db_connect(TRADING_DB) as conn:
                 row = conn.execute(
-                    "SELECT COUNT(*) as cnt FROM trades WHERE created_at >= ? AND status='filled'",
+                    "SELECT COUNT(*) as cnt FROM trades WHERE created_at >= ? AND status='filled' AND source='paper'",
                     (today_str,)
                 ).fetchone()
                 trades_today = row["cnt"] if row else 0
@@ -182,7 +182,7 @@ def trades():
             rows = conn.execute(
                 """SELECT ticker, side, qty, price, fill_price, status,
                           created_at, strategy_label, source
-                   FROM trades ORDER BY created_at DESC LIMIT 50"""
+                   FROM trades WHERE source='paper' ORDER BY created_at DESC LIMIT 50"""
             ).fetchall()
             result = [
                 {
@@ -483,7 +483,7 @@ def performance():
                        SUM(CASE WHEN side='buy' THEN 1 ELSE 0 END) as buys,
                        SUM(CASE WHEN side='sell' THEN 1 ELSE 0 END) as sells,
                        SUM(eur_value) as total_volume_eur
-                   FROM trades WHERE status='filled'"""
+                   FROM trades WHERE status='filled' AND source='paper'"""
             ).fetchone()
 
         return {

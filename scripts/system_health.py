@@ -108,7 +108,7 @@ def check_trade_anomalies() -> list[str]:
         with connect(TRADING_DB) as conn:
             stuck = conn.execute(
                 "SELECT count(*) as n FROM trades "
-                "WHERE status IN ('accepted','pending_new','new') "
+                "WHERE status IN ('accepted','pending_new','new') AND source = 'paper' "
                 "AND created_at < datetime('now', '-24 hours')"
             ).fetchone()["n"]
             if stuck > 0:

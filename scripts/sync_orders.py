@@ -52,6 +52,7 @@ def sync_order_statuses() -> dict:
             SELECT rowid AS rid, broker_order_id, ticker, side, qty
               FROM trades
              WHERE status NOT IN ('filled', 'cancelled', 'rejected', 'expired')
+               AND source = 'paper'
                AND broker_order_id IS NOT NULL
                AND broker_order_id != ''
             """
