@@ -119,6 +119,11 @@ _LEVEL_EMOJI = {0: "🟢", 1: "🟡", 2: "🟠", 3: "🔴"}
 
 _ALERTS_ENABLED = os.environ.get("ALERTS_ENABLED", "0").lower() in ("1", "true", "yes")
 _TRADES_ENABLED = os.environ.get("TRADES_ENABLED", "0").lower() in ("1", "true", "yes")
+# Mert-Praeferenz (2026-07): Telegram NUR bei echtem Handlungsbedarf. send_info (FYI: Reports,
+# Regime, Signale, Erfolgs-Pings) ist per Default STUMM. Ausnahmen laufen daran vorbei:
+# send_action_required() (unten), DCA-Knopf-Abfrage (_send_message direkt), error_alert.sh (Ausfaelle).
+# Reaktivieren der FYI-Pings: TELEGRAM_ACTION_ONLY=0 in .env.
+_ACTION_ONLY = os.environ.get("TELEGRAM_ACTION_ONLY", "1").lower() in ("1", "true", "yes")
 
 
 def send_alert(
@@ -204,7 +209,11 @@ def send_trade(
 
 
 def send_info(message: str, *, label: str = "info") -> bool:
-    """Allzweck-Info-Nachricht. Wird auch fuer Drift-Warnungen + DCA-Empfehlungen genutzt."""
+    """FYI-Nachricht (Reports/Regime/Signale/Status). Bei ACTION-ONLY (Default) STUMM -
+    erreicht Mert NICHT. Fuer echte 'Mert muss handeln'-Meldungen send_action_required() nutzen."""
+    if _ACTION_ONLY:
+        log.info(f"[telegram stumm/action-only] {label}: {message[:120]}")
+        return True
     if not is_configured():
         return False
     try:
@@ -214,4 +223,20 @@ def send_info(message: str, *, label: str = "info") -> bool:
         return delivered
     except Exception as e:
         log.error(f"telegram send_info failed: {e}")
+        return False
+
+
+def send_action_required(message: str, *, label: str = "action",
+                         reply_markup: Optional[dict] = None) -> bool:
+    """Explizite 'Mert muss aktiv etwas tun'-Meldung. Feuert IMMER (umgeht den ACTION-ONLY-Filter).
+    Fuer NEUE Handlungs-Alerts DIESE Funktion nehmen, nicht send_info."""
+    if not is_configured():
+        return False
+    try:
+        result = _send_message(message, reply_markup)
+        delivered = bool(result.get("ok", False))
+        _log_notification(label, 3, message, delivered)
+        return delivered
+    except Exception as e:
+        log.error(f"telegram send_action_required failed: {e}")
         return False
