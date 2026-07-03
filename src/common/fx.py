@@ -27,7 +27,7 @@ CACHE_HOURS = 24
 FX_TICKER = "_FX_EURUSD"
 
 
-def _load_cached() -> Optional[float]:
+def _load_cached(allow_stale: bool = False) -> Optional[float]:
     try:
         with connect(MARKET_DB) as conn:
             row = conn.execute(
@@ -37,7 +37,7 @@ def _load_cached() -> Optional[float]:
         if not row:
             return None
         ts = dt.datetime.fromisoformat(row["updated_at"])
-        if (dt.datetime.now() - ts).total_seconds() < CACHE_HOURS * 3600:
+        if allow_stale or (dt.datetime.now() - ts).total_seconds() < CACHE_HOURS * 3600:
             return float(row["rate"])
     except Exception as e:
         log.debug(f"fx cache read failed: {e}")
@@ -87,10 +87,12 @@ def eur_per_usd(force_refresh: bool = False) -> float:
     if live is not None:
         _save_cached(live)
         return live
-    # Last-resort: was im Cache liegt (auch wenn alt) oder Fallback
-    cached_old = _load_cached()
+    # Last-resort: alten Cache-Kurs nehmen (auch >24h) statt hartkodiertem DEFAULT_RATE.
+    cached_old = _load_cached(allow_stale=True)
     if cached_old is not None:
+        log.warning(f"fx: live+frischer Cache fehlgeschlagen -> alter Cache-Kurs {cached_old:.4f}")
         return cached_old
+    log.warning(f"fx: kein Kurs verfuegbar -> hartkodierter DEFAULT_RATE {DEFAULT_RATE}")
     return DEFAULT_RATE
 
 
