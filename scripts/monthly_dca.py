@@ -155,10 +155,10 @@ def _build_telegram_text(verdict: str, data: dict, prediction_id: int, budget_eu
     risk   = data.get("risk_notes", "")
     alt    = data.get("alternative_etf") or "SMH"   # or-Operator catched empty strings
 
-    label = "ETF-Fallback" if is_etf else "Empfohlener Buy"
-    emoji = "⚪" if is_etf else "🎯"
+    art = "ETF · breit gestreut" if is_etf else "Einzeltitel"
     parts = [
-        f"{emoji} <b>{label} · {escape(ticker)}</b>",
+        f"📈 <b>Monatlicher Invest-Vorschlag · {escape(ticker)}</b>",
+        f"Art: <i>{art}</i>",
         f"Budget: <b>{budget_eur:.0f} EUR</b>",
         f"Konfidenz: <i>{escape(conf)}</i>",
         "",
