@@ -94,7 +94,7 @@ def _gather_context() -> dict:
 
 def _build_prompt(ctx: dict) -> tuple[str, str]:
     system = (
-        "Du bist ein vorsichtiger Investment-Berater fuer einen diversifizierten DCA-Plan (Sektor-ETFs, Blue Chips, Tech).\n"
+        "Du bist ein vorsichtiger Investment-Berater fuer einen diversifizierten DCA-Plan (breite Index-ETFs, Blue Chips, Tech).\n"
         "Mert investiert monatlich 50 EUR. Heute soll ein einziger Titel empfohlen werden — oder ein ETF-Fallback wenn nichts ueberzeugt.\n"
         "Antworte NUR im JSON-Format wie unten beschrieben — kein Prosa drumherum.\n"
         "\n"
@@ -124,19 +124,27 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         f"{json.dumps(ctx['current_portfolio'], indent=2)}\n\n"
         f"## Budget diesen Monat:\n"
         f"{ctx['month_budget_eur']:.0f} EUR\n\n"
-        f"## Verfuegbare ETFs (waehle einen davon als alternative_etf):\n"
-        f"  SPY   - SPDR S&P 500 ETF (Gesamtmarkt, breit gestreut)\n"
-        f"  QQQ   - Invesco QQQ Trust (Nasdaq 100, Tech-lastig)\n"
-        f"  SMH   - VanEck Semiconductor ETF (Halbleiter)\n"
-        f"  XLK   - Technology Select Sector SPDR\n"
-        f"  XLV   - Health Care Select Sector SPDR\n"
-        f"  XLF   - Financial Select Sector SPDR\n"
+        f"## Waehlbare ETFs — NUR diese drei (auf Merts Broker Revolut in EUR handelbar).\n"
+        f"   Nutze EXAKT den Ticker-String inkl. Boersen-Endung '.DE':\n"
+        f"  SPYL.DE - SPDR S&P 500 UCITS (US-Gesamtmarkt, breit gestreut)\n"
+        f"  VWCE.DE - Vanguard FTSE All-World UCITS (weltweit, maximal breit gestreut)\n"
+        f"  EQQQ.DE - Invesco Nasdaq-100 UCITS (Tech-lastig)\n"
         f"\nDefault wenn unsicher: {ctx['etf_fallback']}\n\n"
-        f"WICHTIG: alternative_etf MUSS einer der obigen Tickers sein, NICHT leer.\n"
-        f"Auch bei verdict=buy_single — der ETF dient als sichtbare Alternative im UI.\n\n"
+        f"WICHTIG: Bei verdict=buy_etf MUSS 'ticker' einer dieser drei Strings sein.\n"
+        f"'alternative_etf' MUSS immer einer dieser drei Strings sein (SPYL.DE | VWCE.DE | EQQQ.DE),\n"
+        f"exakt so geschrieben, NICHT leer — auch bei verdict=buy_single (dient als sichtbare Alternative).\n\n"
         "Schreibe deine Empfehlung als JSON-Block."
     )
     return system, prompt
+
+
+def _disp(ticker: str) -> str:
+    """Blendet die Boersen-Endung (.DE/.L/...) fuer die Telegram-Anzeige aus —
+    Mert sieht 'SPYL' statt 'SPYL.DE'."""
+    for suf in (".DE", ".L", ".AS", ".PA", ".MI"):
+        if ticker.endswith(suf):
+            return ticker[: -len(suf)]
+    return ticker
 
 
 def _build_telegram_text(verdict: str, data: dict, prediction_id: int, budget_eur: float) -> tuple[str, dict]:
@@ -153,12 +161,12 @@ def _build_telegram_text(verdict: str, data: dict, prediction_id: int, budget_eu
     reason = data.get("reason", "")
     conf   = data.get("confidence", "?")
     risk   = data.get("risk_notes", "")
-    alt    = data.get("alternative_etf") or "SMH"   # or-Operator catched empty strings
+    alt    = data.get("alternative_etf") or "VWCE.DE"   # or-Operator catched empty strings
 
-    label = "ETF-Fallback" if is_etf else "Empfohlener Buy"
-    emoji = "⚪" if is_etf else "🎯"
+    art = "ETF · breit gestreut" if is_etf else "Einzeltitel"
     parts = [
-        f"{emoji} <b>{label} · {escape(ticker)}</b>",
+        f"📈 <b>Monatlicher Invest-Vorschlag · {escape(_disp(ticker))}</b>",
+        f"Art: <i>{art}</i>",
         f"Budget: <b>{budget_eur:.0f} EUR</b>",
         f"Konfidenz: <i>{escape(conf)}</i>",
         "",
@@ -167,7 +175,7 @@ def _build_telegram_text(verdict: str, data: dict, prediction_id: int, budget_eu
     if risk:
         parts.append(f"\n<i>Risiko: {escape(risk)}</i>")
     if not is_etf and alt:
-        parts.append(f"\n<i>Alternativer ETF-Korb falls unsicher: <b>{escape(alt)}</b></i>")
+        parts.append(f"\n<i>Alternativer ETF-Korb falls unsicher: <b>{escape(_disp(alt))}</b></i>")
     text = "\n".join(parts)
 
     reply_markup = {"inline_keyboard": [[
@@ -216,9 +224,10 @@ def _auto_record_dca(verdict: str, data: dict, budget_eur: float, pred_id) -> st
     from scripts.buy import record_position, _guess_currency
     from src.common.predictions import log_feedback
     cfg = cfg_mod.load()
-    fallback_etf = (data.get("alternative_etf") or cfg.settings.dca_fallback_etf or "SMH").upper()
-    ticker = (data.get("ticker") if verdict == "buy_single" else fallback_etf) or fallback_etf
-    ticker = ticker.upper()
+    fallback_etf = (data.get("alternative_etf") or cfg.settings.dca_fallback_etf or "VWCE.DE").upper()
+    # Bei buy_etf ist die empfohlene ETF 'ticker' (nicht alternative_etf) — sonst wich die
+    # Buchung von der Empfehlung ab. fallback_etf dient nur als Notausweg beim Konzentrations-Block.
+    ticker = (data.get("ticker") or fallback_etf).upper()
 
     # Konzentrations-Check: bei Block auf ETF-Fallback ausweichen
     if cfg.concentration_check(ticker, budget_eur).get("blocks"):

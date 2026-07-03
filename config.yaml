@@ -47,7 +47,7 @@ settings:
     daily_eur: 2.0
     hourly_eur: 0.2
     monthly_eur: 50.0
-  dca_fallback_etf: SMH
+  dca_fallback_etf: VWCE.DE
   drawdown_scan_threshold: 0.15
   email_enabled: false
   max_position_anteil: 0.4
@@ -60,7 +60,7 @@ settings:
   trading:
     broker: alpaca_paper
     cash_floor_pct: 0.03
-    dca_fallback_ticker: SMH
+    dca_fallback_ticker: VWCE.DE
     enabled: true
     force_skip_alert_min: 3
     live_trading: false

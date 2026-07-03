@@ -545,6 +545,14 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: DCA-ETFs auf Revolut-kaufbare UCITS umgestellt (SPYL/VWCE/EQQQ)
+      d: 'Der monatliche DCA-Job durfte bisher nur US-ETFs empfehlen (SPY/QQQ/SMH/XLK/XLV/XLF) -
+        in der EU auf Revolut NICHT handelbar, also fuer Mert totes Papier. Neu: nur 3 in EUR/Xetra
+        auf Revolut kaufbare UCITS - SPYL.DE (S&P500), VWCE.DE (FTSE All-World), EQQQ.DE (Nasdaq-100);
+        dca_fallback_etf SMH -> VWCE.DE. Zusaetzlich Bug behoben: bei ETF-Empfehlung wurde das Feld
+        alternative_etf gebucht statt der empfohlenen ticker (Anzeige != Buchung). Telegram-Text jetzt
+        immer "Monatlicher Invest-Vorschlag" (ETF o. Einzeltitel) statt "ETF-Fallback". Via PR #10.'
+      badge: 2026-07-03
     - t: KI-Swing live auf 2. Paper-Konto gegangen (Phase 3, mit Sicherheits-Käfig)
       d: 'Ausfuehrungs-Adapter (scripts/ai_swing_execute.py) nimmt die juengste KI-Wochenentscheidung,
         baut einen gleichgewichteten Korb (max 12 Titel) und ordert aufs 2. Alpaca-Paper-Konto,
