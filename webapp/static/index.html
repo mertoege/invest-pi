@@ -1758,17 +1758,17 @@
         try {
             const r = await fetch(`${BASE}/ai-swing/performance`);
             const p = await r.json();
-            const equity = p.equity_usd != null ? p.equity_usd : p.equity;
+            const equity = p.current_equity_usd != null ? p.current_equity_usd : (p.equity_usd != null ? p.equity_usd : p.equity);
             const warmup = p.has_data === false || equity == null;
             if (warmup) {
                 sub.textContent = 'Live-Paper startet — erste Orders am kommenden Sonntag / nach erstem Lauf.';
             } else {
-                sub.textContent = `${p.strategy_label || 'ai_swing-v1'} · Stand ${p.updated ? p.updated.slice(11, 16) : '--'}`;
+                sub.textContent = 'Live-Paper aktiv · ' + (p.n_positions||0) + ' Positionen' + (p.n_picks_total ? ' · '+p.n_picks_total+' Picks' : '');
             }
             document.getElementById('aiswing-account').textContent = p.account || '2. Alpaca-Paper-Konto';
             document.getElementById('aiswing-equity').textContent = equity != null ? fmtUsd(equity) : '--';
 
-            const ret = p.return_pct != null ? p.return_pct : p.total_return_pct;
+            const ret = p.return_pct_since_start != null ? p.return_pct_since_start : (p.return_pct != null ? p.return_pct : p.total_return_pct);
             const retEl = document.getElementById('aiswing-return');
             retEl.textContent = ret != null ? `${plSign(ret)}${fmt(ret)}%` : '--';
             retEl.className = `v num ${plCls(ret || 0)}`;
