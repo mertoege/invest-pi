@@ -13,18 +13,18 @@
   },
   "git": {
     "branch": "main",
-    "commit": "fda189ab",
+    "commit": "e1756e12",
     "dirty": false
   },
   "hardware": {
-    "cpu_temp_c": 65.0,
+    "cpu_temp_c": 66.1,
     "disk_pct": 55,
-    "load_1min": 0.11,
-    "mem_pct": 73
+    "load_1min": 0.08,
+    "mem_pct": 74
   },
   "last_runs": {
     "run_strategy": "Wed 2026-07-08 19:00:16 CEST",
-    "sync_positions": "Wed 2026-07-08 18:35:13 CEST",
+    "sync_positions": null,
     "track_outcomes": "Wed 2026-07-08 02:30:33 CEST"
   },
   "predictions": {
@@ -42,5 +42,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-07-08T17:32:50"
+  "timestamp_utc": "2026-07-08T17:35:00"
 }
