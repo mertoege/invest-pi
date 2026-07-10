@@ -17,11 +17,11 @@ KEIN Sell-Signal bei:
   - Kurzfristigen Dips die sich historisch erholen
 
 Pipeline:
-  1. Finde alle DCA-Positionen (feedback_type='dca_bought')
+  1. Finde alle DCA-Positionen (feedback_type='dca_bought', ohne spaeteres 'dca_sold')
   2. Hole aktuelle Kursdaten + historische Performance seit Kauf
   3. Pruefe Fundamental-Signale (Risk-Score, News, Earnings)
   4. Bei Concern: Sonnet-Analyse ob Halten oder Verkaufen
-  5. Telegram-Alert nur bei echtem Sell-Signal
+  5. Telegram-Alert nur bei echtem Sell-Signal — mit Verkauft-/Behalten-Buttons
 
 Usage:
     python scripts/dca_watchdog.py
@@ -56,7 +56,9 @@ log = logging.getLogger("invest_pi.dca_watchdog")
 
 
 def _get_dca_holdings() -> list[dict]:
-    """Findet alle DCA-Positionen die als 'gekauft' markiert wurden."""
+    """Findet alle DCA-Positionen die als 'gekauft' markiert wurden und noch
+    NICHT als 'verkauft' (dca_sold) markiert sind — verkaufte fallen raus, damit
+    der Watchdog sie nicht weiter bewacht."""
     with connect(LEARNING_DB) as conn:
         rows = conn.execute(
             """
@@ -69,6 +71,10 @@ def _get_dca_holdings() -> list[dict]:
               FROM feedback_reasons fr
               JOIN predictions p ON p.id = fr.prediction_id
              WHERE fr.feedback_type = 'dca_bought'
+               AND NOT EXISTS (
+                     SELECT 1 FROM feedback_reasons s
+                      WHERE s.prediction_id = fr.prediction_id
+                        AND s.feedback_type = 'dca_sold')
              ORDER BY fr.created_at DESC
             """
         ).fetchall()
@@ -248,7 +254,14 @@ def _llm_analyze(holding: dict, price_data: dict, risk_data: dict | None, trigge
 
 
 def _send_alert(holding: dict, analysis: dict, price_data: dict) -> None:
-    """Sendet Telegram-Alert bei sell oder watch."""
+    """Sendet Telegram-Alert bei sell oder watch.
+
+    - sell:  echter Handlungsbedarf -> send_action_required (feuert IMMER, umgeht
+             den ACTION_ONLY-Stummfilter) mit Verkauft-/Behalten-Buttons.
+             'Verkauft' entfernt die Position aus dem System und loest einen
+             Ersatz-Vorschlag aus (Handler: src/jobs/telegram_callbacks.py, dsell).
+    - watch: rein informativ -> send_info (unter ACTION_ONLY stumm, gewollt).
+    """
     action = analysis["action"]
     emoji = {"sell": "🚨", "watch": "⚠️", "hold": "✅"}.get(action, "ℹ️")
 
@@ -264,7 +277,20 @@ def _send_alert(holding: dict, analysis: dict, price_data: dict) -> None:
     if analysis.get("time_horizon"):
         text += f"\n\nNaechste Pruefung: {analysis['time_horizon']}"
 
-    notifier.send_info(text, label="dca_watchdog")
+    if action == "sell":
+        pred_id = holding["prediction_id"]
+        text += (
+            "\n\n<b>Hast du verkauft?</b>\n"
+            "✅ = ich entferne die Position aus dem System und schlage einen Ersatz vor.\n"
+            "✋ = alles bleibt, ich melde mich beim naechsten Signal wieder."
+        )
+        markup = {"inline_keyboard": [[
+            {"text": "✅ verkauft", "callback_data": f"dsell:{pred_id}:sold"},
+            {"text": "✋ behalten",  "callback_data": f"dsell:{pred_id}:kept"},
+        ]]}
+        notifier.send_action_required(text, label="dca_watchdog_sell", reply_markup=markup)
+    else:
+        notifier.send_info(text, label="dca_watchdog")
 
 
 def run(dry_run: bool = False) -> dict:

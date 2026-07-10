@@ -296,6 +296,8 @@ def process_update(update: dict) -> None:
             _process_fbr(cq)
         elif data.startswith("dca:"):
             _process_dca(cq)
+        elif data.startswith("dsell:"):
+            _process_dca_sell(cq)
         else:
             _answer_callback(cq["id"], "unbekanntes callback")
         return
@@ -363,6 +365,72 @@ def _process_dca(callback_query: dict) -> None:
     _answer_callback(cq_id, f"✓ DCA-{action} notiert")
     if action == "bought":
         _send_buy_input_prompt(_ticker_for_pred(pred_id), pred_id)
+
+
+def _process_dca_sell(callback_query: dict) -> None:
+    """dsell:{pred_id}:{action}  action in {sold, kept}
+
+    sold  -> Position aus config.yaml entfernen + 'dca_sold' loggen (Watchdog
+             bewacht sie nicht mehr) + Ersatz-Empfehlung senden.
+    kept  -> nur bestaetigen ('dca_kept'), Buttons entfernen.
+    """
+    data    = callback_query["data"]
+    cq_id   = callback_query["id"]
+    msg     = callback_query.get("message", {})
+    chat_id = msg.get("chat", {}).get("id")
+    msg_id  = msg.get("message_id")
+
+    parts = data.split(":")
+    if len(parts) < 3:
+        _answer_callback(cq_id, "ungueltig")
+        return
+    _, pred_id_str, action = parts[0], parts[1], parts[2]
+    try:
+        pred_id = int(pred_id_str)
+    except ValueError:
+        _answer_callback(cq_id, "ungueltiges pred_id")
+        return
+
+    ticker = _ticker_for_pred(pred_id) or "?"
+
+    if action == "kept":
+        log_feedback(pred_id, feedback_type="dca_kept")
+        _edit_message_markup(chat_id, msg_id, None)
+        _answer_callback(cq_id, "\u2713 behalten notiert")
+        log.info(f"dca_kept recorded: pred={pred_id} ticker={ticker}")
+        return
+
+    if action != "sold":
+        _answer_callback(cq_id, f"unbekannte action: {action}")
+        return
+
+    # --- verkauft: aus dem System nehmen + Ersatz vorschlagen ---
+    log_feedback(pred_id, feedback_type="dca_sold")
+
+    remove_msg = ""
+    try:
+        from scripts.buy import remove_position, persist_config_change
+        remove_msg = remove_position(ticker)
+        persist_config_change(f"Verkauf {ticker} \u2014 aus Portfolio entfernt")
+    except Exception as e:
+        log.error(f"remove_position({ticker}) fehlgeschlagen: {e}")
+        remove_msg = f"Konnte {ticker} nicht automatisch entfernen: {e}"
+
+    _edit_message_markup(chat_id, msg_id, None)
+    _answer_callback(cq_id, f"\u2713 {ticker} verkauft \u2014 aus System entfernt")
+    _send_message(
+        f"\u2705 <b>{ticker}</b> als verkauft markiert.\n{remove_msg}\n\n"
+        f"\U0001f504 Ich suche einen Ersatz \u2026"
+    )
+    log.info(f"dca_sold recorded + removed: pred={pred_id} ticker={ticker}")
+
+    # Ersatz-Empfehlung (Sonnet, Einzeltitel/ETF) mit Bestaetigungs-Buttons
+    try:
+        from scripts.monthly_dca import send_replacement_recommendation
+        send_replacement_recommendation(sold_ticker=ticker)
+    except Exception as e:
+        log.error(f"Ersatz-Empfehlung fehlgeschlagen: {e}")
+        _send_message(f"\u26a0\ufe0f Konnte keinen Ersatz-Vorschlag erzeugen: {e}")
 
 
 def _get_buy_price_for_prediction(pred_id: int) -> str | None:
