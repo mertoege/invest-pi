@@ -67,6 +67,44 @@ def record_position(ticker: str, eur_amount: float, shares: float | None = None,
     return msg
 
 
+def remove_position(ticker: str) -> str:
+    """Entfernt eine Position komplett aus dem config.yaml-Portfolio-Ledger
+    (z.B. nach Verkauf). Ticker-Match ist case-insensitiv. Returns Status-Text;
+    cfg wird neu geladen. Wiederverwendbar (CLI + Verkaufs-Callback)."""
+    raw = yaml.safe_load(CONFIG_PATH.read_text())
+    pf = raw.get("portfolio", {}) or {}
+    key = next((k for k in pf if k.upper() == ticker.upper()), None)
+    if key is None:
+        return f"{ticker}: war nicht im Portfolio (nichts zu entfernen)"
+    invested = float(pf[key].get("invested_eur", 0) or 0)
+    del pf[key]
+    raw["portfolio"] = pf
+    CONFIG_PATH.write_text(yaml.dump(raw, allow_unicode=True, default_flow_style=False))
+    cfg_mod.reload()
+    return f"{key}: aus Portfolio entfernt ({invested:.0f} EUR gebucht)"
+
+
+def persist_config_change(label: str) -> None:
+    """Committet+pusht die config.yaml-Aenderung, damit sie nicht vom auto-pull/
+    status-push (git reset --hard origin/main) verworfen wird. Best-effort mit
+    rebase, falls remote zwischenzeitlich vorrueckte. Wiederverwendbar."""
+    import subprocess
+    repo = str(Path(__file__).resolve().parents[1])
+    def _git(*args):
+        return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, timeout=30)
+    try:
+        _git("add", "config.yaml")
+        if _git("commit", "-m", f"portfolio: {label}").returncode != 0:
+            return  # nichts zu committen
+        if _git("pull", "--rebase", "--no-edit").returncode != 0:
+            _git("rebase", "--abort")
+        if _git("push").returncode != 0:
+            _git("push", "--force-with-lease")
+    except Exception as e:
+        import logging
+        logging.getLogger("invest_pi.buy").error(f"config.yaml commit/push fehlgeschlagen: {e}")
+
+
 def main() -> None:
     args = sys.argv[1:]
     dry_run = "--check" in args

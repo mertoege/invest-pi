@@ -545,6 +545,13 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: DCA-Verkaufs-Alerts mit Aktions-Buttons + Ersatz-Vorschlag
+      d: 'Watchdog-Sell-Alerts liefen bisher ueber send_info und waren unter ACTION_ONLY stumm -
+        erreichten Mert nicht. Neu: send_action_required mit Buttons verkauft/behalten. Verkauft ->
+        Position raus aus config.yaml + dca_sold-Feedback (Watchdog stoppt) + automatischer
+        Sonnet-Ersatzvorschlag (Einzeltitel/ETF) mit Kauf-Buttons. Handler dsell in
+        telegram_callbacks. ORCL (bereits verkauft) aus der Ueberwachung genommen; PG bleibt. Via PR #12.'
+      badge: 2026-07-10
     - t: DCA-ETFs auf Revolut-kaufbare UCITS umgestellt (SPYL/VWCE/EQQQ)
       d: 'Der monatliche DCA-Job durfte bisher nur US-ETFs empfehlen (SPY/QQQ/SMH/XLK/XLV/XLF) -
         in der EU auf Revolut NICHT handelbar, also fuer Mert totes Papier. Neu: nur 3 in EUR/Xetra

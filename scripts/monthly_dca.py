@@ -92,7 +92,8 @@ def _gather_context() -> dict:
     }
 
 
-def _build_prompt(ctx: dict) -> tuple[str, str]:
+def _build_prompt(ctx: dict, exclude: set[str] | None = None) -> tuple[str, str]:
+    exclude = {t.upper() for t in (exclude or set())}
     system = (
         "Du bist ein vorsichtiger Investment-Berater fuer einen diversifizierten DCA-Plan (breite Index-ETFs, Blue Chips, Tech).\n"
         "Mert investiert monatlich 50 EUR. Heute soll ein einziger Titel empfohlen werden — oder ein ETF-Fallback wenn nichts ueberzeugt.\n"
@@ -119,7 +120,7 @@ def _build_prompt(ctx: dict) -> tuple[str, str]:
         f"{cal}\n\n" if cal else ""
     ) + (
         f"## Top-10 Buy-Kandidaten nach niedrigstem Risk-Composite (letzte 24h):\n"
-        f"{json.dumps(ctx['candidates'], indent=2)}\n\n"
+        f"{json.dumps([c for c in ctx['candidates'] if c['ticker'].upper() not in exclude], indent=2)}\n\n"
         f"## Aktuelles Portfolio:\n"
         f"{json.dumps(ctx['current_portfolio'], indent=2)}\n\n"
         f"## Budget diesen Monat:\n"
@@ -324,6 +325,58 @@ def main() -> int:
     ok = _send_html_with_markup(text, {})
     print(f"DCA pred_id={result.prediction_id} verdict={verdict} recorded={bool(record_msg)} cost_eur={result.cost_eur:.4f}")
     return 0 if ok else 1
+
+
+def send_replacement_recommendation(sold_ticker: str) -> bool:
+    """Erzeugt nach einem Verkauf einen Ersatz-Vorschlag (Sonnet, Einzeltitel oder
+    ETF) und schickt ihn mit Bestaetigungs-Buttons an Mert. Schliesst den gerade
+    verkauften Titel + aktuelle Holdings aus. KEIN Auto-Eintrag — Mert bestaetigt
+    ueber die 'gekauft'-Buttons (dca:...), was ihn dann als DCA-Holding einbucht.
+    Aufgerufen aus dem Verkauft-Callback (telegram_callbacks._process_dca_sell)."""
+    if not llm_configured():
+        notifier.send_action_required(
+            f"\u2139\ufe0f Ersatz fuer <b>{escape(_disp(sold_ticker))}</b>: automatischer "
+            f"Vorschlag nicht moeglich (ANTHROPIC_API_KEY fehlt). Bitte manuell waehlen.",
+            label="dca_replace")
+        return False
+
+    ctx = _gather_context()
+    exclude = {sold_ticker.upper()} | {p["ticker"].upper() for p in ctx["current_portfolio"]}
+    system, prompt = _build_prompt(ctx, exclude=exclude)
+    prompt = (
+        f"## ERSATZ-EMPFEHLUNG: Mert hat {sold_ticker} gerade verkauft.\n"
+        f"Empfiehl EINEN Ersatz. NICHT empfehlen (verkauft oder schon im Depot): "
+        f"{sorted(exclude)}\n\n"
+    ) + prompt
+
+    result = call_sonnet(
+        system=system,
+        prompt=prompt,
+        job_source="monthly_dca",
+        subject_type="portfolio",
+        subject_id=None,
+        input_summary=f"DCA-Ersatz nach Verkauf {sold_ticker}",
+        max_tokens=800,
+        temperature=0.2,
+        estimated_cost_eur=0.04,
+    )
+    if not result.ok:
+        notifier.send_action_required(
+            f"\u274c Ersatz-Vorschlag fuer {escape(_disp(sold_ticker))} fehlgeschlagen: "
+            f"{escape(result.error or '?')}", label="dca_replace")
+        return False
+
+    data = result.parsed_json or safe_parse(result.text, default={})
+    verdict = data.get("verdict", "skip")
+    text, markup = _build_telegram_text(
+        verdict, data,
+        prediction_id=result.prediction_id,
+        budget_eur=ctx["month_budget_eur"],
+    )
+    text = f"\U0001f504 <b>Ersatz fuer verkaufte {escape(_disp(sold_ticker))}</b>\n\n" + text
+    return notifier.send_action_required(
+        text, label="dca_replace",
+        reply_markup=markup if markup else None)
 
 
 if __name__ == "__main__":
