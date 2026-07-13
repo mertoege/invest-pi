@@ -13,14 +13,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "ff412bee",
+    "commit": "400ea2b5",
     "dirty": false
   },
   "hardware": {
-    "cpu_temp_c": 66.65,
+    "cpu_temp_c": 65.0,
     "disk_pct": 56,
-    "load_1min": 0.25,
-    "mem_pct": 74
+    "load_1min": 0.99,
+    "mem_pct": 75
   },
   "last_runs": {
     "run_strategy": "Mon 2026-07-13 20:00:03 CEST",
@@ -42,5 +42,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-07-13T18:02:50"
+  "timestamp_utc": "2026-07-13T18:04:56"
 }
