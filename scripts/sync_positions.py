@@ -35,6 +35,25 @@ def sync(broker_kind: str | None = None) -> dict:
     positions = broker.get_positions()
     pos_value = sum(p.market_value_eur for p in positions)
 
+    # GLITCH-WAECHTER (Fix 2026-07-14): Alpaca liefert gelegentlich kurz 0 Positionen
+    # (noch nicht geladen), obwohl das Depot bestueckt ist. Ungeschuetzt hat der Sync
+    # dann (a) einen Muell-Equity-Snapshot "equity = nur Cash" geschrieben (verzerrt
+    # Peak/Drawdown/Performance und loeste am 2026-07-07 einen -98%-Fehlalarm-Kill aus)
+    # und (b) ALLE Positionen aus der DB geloescht (opened_at ging verloren). Die
+    # Momentum-Engine liquidiert nie automatisch auf 0 -> ein leerer Broker-Read bei
+    # bestuecktem Depot ist praktisch immer ein Datenfehler. Diesen Zyklus ueberspringen.
+    if not positions:
+        with connect(TRADING_DB) as conn:
+            db_pos = conn.execute(
+                "SELECT COUNT(*) FROM positions WHERE source = ?", (src,)
+            ).fetchone()[0]
+        if db_pos > 0:
+            print(f"  WARN: Broker meldet 0 Positionen, DB haelt {db_pos} (source={src}) "
+                  f"-> Datenfehler vermutet, Sync-Zyklus uebersprungen (kein Snapshot, keine Loeschung).")
+            return {"broker": str(broker), "cash_eur": account.cash_eur,
+                    "equity_eur": account.equity_eur, "positions": 0,
+                    "source": src, "skipped": "empty_positions_glitch"}
+
     with connect(TRADING_DB) as conn:
         # 2. Equity-Snapshot mit USD + FX
         positions_value_usd = sum(p.market_value_eur for p in positions) / account.fx_rate if account.fx_rate else 0
