@@ -49,6 +49,10 @@ QUOTE_DEV_MAX = 0.15        # Sanity: yf-Close vs Alpaca-Quote max 15% Abweichun
 COVERAGE_MIN = 0.70         # min. Anteil des Universums mit Daten
 STALE_HOURS = 4             # offene Orders aelter -> abraeumen
 CIRCUIT_DD = -0.30          # Drawdown vom 90d-Hoch -> Notbremse
+IMPLAUSIBLE_DD = -0.60      # Sanity: schlimmer als das = Daten-Glitch, KEIN echter Crash
+                            # (Broker liefert kurz "equity = nur Cash", weil Positionen nicht
+                            #  geladen sind -> scheinbar -98%). Fehlalarm 2026-07-07 fror die
+                            #  Engine 7 Tage lang ein. Solche Reads werden ignoriert, nicht gekillt.
 _ROOT = Path(__file__).resolve().parents[1]
 KILL_FILE = _ROOT / "data" / ".KILL"
 STATE_FILE = _ROOT / "data" / ".momentum_state.json"
@@ -111,10 +115,11 @@ def _save_state(d: dict) -> None:
         print(f"  WARN: State nicht gespeichert: {e}")
 
 
-def _drawdown_from_peak(broker) -> float:
+def _drawdown_from_peak(broker):
     # Audit-Fix (Fable5 2026-07-02): Drawdown in USD (Konto-Waehrung) statt EUR -> der
     # Wechselkurs verzerrt die Notbremse nicht mehr. Fehlt der Peak (Sync tot), WARNEN
     # statt still 0 zurueckzugeben (sonst waere der Circuit-Breaker unbemerkt blind).
+    # Return (dd, eq, n_positions) fuer den Plausibilitaets-Check im Circuit-Breaker.
     try:
         from src.common.storage import TRADING_DB, connect
         with connect(TRADING_DB) as c:
@@ -122,18 +127,32 @@ def _drawdown_from_peak(broker) -> float:
                              "WHERE source='paper' AND total_usd IS NOT NULL "
                              "AND timestamp >= datetime('now','-90 day')").fetchone()[0]
         eq = broker.get_account().equity_usd
+        try:
+            n_pos = len([p for p in broker.get_positions() if p.qty > 0])
+        except Exception:
+            n_pos = -1   # unbekannt
         if peak and peak > 0:
-            return eq / peak - 1
+            return (eq / peak - 1, eq, n_pos)
         print("  WARN: kein USD-Equity-Peak (Sync?) -> Circuit-Breaker blind, dd=0")
     except Exception as e:
         print(f"  WARN: drawdown-Berechnung fehlgeschlagen: {e}")
-    return 0.0
+    return (0.0, None, -1)
 
 
 def _circuit_breaker(broker) -> bool:
     """True wenn Notbremse ausgeloest (dann KEIN Rebalance)."""
-    dd = _drawdown_from_peak(broker)
+    dd, eq, n_pos = _drawdown_from_peak(broker)
     if dd >= CIRCUIT_DD:
+        return False
+    # PLAUSIBILITAETS-WAECHTER (Fix 2026-07-14): Ein einzelner absurder Read darf die Engine
+    # NICHT einfrieren. Ein echter -30%-Crash eines 5-Titel-Large-Cap-Depots erzeugt nie in
+    # einem Schritt einen Drawdown < -60% -> das kann nur ein Datenfehler sein (Broker meldet
+    # kurz "equity = nur Cash", weil Positionen nicht geladen sind). Genau das fror die Engine
+    # am 2026-07-07 sieben Tage lang ein (scheinbar -98%). Solche Reads ignorieren, nicht killen.
+    glitch = dd < IMPLAUSIBLE_DD or n_pos == 0
+    if glitch:
+        print(f"  WARN: unplausibler Drawdown {dd*100:.0f}% (eq={eq}, pos={n_pos}) "
+              f"-> Datenfehler, KEIN Kill. Circuit-Breaker uebersprungen.")
         return False
     print(f"CIRCUIT-BREAKER: Drawdown {dd*100:.0f}% vom 90d-Hoch -> Kill-Switch + Alarm")
     try:
@@ -143,9 +162,15 @@ def _circuit_breaker(broker) -> bool:
     try:
         from src.alerts import notifier
         if notifier.is_configured():
-            notifier.send_info(f"\U0001F6A8 <b>NOTBREMSE</b>: Depot {dd*100:.0f}% unter 90-Tage-Hoch. "
-                               f"Kill-Switch AKTIV - keine neuen Trades. Bitte pruefen.",
-                               label="circuit_breaker")
+            # Ein eingefrorenes Trading-System ist Handlungsbedarf -> send_action_required
+            # (erreicht Mert), nicht send_info (unter ACTION_ONLY stumm; der Fehlalarm vom
+            # 2026-07-07 ging genau deshalb an niemanden).
+            msg = (f"\U0001F6A8 <b>NOTBREMSE Momentum</b>: Depot {dd*100:.0f}% unter 90-Tage-Hoch. "
+                   f"Kill-Switch AKTIV - keine neuen Trades bis geprueft/entfernt (data/.KILL).")
+            try:
+                notifier.send_action_required(msg, label="circuit_breaker")
+            except Exception:
+                notifier.send_info(msg, label="circuit_breaker")
     except Exception:
         pass
     return True

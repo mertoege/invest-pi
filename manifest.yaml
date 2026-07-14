@@ -545,6 +545,21 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Circuit-Breaker-Fehlalarm fror Engine 7 Tage ein - gehaertet
+      d: 'BEFUND 2026-07-14 - die Momentum-Engine war seit 07-07 tot, ohne dass es jemand merkte.
+        Ursache - Alpaca lieferte kurz "equity = nur Cash" (Positionen nicht geladen); der
+        Circuit-Breaker las das als -98% Drawdown, schrieb data/.KILL und fror alles ein. Der
+        Alarm ging ueber send_info -> unter ACTION_ONLY stumm, erreichte Mert nie. Derselbe Glitch
+        schrieb Muell-Equity-Snapshots (2439$) und loeschte alle Positionen aus der DB (opened_at weg).
+        FIX (PR #13) - (1) Plausibilitaets-Waechter im Circuit-Breaker - Drawdown < -60% ODER 0
+        gemeldete Positionen = Datenfehler, KEIN Kill (echter -30%-Crash eines 5-Titel-Depots
+        erzeugt nie in einem Schritt < -60%); (2) echter Trip alarmiert jetzt via
+        send_action_required (erreicht Mert); (3) sync_positions ueberspringt den Zyklus, wenn der
+        Broker 0 Positionen trotz bestuecktem Depot meldet (kein Muell-Snapshot, keine Loeschung).
+        SOFORT lokal - Fehlalarm-.KILL entfernt (Engine laeuft wieder), 3 Muell-Zeilen geloescht,
+        opened_at auf 01.07. korrigiert. Lehre - ein stiller Not-Aus ist so gefaehrlich wie kein
+        Not-Aus; kritische Halts brauchen einen lauten Kanal + einen Selbstheil-/Erkennungs-Pfad.'
+      badge: 2026-07-14
     - t: DCA-Verkaufs-Alerts mit Aktions-Buttons + Ersatz-Vorschlag
       d: 'Watchdog-Sell-Alerts liefen bisher ueber send_info und waren unter ACTION_ONLY stumm -
         erreichten Mert nicht. Neu: send_action_required mit Buttons verkauft/behalten. Verkauft ->
