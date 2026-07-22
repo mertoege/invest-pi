@@ -545,6 +545,25 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: SPY-Benchmark wieder in jeden Snapshot geschrieben
+      d: 'BEFUND 2026-07-14 - die spy_close-Spalte in equity_snapshots wurde seit dem Momentum-
+        Umstieg (23.06.) nicht mehr befuellt. Der alte Score-Pfad schrieb SPY mit, der neue
+        sync_positions nicht. Folge - der "schlagen wir den Markt?"-Vergleich (performance._compute_alpha,
+        Tagesbericht "vs SPY") lief 3 Wochen blind auf veralteten Daten - genau ueber das Fenster, das
+        wir eigentlich beurteilen wollen. FIX (PR #14) - sync_positions holt SPY jetzt per Broker-Quote
+        (yfinance-Fallback) in jeden Snapshot; Luecke 24.06.-14.07. lokal aus market.db rueckwirkend
+        gefuellt (331 Zeilen). Aktueller ehrlicher Stand mit wiederhergestelltem Benchmark - Momentum
+        liegt seit Live-Schaltung ~1-4 Punkte hinter SPY (kurzes Fenster, Rauschen - Monats-Strategie).'
+      badge: 2026-07-14
+    - t: 'Baustelle "tote DBs" gepueft - kein Fix noetig'
+      d: 'Vermutung war - abgeschaltetes Score-/Lernsystem waechst unkontrolliert (learning.db 370MB +
+        alerts.db 272MB). Pruefung 2026-07-14 - 58k der 60k predictions stammen aus der Score-Aera VOR
+        dem 23.06. (eingefrorene Historie, kein Freispeicher zum Vacuumen). Die ~6 Eintraege/Tag heute
+        sind LEBENDE Features (dca_watchdog bewertet abends Positionen via heuristic-v5, ai_swing) - das
+        allgemeine LLM-Aufruf-/Kosten-Register, kein totes System. Platte bei 57%. Kein aktiver Wildwuchs
+        -> bewusst NICHT geloescht (die Score-Aera-Daten sind der Beweis-Datensatz, dass das System nicht
+        funktionierte). Falls Platte je eng wird - Kandidat ist Loeschen der predictions vor 23.06.'
+      badge: 2026-07-14
     - t: Circuit-Breaker-Fehlalarm fror Engine 7 Tage ein - gehaertet
       d: 'BEFUND 2026-07-14 - die Momentum-Engine war seit 07-07 tot, ohne dass es jemand merkte.
         Ursache - Alpaca lieferte kurz "equity = nur Cash" (Positionen nicht geladen); der

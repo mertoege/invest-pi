@@ -54,20 +54,42 @@ def sync(broker_kind: str | None = None) -> dict:
                     "equity_eur": account.equity_eur, "positions": 0,
                     "source": src, "skipped": "empty_positions_glitch"}
 
+    # SPY-Benchmark mitschreiben (Fix 2026-07-14): Die spy_close-Spalte wurde seit dem
+    # Momentum-Umstieg (23.06.) nicht mehr befuellt - der alte Score-Pfad schrieb SPY mit,
+    # der neue Sync nicht. Dadurch lief der "schlagen wir den Markt?"-Vergleich
+    # (performance._compute_alpha, Tagesbericht "vs SPY") blind auf veralteten Daten. SPY
+    # ist der ganze Massstab des Projekts -> gehoert in JEDEN Snapshot. Broker-Quote mit
+    # yfinance-Fallback; scheitert beides, bleibt die Spalte NULL (der Alpha-Calc springt sauber).
+    spy_close = None
+    try:
+        q = broker.get_quote("SPY")
+        if q and q.last and q.last > 0:
+            spy_close = float(q.last)
+    except Exception:
+        pass
+    if spy_close is None:
+        try:
+            import yfinance as yf
+            h = yf.Ticker("SPY").history(period="1d")
+            if not h.empty:
+                spy_close = float(h["Close"].iloc[-1])
+        except Exception:
+            pass
+
     with connect(TRADING_DB) as conn:
-        # 2. Equity-Snapshot mit USD + FX
+        # 2. Equity-Snapshot mit USD + FX + SPY-Benchmark
         positions_value_usd = sum(p.market_value_eur for p in positions) / account.fx_rate if account.fx_rate else 0
         conn.execute(
             """
             INSERT INTO equity_snapshots
                 (cash_eur, positions_value_eur, total_eur,
                  cash_usd, positions_value_usd, total_usd,
-                 fx_rate, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 fx_rate, spy_close, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (account.cash_eur, pos_value, account.equity_eur,
              account.cash_usd, positions_value_usd, account.equity_usd,
-             account.fx_rate, src),
+             account.fx_rate, spy_close, src),
         )
 
         # 3. Positions upsert (broker = source of truth fuer qty/avg, DB-Felder bleiben erhalten)
