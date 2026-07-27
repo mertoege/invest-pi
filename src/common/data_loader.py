@@ -57,6 +57,27 @@ def _is_cache_stale(df: pd.DataFrame, max_age_hours: int = 18) -> bool:
     return trading_days_missed >= 1
 
 
+def _drop_incomplete_bars(raw: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """
+    Wirft Zeilen ohne Schlusskurs weg (Vorfall 2026-07-27).
+
+    Yahoo liefert gelegentlich eine Kurszeile mit Volumen, aber OHLC=NaN — z.B. fuer
+    den zuletzt abgeschlossenen Handelstag. Ungefiltert vergiftete das die ganze Kette:
+    _save_to_cache mappt NaN->None, market.db hat NOT NULL auf close -> IntegrityError
+    -> get_prices fliegt raus -> momentum_ranking faengt das per `except: continue` ab
+    -> Datenabdeckung 0% -> Monats-Rebalance bricht mit "zu wenig Daten" ab. EINE
+    kaputte Zeile legte also die komplette Kursversorgung fuer alle 90 Ticker lahm.
+    """
+    if raw.empty or "Close" not in raw.columns:
+        return raw
+    clean = raw[raw["Close"].notna()]
+    dropped = len(raw) - len(clean)
+    if dropped:
+        log.warning(f"{ticker}: {dropped} Kurszeile(n) ohne Schlusskurs verworfen "
+                    f"(Yahoo-Luecke) - rechne auf {len(clean)} sauberen Zeilen weiter")
+    return clean
+
+
 def _rate_limited_fetch(ticker: str, period: str) -> pd.DataFrame:
     """yfinance-Request mit Rate-Limiting."""
     global _last_request_ts
@@ -66,7 +87,7 @@ def _rate_limited_fetch(ticker: str, period: str) -> pd.DataFrame:
 
     raw = yf.Ticker(ticker).history(period=period, auto_adjust=True)
     _last_request_ts = time.monotonic()
-    return raw
+    return _drop_incomplete_bars(raw, ticker)
 
 
 # ────────────────────────────────────────────────────────────
@@ -208,6 +229,13 @@ def _save_to_cache(ticker: str, df: pd.DataFrame) -> None:
     closes = [float(v) if pd.notna(v) else None for v in df["close"].values]
     vols   = [int(v)   if pd.notna(v) else None for v in df["volume"].values]
     rows = list(zip(tickers, dates, opens, highs, lows, closes, vols))
+    # Zweiter Riegel (2026-07-27): close ist NOT NULL in market.db. Eine einzige Zeile
+    # ohne Schlusskurs liess frueher den ganzen INSERT platzen und riss den Kursabruf
+    # mit sich. Lieber die kaputte Zeile still auslassen als die Versorgung stoppen.
+    rows = [r for r in rows if r[5] is not None]
+    if not rows:
+        log.warning(f"{ticker}: keine speicherbare Kurszeile (alle ohne Schlusskurs)")
+        return
     with connect(MARKET_DB) as conn:
         conn.executemany(
             "INSERT OR REPLACE INTO prices "
