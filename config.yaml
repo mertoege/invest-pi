@@ -9,21 +9,22 @@ api_keys:
   telegram_chat_id: ''
 portfolio:
   ASML:
-    avg_buy_price: null
+    avg_buy_price: 1146.83
     currency: EUR
     date_first: 2025-01
     invested_eur: 50.0
-    note: Core-Position · EUV-Monopol
+    note: Core-Position · EUV-Monopol · Amsterdam-Notierung (ASME), NICHT die US-Variante
     ring: 1
-    shares: null
+    shares: 0.043603
+    yf_symbol: ASML.AS
   NVDA:
-    avg_buy_price: null
+    avg_buy_price: 184.85
     currency: USD
     date_first: 2025-01
     invested_eur: 50.0
     note: Core-Position · GPU-Monopol AI
     ring: 1
-    shares: null
+    shares: 0.3143
   PG:
     avg_buy_price: 141.49
     currency: USD

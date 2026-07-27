@@ -545,6 +545,27 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: DCA-Depot kommt jetzt aus der config.yaml statt aus dem Empfehlungs-Protokoll
+      d: 'BEFUND 2026-07-27 (Mert per Broker-Screenshot) - das DCA-Depot im Dashboard stimmte nicht.
+        Ursache - /api/dca baute das Depot aus dem Empfehlungs-Protokoll zusammen (alle
+        feedback_reasons vom Typ dca_bought), also aus "was hat das System vorgeschlagen und wurde
+        als gekauft markiert" statt aus dem echten Bestand. Das MUSS driften, sobald Mert etwas
+        anderes kauft als vorgeschlagen oder etwas verkauft. Konkret vier Fehler - (1) ORCL stand
+        noch mit -32% im Depot, obwohl am 10.07. verkauft; der Verkauf war als dca_sold sauber
+        protokolliert, der Endpunkt fragte nur nie danach; (2) im Juli stand SPY drin, gekauft
+        wurde VWCE - der Protokoll-Eintrag nannte sogar noch ein drittes Papier (XLV); (3) jede
+        Position wurde pauschal mit 50 EUR angesetzt statt mit echten Stueckzahlen; (4) ASML wurde
+        ueber die US-Variante bepreist (~1803 USD), gehalten wird die Amsterdamer in EUR (~1585) ->
+        ~5% falscher Wert. Summe Dashboard 256,37 EUR vs Broker 229,84 EUR. FIX - Quelle ist jetzt
+        der portfolio-Block der config.yaml (laut CLAUDE.md ohnehin die einzige Wahrheitsquelle
+        fuer Depot-Daten); das Protokoll liefert nur noch die Begruendung zur Position. Verkaufte
+        Positionen erscheinen getrennt als "closed", statt zu verschwinden - ein Fehlgriff, den man
+        wegrechnet, verfaelscht die Frage, ob das System den Markt schlaegt. Neu ausserdem
+        yf_symbol je Position (Boersenplatz != config-Schluessel) und die fehlenden Stueckzahlen
+        fuer ASML/NVDA aus Merts Broker-Ansicht nachgetragen. BELEGT - Abweichung zum Broker jetzt
+        0,23 EUR auf 229,84 EUR (0,1%, reines Kurs-Timing). Lehre - ein Soll-Protokoll ist kein
+        Ist-Bestand; wer beides vermischt, zeigt Positionen an, die es nicht gibt.'
+      badge: 2026-07-27
     - t: Eine leere Yahoo-Kurszeile legte die gesamte Kursversorgung lahm - entschaerft
       d: 'BEFUND 2026-07-27 (Routine-Check) - von 90 Titeln waren 0 bewertbar, die Kursversorgung
         war komplett tot. Ursache - Yahoo lieferte fuer Fr 24.07. eine Zeile mit Volumen, aber
@@ -757,6 +778,16 @@ protections:
 - Korrelations-Check
 - Tages-Verlust-Limit
 tasks:
+- title: Echtes DCA-Depot melden, wenn du selbst kaufst oder verkaufst
+  art: routine
+  turnus: monatlich
+  prioritaet: mittel
+  was: 'Das DCA-Depot im Dashboard kommt seit 2026-07-27 aus dem portfolio-Block der config.yaml —
+    also aus dem, was du WIRKLICH haeltst, nicht mehr aus dem Empfehlungs-Protokoll. Dadurch stimmt
+    es nur, solange die config deinen echten Bestand kennt. Wenn du bei Revolut etwas kaufst,
+    verkaufst oder nachlegst (auch abweichend von der Empfehlung), sag kurz Bescheid — Ticker,
+    Stueckzahl, Kurs. Claude traegt es ein. Sonst driftet die Anzeige wieder auseinander, genau wie
+    bei ORCL (verkauft am 10.07., stand am 27.07. noch mit -32% im Depot).'
 - title: KI-Swing-Trader — Timer aktivieren (sudo)
   art: einmalig
   prioritaet: mittel
