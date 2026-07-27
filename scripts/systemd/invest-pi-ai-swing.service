@@ -1,6 +1,7 @@
 [Unit]
 Description=Invest-Pi · KI-Swing-Trader (Schatten) — woechentliche Entscheidung loggen
 After=network-online.target
+OnFailure=invest-pi-error-alert@%n.service
 
 [Service]
 Type=oneshot

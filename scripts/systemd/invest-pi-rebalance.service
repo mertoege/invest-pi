@@ -1,6 +1,7 @@
 [Unit]
 Description=Invest-Pi · Rebalance/Sell-Pass (Mo-Fr 20:00 CET, sell-only)
 After=invest-pi-score.service
+OnFailure=invest-pi-error-alert@%n.service
 
 [Service]
 Type=oneshot

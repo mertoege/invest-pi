@@ -560,6 +560,24 @@ views:
         opened_at auf 01.07. korrigiert. Lehre - ein stiller Not-Aus ist so gefaehrlich wie kein
         Not-Aus; kritische Halts brauchen einen lauten Kanal + einen Selbstheil-/Erkennungs-Pfad.'
       badge: 2026-07-14
+    - t: Deploy startet die Webapp jetzt selbst neu + 10 stumme Jobs bekommen Fehleralarm
+      d: 'BEFUND 2026-07-27 - zwei Luecken in der Betriebssicherheit. (1) auto_pull startete nach
+        einem Deploy nichts neu. Bei den oneshot-Timern stimmt das (die holen den neuen Code beim
+        naechsten Lauf), die Webapp laeuft aber DURCH und behielt ihren alten Code - teils ueber
+        Wochen. Jede Webapp-Aenderung brauchte einen manuellen Neustart, den nur Mert ausloesen
+        kann (investpi hat kein sudo dafuer). (2) Von 23 Services hatten nur 3 einen OnFailure-
+        Alarm - u.a. rebalance (Stop-Loss-Pass!), sync (Broker-Abgleich) und backup konnten still
+        ausfallen. FIX - (1) systemd_sync.sh bekommt einen zweiten Modus "--restart <unit>" gegen
+        eine FEST VERDRAHTETE Liste (nur webapp + terminal); auto_pull ruft ihn, wenn der Pull
+        webapp/ oder src/ angefasst hat. Die Liste ist bewusst hart - das Skript laeuft als root
+        und sein Argument kaeme sonst aus einem Repo, das automatisch von GitHub zieht. Sudoers
+        blieb unveraendert (die Regel erlaubt Argumente bereits). (2) OnFailure ergaenzt bei sync,
+        rebalance, backup, outcomes, ai-swing, ai-swing-outcomes, monthly-dca, operator,
+        dca-watchdog, auto-pull -> 13 von 23. Spam-Risiko ist gedeckelt, error_alert.sh hat 1h
+        Cooldown pro Service. Bewusst OHNE Alarm - status-push, telegram-callbacks, hardware
+        (alarmiert selbst) und die reinen Report-Jobs (ausbleibender Report ist selbst das Signal).
+        Lehre - ein Deploy, der den laufenden Prozess nicht anfasst, ist nur ein halber Deploy.'
+      badge: 2026-07-27
     - t: DCA-Verkaufs-Alerts mit Aktions-Buttons + Ersatz-Vorschlag
       d: 'Watchdog-Sell-Alerts liefen bisher ueber send_info und waren unter ACTION_ONLY stumm -
         erreichten Mert nicht. Neu: send_action_required mit Buttons verkauft/behalten. Verkauft ->
