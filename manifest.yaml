@@ -562,9 +562,17 @@ views:
         Positionen erscheinen getrennt als "closed", statt zu verschwinden - ein Fehlgriff, den man
         wegrechnet, verfaelscht die Frage, ob das System den Markt schlaegt. Neu ausserdem
         yf_symbol je Position (Boersenplatz != config-Schluessel) und die fehlenden Stueckzahlen
-        fuer ASML/NVDA aus Merts Broker-Ansicht nachgetragen. BELEGT - Abweichung zum Broker jetzt
-        0,23 EUR auf 229,84 EUR (0,1%, reines Kurs-Timing). Lehre - ein Soll-Protokoll ist kein
-        Ist-Bestand; wer beides vermischt, zeigt Positionen an, die es nicht gibt.'
+        fuer ASML/NVDA aus Merts Broker-Ansicht nachgetragen. NACHTRAG (gleicher Tag, Mert meldete
+        weiterhin falsche Summe) - zwei Restfehler - (a) der Einstand war pauschal 4x50=200 EUR
+        angesetzt, tatsaechlich hat Mert bei NVDA 51,08 und bei PG 50,83 eingezahlt, echter
+        Einstand also 201,91 EUR; (b) der freie Saldo (0,10 EUR) fehlte ganz, der Broker zeigt als
+        "Depotkonto" aber Positionen PLUS Saldo. Beides korrigiert, Saldo als settings.dca_cash_eur;
+        er geht bewusst NICHT in Einstand/Rendite ein - uninvestiertes Geld hat keine Rendite.
+        BELEGT - Einstand jetzt exakt 201,91 EUR wie beim Broker, Depotkonto-Summe auf 0,33 EUR
+        genau (0,14%, reines Kurs-Timing: PG fiel zwischen Screenshot und Abruf um 1,74 USD).
+        Lehre - ein Soll-Protokoll ist kein Ist-Bestand; wer beides vermischt, zeigt Positionen an,
+        die es nicht gibt. Und Budget != Einstand - was Mert einzahlen WOLLTE ist nicht, was die
+        Position gekostet hat.'
       badge: 2026-07-27
     - t: Eine leere Yahoo-Kurszeile legte die gesamte Kursversorgung lahm - entschaerft
       d: 'BEFUND 2026-07-27 (Routine-Check) - von 90 Titeln waren 0 bewertbar, die Kursversorgung

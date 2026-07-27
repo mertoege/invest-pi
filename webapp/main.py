@@ -408,9 +408,16 @@ def dca_holdings():
 
         result.sort(key=lambda x: x["current_value_eur"], reverse=True)
         total_pl = total_current - total_invested
+        # Barbestand: der Broker zeigt als "Depotkonto" Positionen PLUS freien Saldo.
+        # Ohne den fehlten 0,10 EUR und die Summe wich vom Broker ab (2026-07-27).
+        # Bewusst NICHT in Einstand/Rendite eingerechnet - uninvestiertes Geld hat
+        # keine Rendite und wuerde die Prozentzahl verwaessern.
+        cash_eur = float((cfg.get("settings") or {}).get("dca_cash_eur", 0.0) or 0.0)
         summary = {
             "total_invested_eur": round(total_invested, 2),
             "total_current_eur": round(total_current, 2),
+            "cash_eur": round(cash_eur, 2),
+            "total_account_eur": round(total_current + cash_eur, 2),
             "total_pl_eur": round(total_pl, 2),
             "total_pl_pct": round((total_pl / total_invested * 100) if total_invested > 0 else 0, 2),
             "count": len(result),
