@@ -9,26 +9,27 @@ api_keys:
   telegram_chat_id: ''
 portfolio:
   ASML:
-    avg_buy_price: null
+    avg_buy_price: 1146.83
     currency: EUR
     date_first: 2025-01
     invested_eur: 50.0
-    note: Core-Position · EUV-Monopol
+    note: Core-Position · EUV-Monopol · Amsterdam-Notierung (ASME), NICHT die US-Variante
     ring: 1
-    shares: null
+    shares: 0.043603
+    yf_symbol: ASML.AS
   NVDA:
-    avg_buy_price: null
+    avg_buy_price: 184.85
     currency: USD
     date_first: 2025-01
-    invested_eur: 50.0
+    invested_eur: 51.08
     note: Core-Position · GPU-Monopol AI
     ring: 1
-    shares: null
+    shares: 0.3143
   PG:
     avg_buy_price: 141.49
     currency: USD
     date_first: 2026-06
-    invested_eur: 50.0
+    invested_eur: 50.83
     note: Consumer Staples · 67 Jahre Dividenden-Wachstum
     ring: 2
     shares: 0.411627
@@ -47,6 +48,7 @@ settings:
     daily_eur: 2.0
     hourly_eur: 0.2
     monthly_eur: 50.0
+  dca_cash_eur: 0.1
   dca_fallback_etf: VWCE.DE
   drawdown_scan_threshold: 0.15
   email_enabled: false

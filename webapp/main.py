@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import sys
 import os
+import re
 import time
 import sqlite3
 import subprocess
@@ -276,111 +277,156 @@ def risk_scores():
 
 @app.get("/api/dca")
 def dca_holdings():
+    """
+    DCA-Depot = das, was Mert WIRKLICH haelt.
+
+    Quelle ist der portfolio-Block in config.yaml (laut CLAUDE.md die einzige
+    Wahrheitsquelle fuer Depot-Daten). Vorher (bis 2026-07-27) baute dieser
+    Endpunkt das Depot aus dem Empfehlungs-Protokoll zusammen - allen
+    feedback_reasons vom Typ 'dca_bought'. Das driftete zwangslaeufig von der
+    Realitaet weg, sobald Mert etwas anderes kaufte als vorgeschlagen oder
+    etwas verkaufte:
+      - verkaufte Positionen verschwanden NIE (dca_sold wurde nie abgefragt),
+        ORCL stand am 27.07. noch mit -32% im Depot, verkauft am 10.07.
+      - im Juli stand SPY drin, gekauft wurde VWCE - der Protokoll-Eintrag
+        nannte sogar noch ein drittes Papier (XLV)
+      - jede Position wurde pauschal mit 50 EUR angesetzt statt mit den
+        echten Stueckzahlen
+      - ASML wurde ueber die US-Variante bepreist (~1803 USD), gehalten wird
+        aber die Amsterdamer in EUR (~1585 EUR) -> ~5% falscher Wert
+    Das Empfehlungs-Protokoll liefert jetzt nur noch die Begruendung zur
+    Position, nicht mehr die Position selbst.
+    """
     import yaml
     try:
-        empty_summary = {"total_invested_eur": 0, "total_current_eur": 0, "total_pl_eur": 0, "total_pl_pct": 0, "count": 0}
-        if not LEARNING_DB.exists():
-            return {"dca": [], "summary": empty_summary}
-
-        budget_per_holding = 50.0
+        empty_summary = {"total_invested_eur": 0, "total_current_eur": 0, "total_pl_eur": 0,
+                         "total_pl_pct": 0, "count": 0}
         try:
             with open(PROJECT_DIR / "config.yaml") as f:
-                cfg = yaml.safe_load(f)
-            budget_per_holding = float(cfg.get("monatliches_budget_eur", 50.0))
-        except Exception:
-            pass
+                cfg = yaml.safe_load(f) or {}
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"error": f"config.yaml nicht lesbar: {e}"})
 
-        with db_connect(LEARNING_DB) as conn:
-            rows = conn.execute(
-                """SELECT p.id, p.subject_id as ticker,
-                          json_extract(p.output_json, '$.ticker') AS ticker_from_output,
-                          json_extract(p.output_json, '$.reason') AS buy_reason,
-                          json_extract(p.output_json, '$.confidence') AS confidence,
-                          p.created_at AS recommended_at,
-                          fr.created_at AS bought_at,
-                          fr.reason_text AS extra
-                   FROM feedback_reasons fr
-                   JOIN predictions p ON p.id = fr.prediction_id
-                   WHERE fr.feedback_type = 'dca_bought'
-                   ORDER BY fr.created_at DESC"""
-            ).fetchall()
+        holdings = cfg.get("portfolio") or {}
+        if not holdings:
+            return {"dca": [], "closed": [], "summary": empty_summary}
 
-        import yfinance as yf
-        broker = _get_broker()
-        fx_rate = broker.get_account().fx_rate
+        default_budget = float((cfg.get("settings") or {}).get("monatliches_budget_eur", 50.0))
 
-        result = []
-        total_invested = 0.0
-        total_current = 0.0
-
-        for r in rows:
-            ticker = r["ticker"] or r["ticker_from_output"]
-            if not ticker:
-                continue
-
-            actual_buy_price = None
-            extra = r["extra"] or ""
-            if "buy_price=" in extra:
-                try:
-                    actual_buy_price = float(extra.split("buy_price=")[1].split()[0])
-                except (ValueError, IndexError):
-                    pass
-
-            entry = {
-                "ticker": ticker,
-                "recommended_at": r["recommended_at"],
-                "bought_at": r["bought_at"],
-                "reason": (r["buy_reason"] or "")[:200],
-                "confidence": r["confidence"] or "?",
-                "current_price": None,
-                "buy_price": actual_buy_price,
-                "performance_pct": None,
-                "invested_eur": budget_per_holding,
-                "current_value_eur": budget_per_holding,
-            }
+        # Begruendungen + Verkaeufe aus dem Lern-Protokoll (nur noch als Beiwerk)
+        reasons, sold = {}, []
+        if LEARNING_DB.exists():
             try:
-                stock = yf.Ticker(ticker)
-                hist = stock.history(period="1d")
-                if not hist.empty:
-                    cur_price = round(float(hist["Close"].iloc[-1]), 2)
-                    entry["current_price"] = cur_price
-                    if actual_buy_price and actual_buy_price > 0:
-                        invested_usd = budget_per_holding / fx_rate
-                        shares = invested_usd / actual_buy_price
-                        current_value_usd = shares * cur_price
-                        current_value_eur = current_value_usd * fx_rate
-                        entry["current_value_eur"] = round(current_value_eur, 2)
-                        entry["performance_pct"] = round((cur_price / actual_buy_price - 1) * 100, 2)
-                    else:
-                        rec_date = r["recommended_at"][:10] if r["recommended_at"] else None
-                        if rec_date:
-                            hist_full = stock.history(start=rec_date)
-                            if len(hist_full) >= 2:
-                                buy_p = float(hist_full["Close"].iloc[0])
-                                entry["buy_price"] = round(buy_p, 2)
-                                invested_usd = budget_per_holding / fx_rate
-                                shares = invested_usd / buy_p
-                                current_value_eur = shares * cur_price * fx_rate
-                                entry["current_value_eur"] = round(current_value_eur, 2)
-                                entry["performance_pct"] = round((cur_price / buy_p - 1) * 100, 2)
+                with db_connect(LEARNING_DB) as conn:
+                    for r in conn.execute(
+                        """SELECT COALESCE(p.subject_id, json_extract(p.output_json,'$.ticker')) AS tk,
+                                  json_extract(p.output_json,'$.reason') AS reason,
+                                  json_extract(p.output_json,'$.confidence') AS confidence,
+                                  p.created_at AS recommended_at, fr.created_at AS bought_at
+                             FROM feedback_reasons fr
+                             JOIN predictions p ON p.id = fr.prediction_id
+                            WHERE fr.feedback_type = 'dca_bought'
+                            ORDER BY fr.created_at ASC"""
+                    ).fetchall():
+                        if r["tk"]:
+                            reasons[str(r["tk"]).upper()] = dict(r)
+                    for r in conn.execute(
+                        """SELECT COALESCE(p.subject_id, json_extract(p.output_json,'$.ticker')) AS tk,
+                                  fr.created_at AS sold_at, fr.reason_text AS note
+                             FROM feedback_reasons fr
+                             JOIN predictions p ON p.id = fr.prediction_id
+                            WHERE fr.feedback_type = 'dca_sold'
+                            ORDER BY fr.created_at DESC"""
+                    ).fetchall():
+                        note = r["note"] or ""
+                        tk = r["tk"]
+                        if not tk:   # Ticker steht teils nur im Freitext
+                            m = re.search(r"\b([A-Z]{2,5})\b", note)
+                            tk = m.group(1) if m else None
+                        sold.append({"ticker": tk, "sold_at": r["sold_at"], "note": note[:200]})
             except Exception:
                 pass
-            total_invested += budget_per_holding
+
+        import yfinance as yf
+        fx_rate = _get_broker().get_account().fx_rate    # USD -> EUR
+
+        result, total_invested, total_current = [], 0.0, 0.0
+        for key, h in holdings.items():
+            h = h or {}
+            # Boersenplatz: der config-Schluessel ist nicht immer das yfinance-Symbol
+            symbol = h.get("yf_symbol") or key
+            currency = (h.get("currency") or "USD").upper()
+            invested = float(h.get("invested_eur") or default_budget)
+            shares = h.get("shares")
+            buy_price = h.get("avg_buy_price")
+
+            entry = {
+                "ticker": key,
+                "symbol": symbol,
+                "currency": currency,
+                "shares": round(float(shares), 6) if shares else None,
+                "buy_price": round(float(buy_price), 2) if buy_price else None,
+                "invested_eur": round(invested, 2),
+                "current_price": None,
+                "current_value_eur": round(invested, 2),   # Fallback: Einstand
+                "performance_pct": None,
+                "note": h.get("note") or "",
+                "recommended_at": None, "bought_at": None,
+                "reason": "", "confidence": "?",
+            }
+            meta = reasons.get(key.upper()) or reasons.get(symbol.upper())
+            if meta:
+                entry["recommended_at"] = meta.get("recommended_at")
+                entry["bought_at"] = meta.get("bought_at")
+                entry["reason"] = (meta.get("reason") or "")[:200]
+                entry["confidence"] = meta.get("confidence") or "?"
+            if not entry["bought_at"] and h.get("date_first"):
+                entry["bought_at"] = str(h["date_first"])
+
+            try:
+                hist = yf.Ticker(symbol).history(period="5d")
+                hist = hist[hist["Close"].notna()]        # s. Vorfall 2026-07-27
+                if not hist.empty:
+                    price = float(hist["Close"].iloc[-1])
+                    entry["current_price"] = round(price, 2)
+                    # Stueckzahl: echt aus config, sonst aus Einstand herleiten
+                    n = float(shares) if shares else None
+                    if n is None and buy_price and float(buy_price) > 0:
+                        base = invested if currency == "EUR" else invested / fx_rate
+                        n = base / float(buy_price)
+                    if n:
+                        value = n * price
+                        entry["current_value_eur"] = round(value if currency == "EUR" else value * fx_rate, 2)
+                    if buy_price and float(buy_price) > 0:
+                        entry["performance_pct"] = round((price / float(buy_price) - 1) * 100, 2)
+            except Exception:
+                pass
+
+            total_invested += invested
             total_current += entry["current_value_eur"]
             result.append(entry)
 
+        result.sort(key=lambda x: x["current_value_eur"], reverse=True)
         total_pl = total_current - total_invested
-        total_pl_pct = (total_pl / total_invested * 100) if total_invested > 0 else 0
-
+        # Barbestand: der Broker zeigt als "Depotkonto" Positionen PLUS freien Saldo.
+        # Ohne den fehlten 0,10 EUR und die Summe wich vom Broker ab (2026-07-27).
+        # Bewusst NICHT in Einstand/Rendite eingerechnet - uninvestiertes Geld hat
+        # keine Rendite und wuerde die Prozentzahl verwaessern.
+        cash_eur = float((cfg.get("settings") or {}).get("dca_cash_eur", 0.0) or 0.0)
         summary = {
             "total_invested_eur": round(total_invested, 2),
             "total_current_eur": round(total_current, 2),
+            "cash_eur": round(cash_eur, 2),
+            "total_account_eur": round(total_current + cash_eur, 2),
             "total_pl_eur": round(total_pl, 2),
-            "total_pl_pct": round(total_pl_pct, 2),
+            "total_pl_pct": round((total_pl / total_invested * 100) if total_invested > 0 else 0, 2),
             "count": len(result),
             "fx_rate": round(fx_rate, 4),
         }
-        return {"dca": result, "summary": summary}
+        # verkauft = nicht mehr im Depot, bleibt aber in der Bilanz sichtbar
+        closed = [s for s in sold if str(s.get("ticker") or "").upper() not in
+                  {k.upper() for k in holdings} ]
+        return {"dca": result, "closed": closed, "summary": summary}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
