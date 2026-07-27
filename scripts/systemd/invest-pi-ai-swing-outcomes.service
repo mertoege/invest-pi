@@ -1,6 +1,7 @@
 [Unit]
 Description=Invest-Pi · KI-Swing-Trader Outcome-Tracker (Forward-Returns + IC)
 After=network-online.target
+OnFailure=invest-pi-error-alert@%n.service
 
 [Service]
 Type=oneshot

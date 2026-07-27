@@ -89,5 +89,16 @@ fi
 sync_systemd_files
 
 # Type=oneshot Services laufen eh erst beim naechsten Timer-Trigger,
-# also kein restart noetig.
+# also kein restart noetig. Die Webapp laeuft aber DURCH und wuerde ihren alten
+# Code behalten (Fix 2026-07-27) — deshalb gezielt neu starten, wenn sich Code
+# geaendert hat, den sie im Speicher haelt.
+CHANGED_FILES=$(git diff --name-only "$PRE_COMMIT" HEAD 2>/dev/null)
+if echo "$CHANGED_FILES" | grep -qE '^(webapp/|src/)'; then
+    if sudo -n "$REPO_DIR/scripts/systemd_sync.sh" --restart invest-pi-webapp 2>>"$LOG"; then
+        log "webapp restarted (webapp/ oder src/ geaendert)"
+    else
+        log "WARN: webapp-restart fehlgeschlagen — laeuft weiter mit altem Code"
+    fi
+fi
+
 log "pull+smoke OK, new HEAD: $(git rev-parse --short HEAD)"
