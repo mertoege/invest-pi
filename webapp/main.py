@@ -402,18 +402,23 @@ def system_status():
                     if p.startswith("invest-pi-") and p.endswith(".timer"):
                         active_timers.add(p.replace(".timer", ""))
 
-            all_timers = [
-                "invest-pi-auto-pull", "invest-pi-status-push",
-                "invest-pi-telegram-callbacks", "invest-pi-score",
-                "invest-pi-hardware", "invest-pi-sync",
-                "invest-pi-strategy", "invest-pi-rebalance",
-                "invest-pi-daily-report", "invest-pi-outcomes",
-                "invest-pi-backup", "invest-pi-train-regime",
-                "invest-pi-weekly-recap", "invest-pi-patterns",
-                "invest-pi-monthly-dca", "invest-pi-meta-review",
-                "invest-pi-dca-watchdog", "invest-pi-rotation",
-            ]
-            for t in all_timers:
+            # Die Liste der Jobs wird aus systemd selbst gelesen statt hartkodiert
+            # (Fix 2026-07-27). Vorher stand hier eine Liste, die nicht mehr stimmte:
+            # 5 Jobs existierten gar nicht mehr, "invest-pi-strategy" hiess laengst
+            # "invest-pi-strategy-hourly", und alle 4 ai-swing-Jobs fehlten. Die
+            # Systemseite zeigte also den wichtigsten Job dauerhaft rot, obwohl er
+            # lief — Dauer-Rot macht einen echten Ausfall unsichtbar.
+            installed = subprocess.run(
+                ["systemctl", "list-unit-files", "invest-pi-*.timer",
+                 "--no-pager", "--plain", "--no-legend"],
+                capture_output=True, text=True, timeout=5
+            )
+            all_timers = []
+            for line in installed.stdout.strip().splitlines():
+                parts = line.split()
+                if parts and parts[0].endswith(".timer"):
+                    all_timers.append(parts[0].replace(".timer", ""))
+            for t in sorted(all_timers):
                 timer_statuses.append({"name": t, "active": t in active_timers})
         except Exception:
             pass
@@ -570,6 +575,10 @@ def benchmark():
         # SPY benchmark
         spy = yf.Ticker("SPY")
         spy_hist = spy.history(start=start_date)
+        # Zeilen ohne Schlusskurs raus (Vorfall 2026-07-27): Yahoo liefert manchmal einen
+        # Tag mit Volumen aber OHLC=NaN. Ungefiltert wurde spy_now=NaN -> die Antwort war
+        # nicht JSON-kodierbar -> dieser Endpunkt lieferte 500 statt Benchmark-Vergleich.
+        spy_hist = spy_hist[spy_hist["Close"].notna()]
         if spy_hist.empty:
             return {"error": "no SPY data"}
 
@@ -893,6 +902,7 @@ def ai_swing_performance():
             try:
                 import yfinance as yf
                 spy_hist = yf.Ticker("SPY").history(start=result["data_since"])
+                spy_hist = spy_hist[spy_hist["Close"].notna()]   # s. /api/benchmark (2026-07-27)
                 if not spy_hist.empty:
                     spy_start = float(spy_hist["Close"].iloc[0])
                     spy_now = float(spy_hist["Close"].iloc[-1])

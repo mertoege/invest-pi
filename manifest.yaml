@@ -545,6 +545,36 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Eine leere Yahoo-Kurszeile legte die gesamte Kursversorgung lahm - entschaerft
+      d: 'BEFUND 2026-07-27 (Routine-Check) - von 90 Titeln waren 0 bewertbar, die Kursversorgung
+        war komplett tot. Ursache - Yahoo lieferte fuer Fr 24.07. eine Zeile mit Volumen, aber
+        OHLC=NaN. Kette - _save_to_cache mappt NaN auf None, market.db hat NOT NULL auf close ->
+        IntegrityError -> get_prices fliegt raus -> momentum_ranking faengt das per "except:
+        continue" ab -> Datenabdeckung 0%. EINE kaputte Zeile eines Fremdanbieters riss also
+        alle 90 Ticker mit. Wirkung - der Monats-Rebalance am 01.08. waere mit "zu wenig Daten"
+        abgebrochen (immerhin laut, mit OnFailure-Alarm, kein stiller Freeze wie im Juli);
+        /api/benchmark und /api/ai-swing/performance lieferten bereits 500 (NaN ist nicht
+        JSON-kodierbar). Am Sonntag lief noch alles, weil der Cache als frisch galt und gar
+        nicht aufgefrischt wurde - der Ausfall begann erst mit dem ersten fehlenden Handelstag.
+        FIX - (1) _drop_incomplete_bars filtert Zeilen ohne Schlusskurs zentral in
+        _rate_limited_fetch, also auf JEDEM yfinance-Pfad (voll + inkrementell); (2) zweiter
+        Riegel in _save_to_cache laesst solche Zeilen aus, statt den ganzen INSERT platzen zu
+        lassen; (3) beide SPY-Abrufe in der Webapp filtern NaN vor der Berechnung. Belegt -
+        Datenabdeckung 0% -> 98%, Rebalance laeuft wieder durch. Die DB blieb sauber, die
+        NOT-NULL-Sperre hatte die Daten geschuetzt (nur eben um den Preis des Absturzes).
+        Lehre - Fremddaten koennen syntaktisch gueltig und inhaltlich leer sein; Filtern gehoert
+        an die EINE Stelle, durch die alle Abrufe laufen, nicht in jeden Aufrufer.'
+      badge: 2026-07-27
+    - t: Job-Liste der Systemseite kommt jetzt aus systemd statt aus einer Handliste
+      d: 'BEFUND 2026-07-27 - die Systemseite der Webapp pruefte eine hartkodierte Job-Liste, die
+        nicht mehr stimmte - 5 Jobs existierten laengst nicht mehr, "invest-pi-strategy" hiess
+        real "invest-pi-strategy-hourly", und alle 4 ai-swing-Jobs plus operator/monthly-digest
+        fehlten ganz. Folge - der wichtigste Job stand dauerhaft auf Rot, obwohl er sauber lief,
+        daneben 5 Geister-Jobs ebenfalls Rot. FIX - die Liste wird per systemctl list-unit-files
+        aus systemd selbst gelesen, kann also nicht mehr veralten (20 Jobs erkannt, korrekt nur
+        invest-pi-score als AUS). Lehre - Dauer-Rot macht einen echten Ausfall unsichtbar; eine
+        Statusanzeige, die man von Hand nachpflegen muss, ist auf Dauer schlimmer als keine.'
+      badge: 2026-07-27
     - t: Circuit-Breaker-Fehlalarm fror Engine 7 Tage ein - gehaertet
       d: 'BEFUND 2026-07-14 - die Momentum-Engine war seit 07-07 tot, ohne dass es jemand merkte.
         Ursache - Alpaca lieferte kurz "equity = nur Cash" (Positionen nicht geladen); der
