@@ -49,46 +49,79 @@ from src.common.storage import LEARNING_DB, connect
 log = logging.getLogger("invest_pi.monthly_dca")
 
 
-def _gather_context() -> dict:
-    """Sammelt input-Kontext fuer Sonnet."""
-    cfg = cfg_mod.load()
-    rates = hit_rate_stratified("daily_score", days=30)
+def _risk_scores_by_ticker(days: int = 7) -> dict[str, dict]:
+    """Vorhandene Risk-Scores als ZUSATZ-Info (nicht als Auswahlgrundlage).
 
-    # Top 5 Tickers nach niedrigstem composite (= attractiv) der letzten 24h
+    Achtung: diese Scores deckten zuletzt nur die bereits gehaltenen Positionen ab,
+    weil sie faktisch nur noch vom DCA-Watchdog erzeugt werden. Genau deshalb sind
+    sie hier eine Anreicherung fuer die wenigen Ticker, die es gibt — und NICHT mehr
+    die Quelle der Kandidatenliste (siehe Audit-Kommentar in src/common/market_scan.py).
+    """
     sql = """
-        SELECT subject_id, output_json, confidence, created_at
+        SELECT subject_id, output_json, created_at
           FROM predictions
          WHERE job_source = 'daily_score'
-           AND created_at >= datetime('now', '-24 hour')
+           AND created_at >= datetime('now', ?)
          ORDER BY created_at DESC
     """
-    with connect(LEARNING_DB) as conn:
-        rows = conn.execute(sql).fetchall()
-
-    seen = {}
+    out: dict[str, dict] = {}
+    try:
+        with connect(LEARNING_DB) as conn:
+            rows = conn.execute(sql, (f"-{int(days)} day",)).fetchall()
+    except Exception as e:
+        log.warning(f"Risk-Scores nicht ladbar: {e}")
+        return out
     for r in rows:
-        if r["subject_id"] in seen:
+        if r["subject_id"] in out:
             continue
-        out = safe_parse(r["output_json"] or "{}", default={})
-        seen[r["subject_id"]] = {
-            "ticker":      r["subject_id"],
-            "composite":   float(out.get("composite", 100)),
-            "alert_level": int(out.get("alert_level", 0)),
-            "triggered":   out.get("triggered_dims", []),
-            "confidence":  r["confidence"],
+        o = safe_parse(r["output_json"] or "{}", default={})
+        out[r["subject_id"]] = {
+            "composite":   o.get("composite"),
+            "alert_level": o.get("alert_level"),
         }
-    candidates = sorted(seen.values(), key=lambda x: x["composite"])[:10]
+    return out
+
+
+def _portfolio_breakdown(cfg) -> tuple[list[dict], dict[str, float]]:
+    """Depot-Positionen + Sektor-Gewichte in Prozent — damit das LLM Klumpenrisiko
+    tatsaechlich pruefen kann statt es zu raten."""
+    from src.common.market_scan import SECTORS
+    positions = [
+        {"ticker": t, "invested_eur": p.invested_eur,
+         "sector": SECTORS.get(t.upper(), "?")}
+        for t, p in cfg.portfolio.items()
+    ]
+    total = sum(p["invested_eur"] or 0 for p in positions) or 1.0
+    sectors: dict[str, float] = {}
+    for p in positions:
+        sectors[p["sector"]] = sectors.get(p["sector"], 0.0) + (p["invested_eur"] or 0)
+    return positions, {k: round(v / total * 100, 1) for k, v in sorted(
+        sectors.items(), key=lambda kv: -kv[1])}
+
+
+def _gather_context() -> dict:
+    """Sammelt den Analyse-Kontext: breiter Markt-Scan statt der alten 4-Ticker-Liste."""
+    from src.common.market_scan import etf_metrics, top_candidates
+
+    cfg = cfg_mod.load()
+    rates = hit_rate_stratified("daily_score", days=30)
+    risk = _risk_scores_by_ticker()
+
+    candidates = top_candidates(n=15)
+    for c in candidates:
+        if c["ticker"] in risk:
+            c["risk_score"] = risk[c["ticker"]]
+
+    positions, sector_weights = _portfolio_breakdown(cfg)
 
     return {
         "month_budget_eur":  cfg.settings.monatliches_budget_eur,
         "etf_fallback":      cfg.settings.dca_fallback_etf,
         "hit_rate":          rates,
         "candidates":        candidates,
-        "current_portfolio": [
-            {"ticker": t, "invested_eur": p.invested_eur}
-            for t, p in cfg.portfolio.items()
-        ],
-        "tradeable_universe": [e.ticker for e in cfg.universe if e.ring in (1, 2, 3)],
+        "etf_options":       etf_metrics(),
+        "current_portfolio": positions,
+        "sector_weights_pct": sector_weights,
     }
 
 
