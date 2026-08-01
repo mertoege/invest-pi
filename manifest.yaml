@@ -545,6 +545,42 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Aus dem Sparplan wird ein KI-Portfolio-Manager — eine Entscheidung pro Monat
+      d: 'ENTSCHEIDUNG 2026-08-01 (Mert). Auf den Befund, dass der Sparplan faktisch nie eine
+        Auswahl traf, war die erste Antwort ein besserer Sparplan. Mert hat widersprochen und den
+        eigentlichen Projektzweck klargestellt - eine KI soll auswaehlen und verwalten, nicht
+        stumpf eine jahrzehntealte Regel auf einen Standard-ETF anwenden. Es soll ein
+        PORTFOLIO-MANAGER sein. EINORDNUNG - der frueher belegte Misserfolg der Score-Aera
+        widerlegte Kursvorhersage ("welche Aktie steigt naechsten Monat"), NICHT
+        Depot-Verwaltung. Verwalten heisst - wissen warum jede Position da ist, monatlich pruefen
+        ob der Grund noch gilt, entscheiden wohin neues Geld geht, und wann etwas raus muss. Das
+        ist Urteil ueber Zusammenhaenge; genau das kann ein Sprachmodell und eine Momentum-Regel
+        prinzipiell nicht. Zur Abgrenzung - DayPi ist ein Intraday-Daytrader (haelt nichts ueber
+        Nacht, also das Gegenteil), die Momentum-Engine verwaltet zwar ein ganzes Depot, ist aber
+        eine stumpfe Regel auf Spielgeld, und der KI-Swing-Trader ist ein Trader im
+        Schattenbetrieb. Keins davon war ein Portfolio-Manager fuers echte Geld.
+        DOMINIERENDE RANDBEDINGUNG (Mert, 2026-08-01) - Revolut gibt EINEN GRATIS-HANDEL PRO
+        MONAT; jeder weitere kostet bis zu 2 Prozent von 50 EUR. Aktives Umschichten ist damit
+        arithmetisch tot. Der Manager trifft deshalb GENAU EINE Entscheidung pro Monat - kaufen,
+        verkaufen oder warten. Ein Verkauf verbraucht den Monatshandel und muss sich gegen "einen
+        Monat lang investieren" rechnen, wird also nur bei gebrochener Anlage-These gemacht, nie
+        wegen eines schlechten Kursmonats. VORGABEN von Mert - Verkaeufe erlaubt, mit Ansage per
+        Telegram; max 25 Prozent je EINZELAKTIE, mindestens 4 Positionen. Breite Welt-/Index-ETFs
+        sind von der 25-Prozent-Grenze ausgenommen, weil sie in sich gestreut sind - sonst wuerde
+        die Regel ausgerechnet aus dem sichersten Baustein draengen (VWCE liegt bei 39,7 Prozent).
+        BAUWEISE - die KI schlaegt vor, der CODE erlaubt. Alle Grenzen stehen in
+        src/common/pm_rules.py und werden nach der Antwort hart geprueft; ein Verstoss faellt auf
+        "diesen Monat nicht handeln" zurueck, statt die Grenze zu reissen. Neu -
+        src/common/pm_context.py (vollstaendiges Lagebild - Depot mit Gewinn/Verlust und Gewicht,
+        Bewertungskennzahlen, Quartalstermine, Nachrichten-Stimmung, Konjunktur, Marktbreite,
+        Regime, Korrelation der eigenen Positionen; all das lag im Projekt bereits herum und wurde
+        vom Sparplan nie benutzt), src/common/thesis_store.py (je Position eine Anlage-These PLUS
+        ein pruefbares Widerlegungs-Kriterium, das jeden Monat wieder vorgelegt wird),
+        scripts/portfolio_manager.py. Der Timer invest-pi-monthly-dca zeigt jetzt auf den Manager;
+        der Unit-NAME bleibt absichtlich stehen, weil status_push.sh daran haengt.
+        KOSTEN - ein Lauf kostet gemessen 0,22 EUR im Monat. Die Stunden-Bremse stand auf 0,20 EUR
+        und haette den Job dauerhaft blockiert; sie wurde auf 0,60 EUR angehoben. Tages- (2 EUR)
+        und Monatsgrenze (50 EUR) bleiben unveraendert.'
     - t: Monats-Sparplan bekommt eine echte Auswahlgrundlage — VWCE war ein Zwangsergebnis, keine Entscheidung
       d: 'BEFUND 2026-08-01 (Mert fragte, warum wieder VWCE vorgeschlagen wurde, obwohl der Kurs
         gerade nachgibt). Der Sparplan lief technisch fehlerfrei, traf aber faktisch keine Auswahl.
@@ -822,6 +858,23 @@ protections:
 - Korrelations-Check
 - Tages-Verlust-Limit
 tasks:
+- title: Revolut-Gebuehr fuer den zweiten Handel nachschauen
+  art: einmalig
+  prioritaet: mittel
+  was: 'Der Portfolio-Manager rechnet damit, dass du einen Gratis-Handel im Monat hast und jeder
+    weitere rund 1 EUR oder 0,25 Prozent kostet — bei 50 EUR waeren das bis zu 2 Prozent. Auf
+    dieser Annahme steht die ganze Regel "nur eine Entscheidung pro Monat". Schau bitte einmal in
+    der Revolut-App nach, was ein zusaetzlicher Handel in deinem Tarif WIRKLICH kostet, und sag
+    Bescheid. Weicht es stark ab, passe ich die Regel an.'
+- title: Anweisungen des Portfolio-Managers ausfuehren und Abweichungen melden
+  art: routine
+  turnus: monatlich
+  prioritaet: hoch
+  was: 'Ab sofort bekommst du am 1. jedes Monats EINE klare Anweisung per Telegram - kaufen,
+    verkaufen oder diesen Monat nicht handeln. Fuehr sie bei Revolut aus. Das Depot-Protokoll
+    wird automatisch mitgeschrieben, es geht also nur schief, wenn du etwas ANDERES machst als
+    angewiesen. Wenn du abweichst, nicht ausfuehrst oder zusaetzlich handelst - kurz Bescheid
+    sagen (Ticker, Stueckzahl, Kurs), sonst driftet die Anzeige auseinander.'
 - title: Sparplan-Umbau freigeben (PR mergen) und UNH ignorieren
   art: einmalig
   prioritaet: hoch

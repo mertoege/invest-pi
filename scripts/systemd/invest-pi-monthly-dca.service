@@ -1,5 +1,8 @@
 [Unit]
-Description=Invest-Pi · Monthly DCA-Empfehlung an Mert via Telegram
+Description=Invest-Pi · Monatlicher KI-Portfolio-Manager (Anweisung an Mert via Telegram)
+# Unit-NAME bleibt 'monthly-dca', obwohl das Skript jetzt portfolio_manager.py ist:
+# status_push.sh und die Projekt-Doku haengen am Unit-Namen, ein Rename wuerde die
+# Ueberwachung stillschweigend blind machen (siehe globale CLAUDE.md, Stolperfalle tmux/Units).
 OnFailure=invest-pi-error-alert@%n.service
 
 [Service]
@@ -8,6 +11,6 @@ User=investpi
 WorkingDirectory=/home/investpi/invest-pi
 EnvironmentFile=/home/investpi/invest-pi/.env
 Environment=PYTHONDONTWRITEBYTECODE=1
-ExecStart=/usr/bin/python3 -B scripts/monthly_dca.py
-MemoryMax=512M
+ExecStart=/usr/bin/python3 -B scripts/portfolio_manager.py
+MemoryMax=768M
 CPUQuota=30%
