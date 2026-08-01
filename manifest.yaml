@@ -545,6 +545,42 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Monats-Sparplan bekommt eine echte Auswahlgrundlage — VWCE war ein Zwangsergebnis, keine Entscheidung
+      d: 'BEFUND 2026-08-01 (Mert fragte, warum wieder VWCE vorgeschlagen wurde, obwohl der Kurs
+        gerade nachgibt). Der Sparplan lief technisch fehlerfrei, traf aber faktisch keine Auswahl.
+        Ursache - die Kandidatenliste kam aus den daily_score-Risk-Scores der letzten 24 Stunden.
+        Diese Scores erzeugte zuletzt nur noch der DCA-Waechter um 18:00, und der bewertet
+        ausschliesslich die BEREITS gehaltenen Positionen; der eigentliche Universum-Scan
+        (invest-pi-score) ist seit Juni abgeschaltet. Die Liste bestand damit dauerhaft aus vier
+        Werten (NVDA, ASML, PG, SPY). Die Kaufregel verlangte mindestens zwei Kandidaten mit
+        composite unter 30 und Alarmstufe 0 — praktisch nie erfuellbar, also jeden Monat
+        ETF-Rueckfall auf VWCE. Juli und August identisch. Die Telegram-Begruendung las sich wie
+        eine Abwaegung, beschrieb aber eine Sackgasse. ZWEITER BEFUND - es wurde nie gemessen, ob
+        die Empfehlungen besser waren als stumpf den Welt-ETF zu kaufen; damit war die Leitfrage
+        des Projekts unbeantwortbar. ENTSCHEIDUNG - (1) neues Modul src/common/market_scan.py
+        scannt lokal die rund 90 Large Caps des Momentum-Universums plus die drei Revolut-ETFs
+        (Momentum 1/3/6/12 Monate, 12-1-Momentum, Abstand zum 200-Tage-Schnitt, Ruecksetzer vom
+        52-Wochen-Hoch, Schwankung, Sektor) — keine LLM-Kosten, Abdeckung aktuell 87 von 90;
+        (2) neue Entscheidungsregel beruecksichtigt ausdruecklich, dass dieser Sparplan KEINE
+        Rotationsregel hat - Einzeltitel nur bei durch 12-1-Momentum bestaetigtem Trend, tragbarer
+        Schwankung und ohne Sektor-Klumpen, sonst ETF; (3) neues Modul src/common/dca_benchmark.py
+        schreibt je Kauf den Einstiegskurs UND den gleichzeitigen VWCE-Kurs mit und rechnet
+        Trefferquote, Differenz in Prozentpunkten und Euro-Effekt aus — Monate ohne echte
+        Entscheidung zaehlen ehrlich als 0,0 Prozentpunkte. Die Bilanz steht ab sofort in jeder
+        Sparplan-Nachricht. Der alte Score-Pfad bleibt nur noch als Zusatz-Info erhalten.
+        NEBENBEFUND - Merts Praemisse stimmte nicht: VWCE lag -1,2 Prozent auf einen Monat, aber
+        +19,9 Prozent auf zwoelf Monate und 7,4 Prozent ueber dem 200-Tage-Schnitt. Fallende Kurse
+        sind fuer einen Sparplan ohnehin kein Aussetz-Grund, das steht jetzt explizit im Prompt.'
+    - t: PANNE 2026-08-01 — versehentlicher Zweitlauf des Sparplans, UNH-Fehlbuchung
+      d: 'Beim Umbau lief ein Test mit --dry-run versehentlich als Echtlauf, weil der Schalter zu
+        dem Zeitpunkt noch nicht in der Datei auf der Platte war - der auto_pull-Timer hatte genau
+        diesen Teil-Edit zurueckgedreht, waehrend andere Edits derselben Datei ueberlebten. Die
+        alte __main__-Zeile ignorierte das Argument stillschweigend. Folge - eine zweite
+        August-Buchung (UNH 50 EUR bei 421,02) im Sparplan-Ledger plus ein Telegram-Vorschlag an
+        Mert. Beides ungueltig, UNH wurde wieder entfernt; der August-Sparplan ist mit VWCE
+        erledigt. LEHRE - bei Skripten mit echten Seiteneffekten den Schutzschalter gegen die
+        Datei auf der Platte pruefen, nicht gegen den zuletzt geschriebenen Edit; besser nur die
+        neuen Funktionen einzeln testen, ohne den Buchungspfad zu betreten.'
     - t: DCA-Depot kommt jetzt aus der config.yaml statt aus dem Empfehlungs-Protokoll
       d: 'BEFUND 2026-07-27 (Mert per Broker-Screenshot) - das DCA-Depot im Dashboard stimmte nicht.
         Ursache - /api/dca baute das Depot aus dem Empfehlungs-Protokoll zusammen (alle
@@ -786,6 +822,17 @@ protections:
 - Korrelations-Check
 - Tages-Verlust-Limit
 tasks:
+- title: Sparplan-Umbau freigeben (PR mergen) und UNH ignorieren
+  art: einmalig
+  prioritaet: hoch
+  was: 'Zwei Dinge. ERSTENS - du hast am 01.08. eine Telegram-Nachricht bekommen, die UNH
+    vorschlaegt. Die ist ungueltig, bitte NICHT kaufen; sie entstand durch einen Testlauf, der
+    versehentlich echt gebucht hat. Dein August-Sparplan ist mit VWCE bereits erledigt. ZWEITENS -
+    auf GitHub liegt der Branch fix/sparplan-echte-analyse. Der repariert die Auswahl des
+    Sparplans (echter Scan ueber rund 90 Aktien statt nur der eigenen vier Positionen), zieht die
+    UNH-Fehlbuchung wieder raus und fuehrt eine laufende Bilanz gegen den Welt-ETF ein. Bitte auf
+    GitHub als Pull Request mergen — direkt auf main pushen darf Claude nicht. Bis dahin bleibt
+    der alte Zustand aktiv und UNH steht faelschlich im Depot.'
 - title: Echtes DCA-Depot melden, wenn du selbst kaufst oder verkaufst
   art: routine
   turnus: monatlich
