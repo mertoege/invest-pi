@@ -13,18 +13,18 @@
   },
   "git": {
     "branch": "main",
-    "commit": "297bad58",
+    "commit": "3d4953c8",
     "dirty": false
   },
   "hardware": {
-    "cpu_temp_c": 60.05,
+    "cpu_temp_c": 60.6,
     "disk_pct": 79,
-    "load_1min": 0.1,
+    "load_1min": 0.01,
     "mem_pct": 41
   },
   "last_runs": {
     "run_strategy": "Fri 2026-07-31 21:00:07 CEST",
-    "sync_positions": "Sat 2026-08-01 09:35:03 CEST",
+    "sync_positions": null,
     "track_outcomes": "Sat 2026-08-01 02:30:13 CEST"
   },
   "predictions": {
@@ -42,5 +42,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-08-01T08:33:00"
+  "timestamp_utc": "2026-08-01T08:35:07"
 }
