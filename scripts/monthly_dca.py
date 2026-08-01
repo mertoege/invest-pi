@@ -128,48 +128,86 @@ def _gather_context() -> dict:
 def _build_prompt(ctx: dict, exclude: set[str] | None = None) -> tuple[str, str]:
     exclude = {t.upper() for t in (exclude or set())}
     system = (
-        "Du bist ein vorsichtiger Investment-Berater fuer einen diversifizierten DCA-Plan (breite Index-ETFs, Blue Chips, Tech).\n"
-        "Mert investiert monatlich 50 EUR. Heute soll ein einziger Titel empfohlen werden — oder ein ETF-Fallback wenn nichts ueberzeugt.\n"
-        "Antworte NUR im JSON-Format wie unten beschrieben — kein Prosa drumherum.\n"
+        "Du bist Analyst fuer einen monatlichen Sparplan mit ECHTEM Geld (Broker: Revolut, EUR).\n"
+        "Du bekommst harte Kennzahlen zu ~15 vorgefilterten Aktien und den drei waehlbaren ETFs.\n"
+        "Deine Aufgabe: EINEN Titel fuer diesen Monat auswaehlen — Einzelaktie ODER ETF.\n"
+        "Antworte NUR im JSON-Format — keine Prosa drumherum.\n"
         "\n"
         "Output-Schema (strikt einhalten):\n"
         "{\n"
         '  "verdict":     "buy_single" | "buy_etf" | "skip",\n'
         '  "ticker":      "<ticker>",\n'
-        '  "reason":      "<2-3 sentences why>",\n'
+        '  "reason":      "<2-3 Saetze, allgemeinverstaendlich, mit konkreten Zahlen>",\n'
         '  "confidence":  "high" | "medium" | "low",\n'
         '  "alternative_etf": "<ticker>",\n'
-        '  "risk_notes":  "<short>"\n'
+        '  "risk_notes":  "<kurz>"\n'
         "}\n"
         "\n"
-        "Conservative Heuristik:\n"
-        "- Nur Tickers mit composite < 30 UND alert_level == 0 sind Buy-Kandidaten.\n"
-        "- Bei <2 Buy-Kandidaten: ETF-Fallback empfehlen.\n"
-        "- Vermeide Konzentration: wenn Mert in einem Ticker schon >40% hat, anderen vorschlagen.\n"
-        "- Wenn die letzte 30d Hit-Rate unter 50% war: confidence senken.\n"
+        "ENTSCHEIDENDE RANDBEDINGUNG — lies das zuerst:\n"
+        "Dieser Sparplan hat KEINE Rotationsregel. Was gekauft wird, wird auf Jahre gehalten;\n"
+        "verkauft wird nur bei einer echten Katastrophe. Ein Titel, der nur gerade heiss laeuft,\n"
+        "ist deshalb NICHT geeignet — Momentum verfaellt, und ohne Umschichten bleibt der Schrott\n"
+        "liegen. Du waehlst einen Titel, den man drei Jahre halten kann, nicht den Monatssieger.\n"
+        "\n"
+        "Regeln fuer verdict=buy_single (ALLE muessen erfuellt sein):\n"
+        "1. Der Titel schlaegt den besten ETF im 6M-Momentum deutlich (mind. das 1,5-fache).\n"
+        "2. Der Vorsprung ist nicht nur ein Strohfeuer: mom_12_1 (12-Monats-Trend OHNE den\n"
+        "   letzten Monat) bestaetigt die Richtung und ist positiv.\n"
+        "3. vol_annual unter 0.50 — mehr Schwankung ist fuer Buy-and-Hold ohne Stop nicht tragbar.\n"
+        "4. dd_from_52w_high besser als -0.25 — ein Titel tief unter seinem Hoch ist kein Trend.\n"
+        "5. Der Sektor macht im Depot noch keine 40% aus (sector_weights_pct beachten).\n"
+        "6. Der Titel ist noch nicht im Depot ODER dort unter 25% Gewicht.\n"
+        "Erfuellt KEIN Kandidat alle sechs Punkte: verdict=buy_etf.\n"
+        "\n"
+        "Regeln fuer verdict=buy_etf:\n"
+        "- Waehle den ETF, der zum Depot passt: bei hoher Tech-Quote im Depot NICHT EQQQ.\n"
+        "- Bei etwa gleichwertigen ETFs den breitesten nehmen (VWCE vor SPYL vor EQQQ).\n"
+        "\n"
+        "verdict=skip nur bei einem echten Grund (z.B. alle Daten unbrauchbar).\n"
+        "Fallende Kurse sind KEIN Skip-Grund — guenstiger einkaufen ist der Sinn eines Sparplans.\n"
+        "\n"
+        "Ehrlichkeit vor Aktionismus: Wenn der breite ETF die vernuenftigere Wahl ist, sag das\n"
+        "klar und begruende es mit Zahlen. Eine Einzelaktie zu empfehlen, nur damit eine\n"
+        "Entscheidung stattgefunden hat, ist der teuerste Fehler in diesem System.\n"
     )
     cal = calibration_block("daily_score") + calibration_block("trade_decision") + calibration_block("monthly_dca")
+    cands = [c for c in ctx["candidates"] if c["ticker"].upper() not in exclude]
+    bench = _benchmark_hint()
     prompt = (
         f"{cal}\n\n" if cal else ""
     ) + (
-        f"## Top-10 Buy-Kandidaten nach niedrigstem Risk-Composite (letzte 24h):\n"
-        f"{json.dumps([c for c in ctx['candidates'] if c['ticker'].upper() not in exclude], indent=2)}\n\n"
-        f"## Aktuelles Portfolio:\n"
+        f"## Kaufkandidaten — breiter Scan ueber ~90 Large Caps, vorgefiltert auf Werte\n"
+        f"   ueber dem 200-Tage-Schnitt, sortiert nach 6-Monats-Momentum.\n"
+        f"   Alle Werte als Dezimalzahl (0.25 = +25%).\n"
+        f"{json.dumps(cands, indent=2)}\n\n"
+        f"## Waehlbare ETFs — NUR diese drei (auf Revolut in EUR handelbar), mit denselben Kennzahlen.\n"
+        f"   Nutze EXAKT den Ticker-String inkl. Boersen-Endung '.DE':\n"
+        f"{json.dumps(ctx['etf_options'], indent=2)}\n\n"
+        f"## Aktuelles Depot:\n"
         f"{json.dumps(ctx['current_portfolio'], indent=2)}\n\n"
+        f"## Sektor-Gewichte im Depot (Prozent):\n"
+        f"{json.dumps(ctx['sector_weights_pct'], indent=2)}\n\n"
         f"## Budget diesen Monat:\n"
         f"{ctx['month_budget_eur']:.0f} EUR\n\n"
-        f"## Waehlbare ETFs — NUR diese drei (auf Merts Broker Revolut in EUR handelbar).\n"
-        f"   Nutze EXAKT den Ticker-String inkl. Boersen-Endung '.DE':\n"
-        f"  SPYL.DE - SPDR S&P 500 UCITS (US-Gesamtmarkt, breit gestreut)\n"
-        f"  VWCE.DE - Vanguard FTSE All-World UCITS (weltweit, maximal breit gestreut)\n"
-        f"  EQQQ.DE - Invesco Nasdaq-100 UCITS (Tech-lastig)\n"
-        f"\nDefault wenn unsicher: {ctx['etf_fallback']}\n\n"
+    ) + (f"## Bisherige Bilanz dieses Sparplans:\n{bench}\n\n" if bench else "") + (
+        f"Default wenn unsicher: {ctx['etf_fallback']}\n\n"
         f"WICHTIG: Bei verdict=buy_etf MUSS 'ticker' einer dieser drei Strings sein.\n"
         f"'alternative_etf' MUSS immer einer dieser drei Strings sein (SPYL.DE | VWCE.DE | EQQQ.DE),\n"
         f"exakt so geschrieben, NICHT leer — auch bei verdict=buy_single (dient als sichtbare Alternative).\n\n"
         "Schreibe deine Empfehlung als JSON-Block."
     )
     return system, prompt
+
+
+def _benchmark_hint() -> str:
+    """Bisherige Trefferbilanz gegen den Welt-ETF — das LLM soll wissen, ob seine
+    eigenen Einzeltitel-Wetten in der Vergangenheit tatsaechlich getragen haben."""
+    try:
+        from src.common.dca_benchmark import summary_line
+        return summary_line()
+    except Exception as e:
+        log.warning(f"Benchmark-Bilanz nicht ladbar: {e}")
+        return ""
 
 
 def _disp(ticker: str) -> str:
@@ -300,7 +338,7 @@ def _auto_record_dca(verdict: str, data: dict, budget_eur: float, pred_id) -> st
     return msg
 
 
-def main() -> int:
+def main(dry_run: bool = False) -> int:
     if not llm_configured():
         log.warning("ANTHROPIC_API_KEY nicht gesetzt — monthly_dca skipped")
         # Dennoch ein Telegram-Hint senden falls Notifier konfiguriert
@@ -311,7 +349,7 @@ def main() -> int:
             )
         return 0
 
-    if not notifier.is_configured():
+    if not notifier.is_configured() and not dry_run:
         log.warning("Telegram nicht konfiguriert — DCA-Empfehlung kann nicht zugestellt werden")
         return 1
 
@@ -337,6 +375,12 @@ def main() -> int:
     data = result.parsed_json or safe_parse(result.text, default={})
     verdict = data.get("verdict", "skip")
 
+    if dry_run:
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        print(f"\n[dry-run] verdict={verdict} — NICHTS gebucht, NICHTS gesendet. "
+              f"Kosten: {result.cost_eur:.4f} EUR")
+        return 0
+
     # AUTOMATISCH ins Portfolio-Ledger eintragen (Voll-Autonomie, kein Button).
     record_msg = ""
     if verdict in ("buy_single", "buy_etf"):
@@ -346,6 +390,19 @@ def main() -> int:
             log.error(f"Auto-DCA-Eintrag fehlgeschlagen: {e}")
             record_msg = f"FEHLER beim Eintragen: {e}"
 
+    # Pick + gleichzeitigen Benchmark-Kurs mitschreiben, damit spaeter messbar ist,
+    # ob diese Entscheidung besser war als stumpf den Welt-ETF zu kaufen.
+    if verdict in ("buy_single", "buy_etf"):
+        try:
+            from src.common.dca_benchmark import record_pick
+            record_pick(verdict=verdict,
+                        ticker=(data.get("ticker") or ctx["etf_fallback"]),
+                        budget_eur=ctx["month_budget_eur"],
+                        prediction_id=result.prediction_id,
+                        note=(data.get("reason") or "")[:200])
+        except Exception as e:
+            log.error(f"Benchmark-Eintrag fehlgeschlagen: {e}")
+
     text, _markup = _build_telegram_text(
         verdict, data,
         prediction_id=result.prediction_id,
@@ -353,6 +410,11 @@ def main() -> int:
     )
     if record_msg:
         text += f"\n\n✅ <b>Automatisch ins Portfolio eingetragen:</b>\n{escape(record_msg)}"
+
+    # Laufende Beweisfuehrung: schlaegt der Sparplan den Welt-ETF oder nicht?
+    bilanz = _benchmark_hint()
+    if bilanz:
+        text += f"\n\n\U0001f4ca <i>{escape(bilanz)}</i>"
 
     # Voll-Autonomie: informativ, KEINE interaktiven Buttons.
     ok = _send_html_with_markup(text, {})
@@ -413,4 +475,8 @@ def send_replacement_recommendation(sold_ticker: str) -> bool:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    import argparse
+    ap = argparse.ArgumentParser(description="Monatlicher Sparplan-Vorschlag")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="Empfehlung berechnen und ausgeben, aber NICHT buchen und NICHT senden")
+    sys.exit(main(dry_run=ap.parse_args().dry_run))
