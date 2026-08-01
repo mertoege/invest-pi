@@ -33,14 +33,23 @@ portfolio:
     note: Consumer Staples · 67 Jahre Dividenden-Wachstum
     ring: 2
     shares: 0.411627
+  UNH:
+    avg_buy_price: 414.4
+    currency: USD
+    date_first: 2026-08
+    invested_eur: 50.0
+    note: Healthcare · erste Entscheidung des KI-Portfolio-Managers · VORLÄUFIGER Kurs
+      (Schlusskurs Fr 31.07.), Ausführung frühestens Mo 03.08. — echten Einstand nachtragen
+    ring: 2
+    shares: 0.139149
   VWCE.DE:
-    avg_buy_price: 164.2201
+    avg_buy_price: 165.4986
     currency: EUR
     date_first: 2026-07
-    invested_eur: 100.0
-    note: Welt-ETF · FTSE All-World · via DCA Juli (Revolut) · Klumpenrisiko-Ausgleich
+    invested_eur: 50.0
+    note: Welt-ETF · FTSE All-World · Juli-Sparplan (Revolut) · Klumpenrisiko-Ausgleich
     ring: 0
-    shares: 0.608939
+    shares: 0.302115
 settings:
   alert_stufe2_trigger: 50
   alert_stufe3_trigger: 75
