@@ -13,17 +13,17 @@
   },
   "git": {
     "branch": "main",
-    "commit": "96634047",
+    "commit": "3d501bec",
     "dirty": false
   },
   "hardware": {
-    "cpu_temp_c": 61.7,
+    "cpu_temp_c": 63.35,
     "disk_pct": 80,
-    "load_1min": 0.08,
-    "mem_pct": 40
+    "load_1min": 0.02,
+    "mem_pct": 42
   },
   "last_runs": {
-    "run_strategy": "Mon 2026-08-03 12:00:07 CEST",
+    "run_strategy": null,
     "sync_positions": "Mon 2026-08-03 12:35:10 CEST",
     "track_outcomes": "Mon 2026-08-03 02:30:18 CEST"
   },
@@ -42,5 +42,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-08-03T10:58:05"
+  "timestamp_utc": "2026-08-03T11:00:05"
 }
