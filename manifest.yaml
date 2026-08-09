@@ -566,8 +566,7 @@ views:
         stumm, und der Marktvergleich war vier Wochen tot ohne dass es auffiel. Dort ist KI-Ueberwachung sinnvoll.
         NEUE LINIE: KI denkt und wacht, REGELN handeln. Keine Instanz entscheidet, welche Aktie gekauft wird.
         Rollen-Titel wie CEO/CTO werden nicht vergeben — ein Sprachmodell traegt keine Verantwortung, es klingt
-        nur so. ABSCHALTREGEL (neu, verbindlich): Liegt eine Strategie am 2027-05-01 (12 Monate Live-Betrieb)
-        mehr als 5 Punkte hinter dem SPY, wird sie ABGESCHALTET statt optimiert. Vorher festgelegt, damit
+        nur so. ABSCHALTREGEL (verbindlich, am 2026-08-09 auf Merts Einwand hin VERSCHAERFT): Liegt eine Strategie am 2026-10-31 mehr als 5 Punkte hinter dem SPY, wird sie ABGESCHALTET statt optimiert. Urspruenglich war der 2027-05-01 angesetzt. Mert wandte ein, dass neun weitere Monate zu grosszuegig sind fuer ein System, das in einem STEIGENDEN Markt Geld verliert. Die Gegenprobe stuetzt ihn: zwischen dem 13. und 20.07.2026 verlor das Momentum-Depot 6,5 Prozent, waehrend der Markt nur 0,9 Prozent nachgab — der Rueckstand kommt aus der AKTIENAUSWAHL, nicht aus den Betriebspannen. Damit faellt das Argument weg, ein laengerer Testlauf koenne das Bild drehen. Ueberwacht von scripts/abschalt_check.py (taeglicher Timer, meldet per Telegram sobald der Stichtag erreicht ist). Vorher festgelegt, damit
         das Ergebnis nicht nachtraeglich schoengeredet wird. Voraussetzung dafuer war der Benchmark-Fix am
         selben Tag.'
     - t: Marktvergleich war 4 Wochen tot — Folgeschaden des Circuit-Breaker-Fixes
@@ -897,8 +896,8 @@ tasks:
 - title: 'Stichtag Abschaltregel: schlaegt investpi den Markt?'
   art: einmalig
   prioritaet: hoch
-  faellig: '2027-05-01'
-  was: 'Am 2027-05-01 sind 12 Monate Live-Betrieb voll. Regel (am 2026-08-09 vorher festgelegt): Liegt
+  faellig: '2026-10-31'
+  was: 'Am 2026-10-31 sind drei Monate mit funktionierendem Marktvergleich vorbei. Der Pi meldet sich an dem Tag von selbst per Telegram. Regel (am 2026-08-09 festgelegt, auf deinen Einwand hin von Mai 2027 vorgezogen): Liegt
     eine Strategie mehr als 5 Punkte hinter dem Welt-/SPY-Index, wird sie ABGESCHALTET statt weiter optimiert.
     Zahl steht im Dashboard unter "vs SPY". Stand 2026-08-09: Momentum 11,2 Punkte hinten, KI-Swing 4,9
     Punkte hinten. Nicht schoenreden — die Regel wurde genau deshalb im Voraus festgeschrieben.'
