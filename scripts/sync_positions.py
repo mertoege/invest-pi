@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.broker import get_broker
 from src.common.fx import eur_per_usd
+from src.common.performance import current_spy_close
 from src.common.storage import TRADING_DB, connect, init_all
 from src.trading import load_trading_config
 
@@ -62,12 +63,12 @@ def sync(broker_kind: str | None = None) -> dict:
             INSERT INTO equity_snapshots
                 (cash_eur, positions_value_eur, total_eur,
                  cash_usd, positions_value_usd, total_usd,
-                 fx_rate, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 fx_rate, source, spy_close)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (account.cash_eur, pos_value, account.equity_eur,
              account.cash_usd, positions_value_usd, account.equity_usd,
-             account.fx_rate, src),
+             account.fx_rate, src, current_spy_close()),
         )
 
         # 3. Positions upsert (broker = source of truth fuer qty/avg, DB-Felder bleiben erhalten)

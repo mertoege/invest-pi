@@ -39,6 +39,7 @@ if _env.exists():
 
 from src.broker import get_broker
 from src.common.fx import eur_per_usd
+from src.common.performance import current_spy_close
 from src.common.storage import TRADING_DB, connect, init_all
 
 # Festes Quell-Tag — NIE aus is_paper ableiten (beide Konten sind paper).
@@ -70,12 +71,12 @@ def sync() -> dict:
             INSERT INTO equity_snapshots
                 (cash_eur, positions_value_eur, total_eur,
                  cash_usd, positions_value_usd, total_usd,
-                 fx_rate, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 fx_rate, source, spy_close)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (account.cash_eur, pos_value, account.equity_eur,
              account.cash_usd, positions_value_usd, account.equity_usd,
-             account.fx_rate, SOURCE),
+             account.fx_rate, SOURCE, current_spy_close()),
         )
 
         # 3. Positions upsert auf (ticker, source) — Broker = Wahrheit fuer qty/avg,

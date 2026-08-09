@@ -55,19 +55,26 @@ class LLMResult:
     raw:               dict = field(default_factory=dict)
 
 
+# Angefragtes Modell -> Modell-ID fuer die Claude-CLI.
+# Die Tier-Wahl der Aufrufer wird RESPEKTIERT: wer Sonnet anfordert, bekommt
+# Sonnet. Frueher zeigte hier jeder Eintrag auf Opus — dadurch lief auch
+# simple Klassifikation auf dem teuersten Modell (Sonnet -40%, Haiku -80%
+# gegenueber Opus). Aeltere Tier-Namen werden auf den aktuellen Stand gehoben.
 MODEL_MAP = {
-    "claude-sonnet-4-6": "claude-opus-4-8",
-    "claude-opus-4-6":   "claude-opus-4-8",
-    "claude-opus-4-7":   "claude-opus-4-8",
-    "claude-opus-4-8":   "claude-opus-4-8",
-    "claude-haiku-4-5":  "claude-opus-4-8",
+    "claude-haiku-4-5":  "claude-haiku-4-5",
+    "claude-sonnet-4-6": "claude-sonnet-5",
+    "claude-sonnet-5":   "claude-sonnet-5",
+    "claude-opus-4-6":   "claude-opus-5",
+    "claude-opus-4-7":   "claude-opus-5",
+    "claude-opus-4-8":   "claude-opus-5",
+    "claude-opus-5":     "claude-opus-5",
 }
 
 
 def _raw_call(model: str, system: str, prompt: str,
               max_tokens: int, temperature: float) -> dict:
     """Ruft Claude Code CLI auf. Returns parsed JSON response."""
-    cli_model = MODEL_MAP.get(model, "claude-opus-4-8")
+    cli_model = MODEL_MAP.get(model, "claude-sonnet-5")
 
     full_prompt = f"{system}\n\n---\n\n{prompt}"
 
