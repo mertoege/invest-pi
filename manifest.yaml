@@ -858,6 +858,14 @@ protections:
 - Korrelations-Check
 - Tages-Verlust-Limit
 tasks:
+- title: 'Stichtag Abschaltregel: schlaegt investpi den Markt?'
+  art: einmalig
+  prioritaet: hoch
+  faellig: '2027-05-01'
+  was: 'Am 2027-05-01 sind 12 Monate Live-Betrieb voll. Regel (am 2026-08-09 vorher festgelegt): Liegt
+    eine Strategie mehr als 5 Punkte hinter dem Welt-/SPY-Index, wird sie ABGESCHALTET statt weiter optimiert.
+    Zahl steht im Dashboard unter "vs SPY". Stand 2026-08-09: Momentum 11,2 Punkte hinten, KI-Swing 4,9
+    Punkte hinten. Nicht schoenreden — die Regel wurde genau deshalb im Voraus festgeschrieben.'
 - title: Revolut-Gebuehr fuer den zweiten Handel nachschauen
   art: einmalig
   prioritaet: mittel
