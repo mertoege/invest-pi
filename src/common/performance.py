@@ -23,6 +23,29 @@ from typing import Optional
 from .storage import TRADING_DB, connect
 
 
+def current_spy_close() -> Optional[float]:
+    """
+    Letzter SPY-Schlusskurs fuer den Benchmark-Vergleich im Equity-Snapshot.
+
+    Wird beim Schreiben jedes Snapshots aufgerufen. Faellt der Abruf aus (Yahoo
+    down, kein Netz), gibt die Funktion None zurueck und der Snapshot wird ohne
+    Benchmark geschrieben — der Sync darf daran NIE scheitern.
+
+    Hintergrund (2026-08-09): Beim Circuit-Breaker-Fix am 2026-07-14 ging das
+    Befuellen von spy_close verloren. Vier Wochen lang konnte das System nicht
+    mehr sagen, ob es besser oder schlechter als der Markt lief.
+    """
+    try:
+        from .data_loader import get_prices
+        df = get_prices("SPY", period="1mo")
+        if df is None or df.empty:
+            return None
+        return float(df["close"].iloc[-1])
+    except Exception as exc:  # noqa: BLE001 — Benchmark darf den Sync nie kippen
+        print(f"  WARN: SPY-Benchmark nicht abrufbar ({exc}) — Snapshot ohne Vergleichswert.")
+        return None
+
+
 @dataclass
 class PerfMetrics:
     period_days:    int
