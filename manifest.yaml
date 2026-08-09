@@ -545,6 +545,42 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Keine KI-Firma — stattdessen ehrlich messen und abspecken (mit Abschaltregel)
+      d: 'ENTSCHEIDUNG 2026-08-09. Mert hatte vorgeschlagen, das Projekt von einem KI-System wie eine Firma
+        managen zu lassen (CEO, CTO, Abteilungen, 24/7-Ueberwachung) und die Entscheidung dann an Claude delegiert.
+        ABGELEHNT in dieser Form. BEFUND: Momentum lag am 2026-08-09 bei -2,3 Prozent seit dem 29.04., der
+        Markt (SPY) im selben Zeitraum bei +8,9 Prozent — 11,2 Punkte hinten, bei -15 Prozent groesstem Einbruch
+        und negativem Sharpe. Der KI-Swing-Trader liegt seit dem 02.07. 4,9 Punkte hinten. Beide verlieren
+        Geld in einem STEIGENDEN Markt; das ist kein Pech, sondern ein Konstruktionsfehler. BELEGE GEGEN DIE
+        FIRMEN-IDEE: (1) Alpha Arena (nof1.ai) gab Ende 2025 sechs Spitzenmodellen je 10.000 Dollar ECHTES
+        Geld — vier von sechs endeten tief im Minus (Claude und Gemini je ueber -40 Prozent, Grok -58 Prozent),
+        Ursache durchweg kaputtes Risikomanagement; seit Dezember 2025 gibt es keine neue Runde. (2) Eine
+        Untersuchung vom Juli 2026 zeigt, dass Agenten-TEAMS Einzelmodelle nicht zuverlaessig schlagen — bei
+        gleichem Denkbudget ist ein Einzelagent meist gleich gut oder besser, und viele Multi-Agent-Systeme
+        degenerieren still zu "einer arbeitet, der Rest macht Laerm". (3) Das meistkopierte Vorbild fuer die
+        Idee (virattt/ai-hedge-fund, mit Analysten- und Portfoliomanager-Agenten) handelt laut eigener Anleitung
+        ueberhaupt nicht echt und hat keine Erfolgsbilanz. (4) Rund 70 Prozent der Strategien, die im Rueckblick
+        gut aussehen, fallen live durch — exakt unser Muster (7 von 9 Jahren im Backtest geschlagen, live
+        11 Punkte hinten). WAS DER IDEE RECHT GIBT: Der BETRIEB ist nachweislich das, was blutet — ein Circuit-Breaker-Fehlalarm
+        fror die Engine 7 Tage ein, eine leere Kurszeile legte die Kursversorgung lahm, zehn Jobs scheiterten
+        stumm, und der Marktvergleich war vier Wochen tot ohne dass es auffiel. Dort ist KI-Ueberwachung sinnvoll.
+        NEUE LINIE: KI denkt und wacht, REGELN handeln. Keine Instanz entscheidet, welche Aktie gekauft wird.
+        Rollen-Titel wie CEO/CTO werden nicht vergeben — ein Sprachmodell traegt keine Verantwortung, es klingt
+        nur so. ABSCHALTREGEL (neu, verbindlich): Liegt eine Strategie am 2027-05-01 (12 Monate Live-Betrieb)
+        mehr als 5 Punkte hinter dem SPY, wird sie ABGESCHALTET statt optimiert. Vorher festgelegt, damit
+        das Ergebnis nicht nachtraeglich schoengeredet wird. Voraussetzung dafuer war der Benchmark-Fix am
+        selben Tag.'
+    - t: Marktvergleich war 4 Wochen tot — Folgeschaden des Circuit-Breaker-Fixes
+      d: 'BEFUND + FIX 2026-08-09. Beim Circuit-Breaker-Fix am 2026-07-14 (PR #13, Glitch-Waechter im Equity-Snapshot)
+        ging das Befuellen von spy_close verloren. Folge: Ab dem 14.07. schrieb kein Sync-Pfad mehr einen
+        Vergleichswert, die Alpha-Berechnung in performance.py lief ins Leere, und das System konnte vier
+        Wochen lang nicht sagen, ob es besser oder schlechter als der Markt laeuft. Der KI-Swing-Pfad (ai_swing_sync.py,
+        seit 02.07.) hat NIE einen geschrieben. Aufgefallen ist es erst bei der Grundsatz-Diskussion am 09.08.
+        FIX: Beide Sync-Pfade schreiben den SPY-Schluss wieder mit, ueber src/common/performance.py::current_spy_close().
+        Der Abruf ist fail-soft — faellt Yahoo aus, wird der Snapshot ohne Vergleichswert geschrieben, statt
+        den Sync zu kippen. Die Luecke wurde rueckwirkend aus market.db gefuellt (2956 Zeilen), sodass beide
+        Strategien eine lueckenlose Messreihe ab ihrem Start haben. LEHRE: Eine Kennzahl, die niemand aktiv
+        prueft, kann monatelang tot sein. Die Abschaltregel haengt an genau dieser Zahl.'
     - t: Aus dem Sparplan wird ein KI-Portfolio-Manager — eine Entscheidung pro Monat
       d: 'ENTSCHEIDUNG 2026-08-01 (Mert). Auf den Befund, dass der Sparplan faktisch nie eine
         Auswahl traf, war die erste Antwort ein besserer Sparplan. Mert hat widersprochen und den
