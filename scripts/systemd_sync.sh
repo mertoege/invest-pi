@@ -29,6 +29,38 @@ CHANGED=0
 # ────────────────────────────────────────────────────────────
 RESTARTABLE="invest-pi-webapp invest-pi-terminal"
 
+# ────────────────────────────────────────────────────────────
+# Modus 3: einen NEUEN Timer scharf schalten (2026-08-09)
+#
+# Hintergrund: der File-Sync oben kopiert neue Units und macht daemon-reload,
+# aktiviert sie aber nicht — ein frisch ausgerollter Timer liegt danach als
+# "disabled/inactive" da und feuert nie. Das faellt erst auf, wenn die erwartete
+# Meldung ausbleibt, also potenziell Monate spaeter (beim Abschaltregel-Waechter
+# waere genau das der Fall gewesen).
+#
+# Bewusst NICHT automatisch fuer alle Units: mehrere Timer sind absichtlich
+# deaktiviert (z.B. invest-pi-score als Referenz der stillgelegten Score-Aera).
+# Ein Auto-Enable haette die wieder scharf gemacht.
+#
+# Sicherheit: gleiche Regel wie bei --restart — nur die fest verdrahtete Liste.
+# Das Argument kommt aus einem Repo, das automatisch von GitHub zieht.
+# ────────────────────────────────────────────────────────────
+ENABLEABLE="invest-pi-abschalt-check.timer"
+
+if [ "${1:-}" = "--enable" ]; then
+    unit="${2:-}"
+    case " $ENABLEABLE " in
+        *" $unit "*)
+            systemctl enable --now "$unit"
+            exit $?
+            ;;
+        *)
+            echo "systemd_sync: '$unit' steht nicht auf der Scharfschalt-Liste" >&2
+            exit 1
+            ;;
+    esac
+fi
+
 if [ "${1:-}" = "--restart" ]; then
     unit="${2:-}"
     case " $RESTARTABLE " in
