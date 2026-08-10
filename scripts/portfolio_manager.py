@@ -49,7 +49,7 @@ if env_path.exists():
 
 from src.alerts import notifier
 from src.common import config as cfg_mod
-from src.common import pm_context, pm_rules, thesis_store
+from src.common import depot_stillgelegt, pm_context, pm_rules, thesis_store
 from src.common.json_utils import safe_parse
 from src.common.llm import call_sonnet, is_configured as llm_configured
 
@@ -273,6 +273,9 @@ def _telegram(plan: dict, decision: dict, blocks: list, warns: list,
 
 
 def main(dry_run: bool = False) -> int:
+    if depot_stillgelegt.ist_stillgelegt():
+        print(depot_stillgelegt.HINWEIS)
+        return 0
     if not llm_configured():
         log.warning("ANTHROPIC_API_KEY fehlt — portfolio_manager uebersprungen")
         return 0

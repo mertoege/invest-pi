@@ -1,3 +1,6 @@
+# STILLGELEGT seit 2026-08-10 — der Depot-Teil liegt bei DepotPi.
+# Der Timer ist per `systemctl disable --now` aus; zusaetzlich steigt das Skript
+# selbst sofort aus (src/common/depot_stillgelegt.py). Datei bleibt als Referenz.
 [Unit]
 Description=Invest-Pi · Portfolio-Manager jeden 1. um 14:00 CEST
 

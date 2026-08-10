@@ -9,6 +9,9 @@ summary: >-
   geringerem Drawdown. Das alte 20-Kennzahlen-Score-/Self-Learning-System wurde abgeloest (schlug den
   Markt nachweislich NICHT — Risiko-Vorhersage schlechter als ein Dummy). Lernen jetzt auf Strategie-
   Ebene (Varianten per Backtest validiert), nicht mehr Trade-fuer-Trade.
+  SEIT 2026-08-10 KEIN DEPOT-TEIL MEHR: Merts echtes Revolut-Depot und der Monats-Sparplan liegen
+  bei DepotPi. invest-pi ist wieder reine Strategie-Forschung auf Spielgeld; die Depot-Ansicht im
+  Dashboard ist eingefroren und als veraltet gekennzeichnet.
 flow:
 - - Quellen
   - yfinance (Kurse/Volumen) · FRED (Makro) — breites Large-Cap-Universum
@@ -74,9 +77,9 @@ jobs:
   - ok
   - aktiv
 - - Monats-Sparplan (DCA)
-  - invest-pi-monthly-dca · 1. d. Monats
-  - ok
-  - aktiv
+  - invest-pi-monthly-dca · STILLGELEGT 10.08.2026 (DepotPi)
+  - aus
+  - stillgelegt
 - - Monats-Digest / Momentum-Check
   - invest-pi-monthly-digest · 3. d. Monats (Telegram)
   - ok
@@ -90,9 +93,9 @@ jobs:
   - ok
   - aktiv
 - - DCA-Watchdog
-  - invest-pi-dca-watchdog · taeglich 18:00
-  - ok
-  - aktiv
+  - invest-pi-dca-watchdog · STILLGELEGT 10.08.2026 (DepotPi)
+  - aus
+  - stillgelegt
 - - System-Operator (Health + Auto-Fix)
   - invest-pi-operator · taeglich 13:00
   - ok
@@ -439,11 +442,11 @@ views:
         d: Sell-only Pass (Stop/TP) zum Close.
         badge: Mo–Fr 21:30
       - t: monthly-dca
-        d: Monatlicher Sparplan-Pick.
-        badge: 1. d. Monats 14:00
+        d: Monatlicher Sparplan-Pick. Stillgelegt — Depot liegt bei DepotPi.
+        badge: aus seit 10.08.2026
       - t: dca-watchdog
-        d: Überwacht DCA-Positionen auf Probleme.
-        badge: täglich 18:00
+        d: Überwachte DCA-Positionen. Stillgelegt — Depot liegt bei DepotPi.
+        badge: aus seit 10.08.2026
     - label: Lernen (DEAKTIVIERT — Score-System)
       color: '#c98fd0'
       cards:
@@ -580,8 +583,56 @@ views:
         den Sync zu kippen. Die Luecke wurde rueckwirkend aus market.db gefuellt (2956 Zeilen), sodass beide
         Strategien eine lueckenlose Messreihe ab ihrem Start haben. LEHRE: Eine Kennzahl, die niemand aktiv
         prueft, kann monatelang tot sein. Die Abschaltregel haengt an genau dieser Zahl.'
-    - t: Aus dem Sparplan wird ein KI-Portfolio-Manager — eine Entscheidung pro Monat
-      d: 'ENTSCHEIDUNG 2026-08-01 (Mert). Auf den Befund, dass der Sparplan faktisch nie eine
+    - t: Depot-Teil stillgelegt und an DepotPi übergeben — invest-pi ist wieder reine Strategie
+      d: 'ENTSCHEIDUNG 2026-08-10 (Übergabe von DepotPi angefordert, hier umgesetzt). Der gesamte
+        Depot-/Sparplan-Teil von invest-pi ist ABGESCHALTET: invest-pi-monthly-dca (Portfolio-Manager,
+        haette am 01.09. gefeuert) und invest-pi-dca-watchdog (taeglich 18:00, sparte nebenbei
+        LLM-Kosten). WARUM JETZT - Mert bespart seit dem 10.08.2026 zwei provisionsfreie
+        Revolut-ETF-Sparplaene (80 EUR VWCE + 20 EUR AHYD). Damit faellt das einzige Gegenargument
+        weg, das den Job bisher am Leben hielt ("nicht abschalten, sonst faellt ein Monat aus") -
+        der Monatsbeitrag laeuft ohnehin. Der Portfolio-Manager haette am 01.09. eine EINZELAKTIE
+        empfohlen und damit gegen die neue Anlagepolitik gearbeitet. DAMIT UEBERHOLT - die
+        Entscheidung vom 2026-08-01 ("Aus dem Sparplan wird ein KI-Portfolio-Manager", direkt
+        darunter): die Idee war richtig, sie laeuft nur nicht mehr hier, sondern bei DepotPi.
+        Ebenso ueberholt - die 1-Gratis-Handel-Randbedingung und die Frage nach der Revolut-Gebuehr;
+        beides ist jetzt DepotPis Problem. WIE ABGESCHALTET (zwei Ebenen, mit Absicht) - (1) neues
+        Modul src/common/depot_stillgelegt.py, das portfolio_manager.py und dca_watchdog.py sofort
+        aussteigen laesst; wirkt auch dann, wenn ein Timer noch scharf ist oder versehentlich wieder
+        scharf gemacht wird. (2) systemctl disable der beiden Timer ueber den neuen --disable-Modus
+        von systemd_sync.sh (fest verdrahtete Zwei-Unit-Liste, weil das Argument aus einem
+        auto-gepullten Repo kommt). Der CODE BLEIBT LIEGEN, als Referenz fuer DepotPi. WAS BLEIBT -
+        die Momentum-Engine (Spielgeld), der KI-Swing-Trader und die Abschaltregel zum 2026-10-31.
+        Der portfolio-Block in der config.yaml wird NICHT MEHR GEPFLEGT und ist nachweislich falsch
+        (VWCE 0,608939 Stueck / 100 EUR statt echter 0,302188 / 50 EUR; UNH 0,1361423 Stueck fehlt
+        ganz). Er bleibt eingefroren stehen und /api/dca kennzeichnet ihn in der Oberflaeche als
+        veraltet - eine leere Seite haette Mert nicht gesagt, WARUM sie leer ist.'
+    - t: Datenverlust-Bug behoben — zwei Timer im selben Repo frassen fremde Commits
+      d: 'BEFUND 2026-08-10 (von DepotPi gemeldet, hier nachgewiesen und behoben). Am 01.08.2026 um
+        16:38:45 (14:38 UTC) committete der Portfolio-Manager Merts UNH-Kauf in die config.yaml.
+        58 Sekunden spaeter war der Commit spurlos weg - kein Fehler, keine Logzeile. BELEG aus dem
+        Reflog - 16:39:42 startete auto_pull.sh einen Rebase im selben Arbeitsverzeichnis, 16:39:47
+        lief das parallel laufende status_push.sh dadurch in einen Rebase-Konflikt und ging in
+        seinen Notausgang "git reset --hard origin/main". Der rettet nur den eigenen
+        Status-Snapshot; jeder andere noch nicht gepushte Commit faellt weg. Um 16:40:30 wurde der
+        Kauf erneut committet und um 16:41:51 auf demselben Weg ein zweites Mal geloescht.
+        URSACHE, zwei Haelften - (1) buy.persist_config_change war "best effort" und hat jeden
+        git-Rueckgabewert verschluckt; ob der Push wirklich ankam, hat nie jemand geprueft.
+        (2) Beide 2-Minuten-Timer schreiben im selben Repo und haben denselben Hard-Reset als
+        Notausgang. FOLGE fuer Mert - seine Depot-Anzeige zeigte zwei Wochen lang einen
+        VWCE-Kauf, den es nie gab, und den echten UNH-Kauf gar nicht. BEHOBEN - (1)
+        persist_config_change prueft jetzt per merge-base NACH dem Push nach, ob der Commit
+        wirklich auf origin/main liegt, versucht es dreimal und schlaegt sonst per Telegram Alarm,
+        nachdem es den Commit als Rettungs-Tag gesichert hat. (2) neues scripts/git_rescue.sh, von
+        auto_pull.sh und status_push.sh gesourct - es legt vor jedem Hard-Reset alle fremden
+        (= nicht "status:") lokalen Commits als Tag beiseite und spielt sie danach per cherry-pick
+        zurueck. (3) die wortgleiche Kopie in monthly_dca.py delegiert jetzt an buy.py, statt den
+        Fehler ein zweites Mal zu enthalten. WICHTIG - der Bug ist NICHT depot-spezifisch. Er trifft
+        alles, was zur Laufzeit eine getrackte Datei schreibt; die Stilllegung des Depot-Teils haette
+        ihn nur unsichtbar gemacht, nicht geheilt.'
+    - t: ÜBERHOLT (10.08.2026) — Aus dem Sparplan wird ein KI-Portfolio-Manager
+      d: 'ÜBERHOLT AM 2026-08-10: der Portfolio-Manager laeuft nicht mehr hier, sondern bei DepotPi
+        (s. Eintrag "Depot-Teil stillgelegt" oben). Die Begruendung unten bleibt als Historie stehen.
+        ENTSCHEIDUNG 2026-08-01 (Mert). Auf den Befund, dass der Sparplan faktisch nie eine
         Auswahl traf, war die erste Antwort ein besserer Sparplan. Mert hat widersprochen und den
         eigentlichen Projektzweck klargestellt - eine KI soll auswaehlen und verwalten, nicht
         stumpf eine jahrzehntealte Regel auf einen Standard-ETF anwenden. Es soll ein
@@ -893,6 +944,14 @@ protections:
 - Korrelations-Check
 - Tages-Verlust-Limit
 tasks:
+- title: Depot-Stilllegung freigeben (PR mergen)
+  art: einmalig
+  prioritaet: hoch
+  was: 'Auf GitHub liegt der Branch depot-stilllegung als Pull Request. Er schaltet den Depot-Teil
+    von invest-pi ab (DepotPi übernimmt), kennzeichnet die alte Depot-Ansicht im Dashboard sichtbar
+    als „nicht mehr gepflegt" und behebt nebenbei den Fehler, durch den deine UNH-Buchung vom 01.08.
+    verloren ging. Bitte auf GitHub mergen — direkt auf main pushen darf Claude nicht. Erst danach
+    sind die beiden Timer wirklich aus; bis dahin würde der Portfolio-Manager am 1.9. noch feuern.'
 - title: 'Stichtag Abschaltregel: schlaegt investpi den Markt?'
   art: einmalig
   prioritaet: hoch
@@ -901,44 +960,6 @@ tasks:
     eine Strategie mehr als 5 Punkte hinter dem Welt-/SPY-Index, wird sie ABGESCHALTET statt weiter optimiert.
     Zahl steht im Dashboard unter "vs SPY". Stand 2026-08-09: Momentum 11,2 Punkte hinten, KI-Swing 4,9
     Punkte hinten. Nicht schoenreden — die Regel wurde genau deshalb im Voraus festgeschrieben.'
-- title: Revolut-Gebuehr fuer den zweiten Handel nachschauen
-  art: einmalig
-  prioritaet: mittel
-  was: 'Der Portfolio-Manager rechnet damit, dass du einen Gratis-Handel im Monat hast und jeder
-    weitere rund 1 EUR oder 0,25 Prozent kostet — bei 50 EUR waeren das bis zu 2 Prozent. Auf
-    dieser Annahme steht die ganze Regel "nur eine Entscheidung pro Monat". Schau bitte einmal in
-    der Revolut-App nach, was ein zusaetzlicher Handel in deinem Tarif WIRKLICH kostet, und sag
-    Bescheid. Weicht es stark ab, passe ich die Regel an.'
-- title: Anweisungen des Portfolio-Managers ausfuehren und Abweichungen melden
-  art: routine
-  turnus: monatlich
-  prioritaet: hoch
-  was: 'Ab sofort bekommst du am 1. jedes Monats EINE klare Anweisung per Telegram - kaufen,
-    verkaufen oder diesen Monat nicht handeln. Fuehr sie bei Revolut aus. Das Depot-Protokoll
-    wird automatisch mitgeschrieben, es geht also nur schief, wenn du etwas ANDERES machst als
-    angewiesen. Wenn du abweichst, nicht ausfuehrst oder zusaetzlich handelst - kurz Bescheid
-    sagen (Ticker, Stueckzahl, Kurs), sonst driftet die Anzeige auseinander.'
-- title: Sparplan-Umbau freigeben (PR mergen) und UNH ignorieren
-  art: einmalig
-  prioritaet: hoch
-  was: 'Zwei Dinge. ERSTENS - du hast am 01.08. eine Telegram-Nachricht bekommen, die UNH
-    vorschlaegt. Die ist ungueltig, bitte NICHT kaufen; sie entstand durch einen Testlauf, der
-    versehentlich echt gebucht hat. Dein August-Sparplan ist mit VWCE bereits erledigt. ZWEITENS -
-    auf GitHub liegt der Branch fix/sparplan-echte-analyse. Der repariert die Auswahl des
-    Sparplans (echter Scan ueber rund 90 Aktien statt nur der eigenen vier Positionen), zieht die
-    UNH-Fehlbuchung wieder raus und fuehrt eine laufende Bilanz gegen den Welt-ETF ein. Bitte auf
-    GitHub als Pull Request mergen — direkt auf main pushen darf Claude nicht. Bis dahin bleibt
-    der alte Zustand aktiv und UNH steht faelschlich im Depot.'
-- title: Echtes DCA-Depot melden, wenn du selbst kaufst oder verkaufst
-  art: routine
-  turnus: monatlich
-  prioritaet: mittel
-  was: 'Das DCA-Depot im Dashboard kommt seit 2026-07-27 aus dem portfolio-Block der config.yaml —
-    also aus dem, was du WIRKLICH haeltst, nicht mehr aus dem Empfehlungs-Protokoll. Dadurch stimmt
-    es nur, solange die config deinen echten Bestand kennt. Wenn du bei Revolut etwas kaufst,
-    verkaufst oder nachlegst (auch abweichend von der Empfehlung), sag kurz Bescheid — Ticker,
-    Stueckzahl, Kurs. Claude traegt es ein. Sonst driftet die Anzeige wieder auseinander, genau wie
-    bei ORCL (verkauft am 10.07., stand am 27.07. noch mit -32% im Depot).'
 - title: KI-Swing-Trader — Timer aktivieren (sudo)
   art: einmalig
   prioritaet: mittel

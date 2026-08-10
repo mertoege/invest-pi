@@ -27,6 +27,10 @@ LOG="$LOG_DIR/status_push.log"
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 log() { echo "[$(ts)] $*" | tee -a "$LOG" >&2; }
 
+# Schutz fuer fremde, ungepushte Commits beim Hard-Reset (siehe git_rescue.sh)
+# shellcheck source=/dev/null
+. "$REPO_DIR/scripts/git_rescue.sh"
+
 cd "$REPO_DIR" || { log "REPO_DIR not found"; exit 1; }
 
 # Snapshot bauen via Python (sauberer als bash + jq)
@@ -173,7 +177,9 @@ if ! git diff --cached --quiet; then
         # Snapshot sichern, auf origin zuruecksetzen, Snapshot neu committen
         cp "$REPO_DIR/_status/snapshot.json" /tmp/_snapshot_backup.json 2>/dev/null || true
         git fetch origin --quiet 2>>"$LOG"
+        rescue_foreign_commits
         git reset --hard origin/main 2>>"$LOG"
+        restore_foreign_commits
         cp /tmp/_snapshot_backup.json "$REPO_DIR/_status/snapshot.json" 2>/dev/null || true
         git add _status/snapshot.json
         if ! git diff --cached --quiet; then

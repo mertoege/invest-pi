@@ -50,6 +50,7 @@ if env_path.exists():
         os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 from src.alerts import notifier
+from src.common import depot_stillgelegt
 from src.common.storage import LEARNING_DB, connect
 
 log = logging.getLogger("invest_pi.dca_watchdog")
@@ -362,6 +363,9 @@ def run(dry_run: bool = False) -> dict:
 
 
 def main() -> int:
+    if depot_stillgelegt.ist_stillgelegt():
+        print(depot_stillgelegt.HINWEIS)
+        return 0
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true",
                         help="Keine LLM-Calls, nur Trigger pruefen")
