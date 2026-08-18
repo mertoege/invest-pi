@@ -858,6 +858,27 @@ views:
         gestreuten 90-Namen-Korb; Diversifikation also schon da. Einzige reale Schwaeche - der Korb lag in
         einer Backtest-Datei; jetzt eigene Quelle src/common/universe.py (Live+Backtest identisch). Verhalten unveraendert.
       badge: 2026-06-24
+    - t: Live-Rückstand analysiert - kein Defekt, keine belegbare Verbesserung
+      d: 'Anlass - Live-Paper 29.04.-18.08.2026 nur -1,2% (USD) gegen SPY +8,8%, also ~10 Punkte Rückstand.
+        BEFUND - die Ursache ist EIN Monat, nicht das System. Juli-Korb (AMD/CSCO/C/CAT/TXN) -8,3% gegen
+        SPY +1,6%; klassischer Momentum-Reversal - die hoch-momentigen Titel kippten breit (MU -20%,
+        INTC -28%, CAT -16%). August-Korb (AMD/CSCO/MU/INTC/UNH) +6,7% gegen SPY +2,0%, Engine also intakt.
+        AUSFÜHRUNG SAUBER - Depot-Verlauf folgt dem Korb (Juli Depot -7,0% vs Korb -8,3%), Cash-Drag nur
+        2,5-4%, kein Leck. EINORDNUNG - im Backtest liegen 36% aller 4-Monats-Fenster hinter dem Markt,
+        6% davon >=10 Punkte, schlechtestes -19 Punkte. Der aktuelle Stand ist damit NORMALES Verhalten
+        der bewiesenen Strategie, kein Signal. VARIANTEN GETESTET (Sweep 2018-26, beide Hälften,
+        Jahres-Trefferquote) - Top-3 (35,0%/Sharpe 1,10), Top-5 LIVE (30,5%/1,13), Top-8 (24,6%/1,13),
+        Top-10 (20,3%/1,00), Top-15 (21,3%/1,13), Sektor-Cap max2 bzw. max3 je Sektor (18,8-24,9%,
+        MaxDD SCHLECHTER), 1/Vola-Gewichtung (16,9%/0,93). Top-5 gleichgewichtet ist Sharpe-Optimum UND
+        Rendite-Optimum unter den robusten Varianten - jede Änderung wäre Verschlechterung. Top-8 bietet
+        gleiche Sharpe bei MaxDD -15% statt -18%, kostet aber ~6 Punkte Rendite/J; bei Merts Zielsetzung
+        (max. absolute Rendite) nicht gerechtfertigt. FEHLHYPOTHESE WIDERLEGT - Verdacht, der Live-Sanity-
+        Filter MAX_6M_MOM=2,00 werfe echte Gewinner raus (Juli - MU +253% / INTC +241% wurden verworfen).
+        Gegenrechnung - die echten Top-5 hätten im Juli -16,8% gemacht statt der gehaltenen -8,3%; der
+        Filter hat GESPART. Backtest bestätigt - mit Cap 31,2%/Sharpe 1,17 vs ohne Cap 30,5%/1,13, griff
+        in nur 5 von 101 Ticker-Monaten. Filter bleibt. ERGEBNIS - keine Änderung an der Strategie; der
+        Rückstand ist auszusitzen, nicht wegzuoptimieren.'
+      badge: 2026-08-18
     - t: Echtgeld bleibt gesperrt
       d: Kein echtes Geld vor Live-Beweis ueber mehrere Jahre + mind. 1 Crash. Bewusst konservativ.
       badge: Dauerregel
