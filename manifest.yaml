@@ -879,6 +879,20 @@ views:
         in nur 5 von 101 Ticker-Monaten. Filter bleibt. ERGEBNIS - keine Änderung an der Strategie; der
         Rückstand ist auszusitzen, nicht wegzuoptimieren.'
       badge: 2026-08-18
+    - t: 'DayPi-Tab: Gesamt-Zeitverlauf ergänzt'
+      d: 'Der DayPi-Tab zeigte nur den Intraday-Verlauf des laufenden Tages (equity_curve),
+        der jede Nacht wertlos wird - ausserhalb der US-Marktzeit stand die Karte leer.
+        NEU - Umschalter Gesamt/Heute im selben Kartenrahmen; Gesamt ist Standard und liest
+        equity_history aus der DayPi-Datenbrücke (/home/pi/daytrader/data/daypi_public.json,
+        welt-lesbar, Doku docs/webapp-datenbruecke.md bei DayPi). Ein Punkt je Handelstag als
+        KATEGORIE-Achse gezeichnet, nicht als echte Zeitachse - Wochenenden/Feiertage fehlen in
+        den Daten und würden sonst Lücken reissen. Fläche zwischen Kurve und Startlinie
+        (100k) grün darüber / rot darunter, Crosshair samt Tooltip (Datum, Kontostand, P/L seit
+        Start, Abstand zum Hoch), Kennzahlen Handelstage/Hoch/max. Rückgang im Kartenkopf.
+        Reines SVG ohne neue Abhängigkeit, Neuzeichnen nur bei geänderten Daten (der Tab
+        aktualisiert alle 2 s - sonst bräche der Hover ständig ab). Kein Backend-Eingriff nötig,
+        /api/daypi spiegelt das Snapshot bereits vollständig.'
+      badge: 2026-08-18
     - t: Echtgeld bleibt gesperrt
       d: Kein echtes Geld vor Live-Beweis ueber mehrere Jahre + mind. 1 Crash. Bewusst konservativ.
       badge: Dauerregel
