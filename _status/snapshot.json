@@ -1,25 +1,25 @@
 {
   "equity": {
-    "as_of": "2026-08-18 06:35:08",
-    "cash_eur": 3418.05,
-    "cash_usd": 3959.74,
+    "as_of": "2026-08-18 06:40:11",
+    "cash_eur": 16409.51,
+    "cash_usd": 19010.09,
     "fx_rate": 0.8632,
     "open_positions": 5,
-    "positions_value_eur": 81913.65,
-    "positions_value_usd": 94895.33,
-    "source": "paper",
-    "total_eur": 85331.7,
-    "total_usd": 98855.07
+    "positions_value_eur": 68258.88,
+    "positions_value_usd": 79076.55,
+    "source": "ai_swing",
+    "total_eur": 84668.39,
+    "total_usd": 98086.64
   },
   "git": {
     "branch": "main",
-    "commit": "9e09c661",
+    "commit": "1b1dc1e7",
     "dirty": false
   },
   "hardware": {
-    "cpu_temp_c": 63.9,
+    "cpu_temp_c": 63.35,
     "disk_pct": 26,
-    "load_1min": 0.93,
+    "load_1min": 0.14,
     "mem_pct": 62
   },
   "last_runs": {
@@ -42,5 +42,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-08-18T06:38:45"
+  "timestamp_utc": "2026-08-18T06:40:55"
 }
