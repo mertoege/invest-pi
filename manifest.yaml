@@ -932,55 +932,33 @@ tasks:
   art: einmalig
   prioritaet: hoch
   faellig: '2026-10-31'
-  was: 'Am 2026-10-31 sind drei Monate mit funktionierendem Marktvergleich vorbei. Der Pi meldet sich an dem Tag von selbst per Telegram. Regel (am 2026-08-09 festgelegt, auf deinen Einwand hin von Mai 2027 vorgezogen): Liegt
-    eine Strategie mehr als 5 Punkte hinter dem Welt-/SPY-Index, wird sie ABGESCHALTET statt weiter optimiert.
-    Zahl steht im Dashboard unter "vs SPY". Stand 2026-08-09: Momentum 11,2 Punkte hinten, KI-Swing 4,9
-    Punkte hinten. Nicht schoenreden — die Regel wurde genau deshalb im Voraus festgeschrieben.'
+  was: 'Am 31.10. entscheiden: liegt eine Strategie mehr als 5 Punkte hinter dem Index, wird sie abgeschaltet.
+    Der Pi meldet sich per Telegram.'
 - title: Revolut-Gebuehr fuer den zweiten Handel nachschauen
   art: einmalig
   prioritaet: mittel
-  was: 'Der Portfolio-Manager rechnet damit, dass du einen Gratis-Handel im Monat hast und jeder
-    weitere rund 1 EUR oder 0,25 Prozent kostet — bei 50 EUR waeren das bis zu 2 Prozent. Auf
-    dieser Annahme steht die ganze Regel "nur eine Entscheidung pro Monat". Schau bitte einmal in
-    der Revolut-App nach, was ein zusaetzlicher Handel in deinem Tarif WIRKLICH kostet, und sag
-    Bescheid. Weicht es stark ab, passe ich die Regel an.'
+  was: 'In der Revolut-App nachschauen, was ein zusätzlicher Handel in deinem Tarif kostet, und Bescheid sagen.'
 - title: Anweisungen des Portfolio-Managers ausfuehren und Abweichungen melden
   art: routine
   turnus: monatlich
   prioritaet: hoch
-  was: 'Ab sofort bekommst du am 1. jedes Monats EINE klare Anweisung per Telegram - kaufen,
-    verkaufen oder diesen Monat nicht handeln. Fuehr sie bei Revolut aus. Das Depot-Protokoll
-    wird automatisch mitgeschrieben, es geht also nur schief, wenn du etwas ANDERES machst als
-    angewiesen. Wenn du abweichst, nicht ausfuehrst oder zusaetzlich handelst - kurz Bescheid
-    sagen (Ticker, Stueckzahl, Kurs), sonst driftet die Anzeige auseinander.'
+  was: 'Die Telegram-Anweisung vom 1. bei Revolut ausführen. Weichst du ab, kurz Bescheid sagen (Ticker,
+    Stückzahl, Kurs).'
 - title: Sparplan-Umbau freigeben (PR mergen) und UNH ignorieren
   art: einmalig
   prioritaet: hoch
-  was: 'Zwei Dinge. ERSTENS - du hast am 01.08. eine Telegram-Nachricht bekommen, die UNH
-    vorschlaegt. Die ist ungueltig, bitte NICHT kaufen; sie entstand durch einen Testlauf, der
-    versehentlich echt gebucht hat. Dein August-Sparplan ist mit VWCE bereits erledigt. ZWEITENS -
-    auf GitHub liegt der Branch fix/sparplan-echte-analyse. Der repariert die Auswahl des
-    Sparplans (echter Scan ueber rund 90 Aktien statt nur der eigenen vier Positionen), zieht die
-    UNH-Fehlbuchung wieder raus und fuehrt eine laufende Bilanz gegen den Welt-ETF ein. Bitte auf
-    GitHub als Pull Request mergen — direkt auf main pushen darf Claude nicht. Bis dahin bleibt
-    der alte Zustand aktiv und UNH steht faelschlich im Depot.'
+  was: 'UNH aus der Telegram-Nachricht vom 01.08. NICHT kaufen (Fehlbuchung). Auf GitHub den Branch
+    fix/sparplan-echte-analyse als Pull Request mergen.'
 - title: Echtes DCA-Depot melden, wenn du selbst kaufst oder verkaufst
   art: routine
   turnus: monatlich
   prioritaet: mittel
-  was: 'Das DCA-Depot im Dashboard kommt seit 2026-07-27 aus dem portfolio-Block der config.yaml —
-    also aus dem, was du WIRKLICH haeltst, nicht mehr aus dem Empfehlungs-Protokoll. Dadurch stimmt
-    es nur, solange die config deinen echten Bestand kennt. Wenn du bei Revolut etwas kaufst,
-    verkaufst oder nachlegst (auch abweichend von der Empfehlung), sag kurz Bescheid — Ticker,
-    Stueckzahl, Kurs. Claude traegt es ein. Sonst driftet die Anzeige wieder auseinander, genau wie
-    bei ORCL (verkauft am 10.07., stand am 27.07. noch mit -32% im Depot).'
+  was: 'Selbst bei Revolut gekauft oder verkauft? Ticker, Stückzahl und Kurs melden, sonst zeigt das
+    Dashboard ein falsches Depot.'
 - title: KI-Swing-Trader — Timer aktivieren (sudo)
   art: einmalig
   prioritaet: mittel
-  was: 'Konto + Erfolgskriterium erledigt, Schatten-Lauf laeuft manuell. Damit er automatisch woechentlich
-    laeuft, die zwei systemd-Timer einmalig per sudo installieren: sudo cp scripts/systemd/invest-pi-ai-swing*.{service,timer}
-    /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now invest-pi-ai-swing.timer
-    invest-pi-ai-swing-outcomes.timer. Details - AI_SWING_TRADER_CONCEPT.md.'
+  was: 'Zwei systemd-Timer einmalig per sudo installieren — den Befehl gibt dir die InvestPi-Session.'
 - title: Monats-Check lesen
   art: routine
   turnus: monatlich
