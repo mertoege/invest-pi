@@ -131,6 +131,26 @@
         .btn:hover{background:var(--surface-2)}
         .btn svg{width:13px;height:13px}
 
+        /* Segmentierter Umschalter (z.B. Heute / Gesamt) */
+        .seg{display:inline-flex;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:2px;gap:2px}
+        .seg button{
+            font:inherit;font-size:11.5px;font-weight:600;padding:4px 11px;border-radius:6px;
+            background:transparent;border:0;color:var(--muted);cursor:pointer;letter-spacing:-.01em;
+        }
+        .seg button:hover{color:var(--text)}
+        .seg button[aria-pressed="true"]{background:var(--surface-2);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.3)}
+
+        /* Chart-Tooltip (Hover-Ebene) */
+        .chart-hover{position:relative}
+        .chart-tip{
+            position:absolute;pointer-events:none;opacity:0;transition:opacity .09s;
+            background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+            padding:7px 10px;font-size:11.5px;line-height:1.5;white-space:nowrap;
+            box-shadow:0 6px 18px rgba(0,0,0,.45);z-index:5;font-variant-numeric:tabular-nums;
+        }
+        .chart-tip .d{color:var(--muted);font-size:10.5px;letter-spacing:.04em;margin-bottom:2px}
+        .chart-tip .e{font-weight:700;font-size:13px}
+
         /* ============ Cards ============ */
         .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow)}
         .card .h{padding:14px 18px;border-bottom:1px solid var(--border-soft);display:flex;justify-content:space-between;align-items:center}
@@ -759,8 +779,22 @@
                 </div>
 
                 <div class="card" style="margin-bottom:14px">
-                    <div class="h"><h3>Equity-Verlauf heute</h3><span class="meta" id="daypi-curve-meta"></span></div>
-                    <div class="body"><div id="daypi-equity-curve"><span class="loading">Laden...</span></div></div>
+                    <div class="h">
+                        <div style="display:flex;align-items:center;gap:12px">
+                            <h3>Equity-Verlauf</h3>
+                            <div class="seg" id="daypi-curve-seg">
+                                <button type="button" data-view="total" aria-pressed="true">Gesamt</button>
+                                <button type="button" data-view="today" aria-pressed="false">Heute</button>
+                            </div>
+                        </div>
+                        <span class="meta" id="daypi-curve-meta"></span>
+                    </div>
+                    <div class="body">
+                        <div class="chart-hover" id="daypi-equity-wrap">
+                            <div id="daypi-equity-curve"><span class="loading">Laden...</span></div>
+                            <div class="chart-tip" id="daypi-curve-tip"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="card" style="margin-bottom:14px">
@@ -1566,6 +1600,144 @@
         s += `<path d="${line}" fill="none" stroke="${col}" stroke-width="1.8"/>`;
         return s + `</svg>`;
     }
+
+    // ─── DayPi · Gesamt-Zeitverlauf (ein Punkt je Handelstag, seit Start) ───
+    // hist = [{d:"YYYY-MM-DD", equity, pl_pct, dd_pct}, ...] aus daypi_public.json.
+    // KATEGORIE-Achse (gleiche Abstände je Punkt), keine echte Zeitachse: Wochenenden
+    // und Feiertage fehlen in den Daten und würden sonst Lücken in den Chart reißen.
+    let dpSnap = null, dpView = 'total', dpTotalSig = null;
+
+    function niceTicks(lo, hi, count) {
+        const span = (hi - lo) || 1, raw = span / count;
+        const mag = Math.pow(10, Math.floor(Math.log10(raw))), norm = raw / mag;
+        const step = (norm >= 5 ? 10 : norm >= 2 ? 5 : norm >= 1 ? 2 : 1) * mag;
+        const out = [];
+        for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(v);
+        return out;
+    }
+    const deDate = iso => `${iso.slice(8,10)}.${iso.slice(5,7)}.`;
+
+    function renderDayPiTotal(host, tip, hist, startEq) {
+        if (!hist || hist.length < 2) {
+            host.innerHTML = '<div class="loading" style="padding:40px 0;text-align:center">Gesamtverlauf erscheint ab dem zweiten Handelstag.</div>';
+            dpTotalSig = null;
+            return;
+        }
+        const sig = `${hist.length}|${hist[hist.length-1].d}|${hist[hist.length-1].equity}|${startEq}`;
+        if (sig === dpTotalSig) return;          // nichts Neues -> Hover nicht zerstören
+        dpTotalSig = sig;
+
+        const css = getComputedStyle(document.documentElement);
+        const tok = (n, fb) => (css.getPropertyValue(n).trim() || fb);
+        const POS = tok('--pos', '#34d399'), NEG = tok('--neg', '#ef4655');
+        const INK = tok('--text', '#e6e8ee'), MUT = tok('--muted-2', '#6b7280');
+        const BRD = tok('--border', '#2a2d3a'), SRF = tok('--surface', '#1a1d27');
+
+        const W = 760, H = 270, padL = 62, padR = 20, padT = 16, padB = 30;
+        const pw = W - padL - padR, ph = H - padT - padB;
+        const vals = hist.map(p => p.equity);
+        const base = (startEq != null && isFinite(startEq)) ? startEq : vals[0];
+        let max = Math.max(...vals, base), min = Math.min(...vals, base);
+        const rng = (max - min) || Math.abs(base) * 0.01 || 1;
+        max += rng * 0.12; min -= rng * 0.12;
+        const X = i => padL + (i / (hist.length - 1)) * pw;
+        const Y = v => padT + (max - v) / (max - min) * ph;
+        const yb = Y(base);
+        const last = vals[vals.length - 1];
+        const col = last >= base ? POS : NEG;
+
+        const pts = hist.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(p.equity).toFixed(1)}`).join(' ');
+        const areaD = `${pts} L${X(hist.length-1).toFixed(1)} ${yb.toFixed(1)} L${X(0).toFixed(1)} ${yb.toFixed(1)} Z`;
+
+        let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;height:auto" role="img" aria-label="DayPi Kontostand je Handelstag seit Start">`;
+        // Fläche zwischen Kurve und Startlinie: grün darüber, rot darunter (per clipPath)
+        s += `<defs>`
+           + `<clipPath id="dpAbove"><rect x="0" y="0" width="${W}" height="${Math.max(0, yb).toFixed(1)}"/></clipPath>`
+           + `<clipPath id="dpBelow"><rect x="0" y="${yb.toFixed(1)}" width="${W}" height="${Math.max(0, H - yb).toFixed(1)}"/></clipPath>`
+           + `</defs>`;
+        // Gitter (zurückhaltend) + Y-Beschriftung
+        niceTicks(min, max, 4).forEach(v => {
+            const y = Y(v);
+            s += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="${BRD}" stroke-width="1" opacity="0.5"/>`
+               + `<text x="${padL-9}" y="${(y+3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="${MUT}" style="font-variant-numeric:tabular-nums">${Math.round(v/1000)}k</text>`;
+        });
+        s += `<path d="${areaD}" fill="${POS}" opacity="0.20" clip-path="url(#dpAbove)"/>`;
+        s += `<path d="${areaD}" fill="${NEG}" opacity="0.20" clip-path="url(#dpBelow)"/>`;
+        // Startlinie = neutraler Nullpunkt der Polarität
+        s += `<line x1="${padL}" y1="${yb.toFixed(1)}" x2="${W-padR}" y2="${yb.toFixed(1)}" stroke="${INK}" stroke-width="1" stroke-dasharray="5 4" opacity="0.45"/>`
+           + `<text x="${W-padR}" y="${(yb-6).toFixed(1)}" text-anchor="end" font-size="10" fill="${MUT}">Start ${Math.round(base/1000)}k</text>`;
+        s += `<path d="${pts}" fill="none" stroke="${INK}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>`;
+        // X-Beschriftung: nur Anfang/Mitte/Ende statt an jedem Punkt
+        [0, Math.floor((hist.length-1)/3), Math.floor(2*(hist.length-1)/3), hist.length-1]
+            .filter((v, i, a) => a.indexOf(v) === i)
+            .forEach(i => {
+                const anch = i === 0 ? 'start' : (i === hist.length-1 ? 'end' : 'middle');
+                s += `<text x="${X(i).toFixed(1)}" y="${H-10}" text-anchor="${anch}" font-size="10.5" fill="${MUT}">${deDate(hist[i].d)}</text>`;
+            });
+        // Letzter Punkt: Marker mit Flächen-Ring + einziges direktes Label
+        const lx = X(hist.length-1), ly = Y(last);
+        s += `<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4" fill="${col}" stroke="${SRF}" stroke-width="2"/>`
+           + `<text x="${(lx-9).toFixed(1)}" y="${(ly-9).toFixed(1)}" text-anchor="end" font-size="11.5" font-weight="700" fill="${col}" style="font-variant-numeric:tabular-nums">${fmtUsd(last)}</text>`;
+        // Hover-Ebene
+        s += `<g id="dp-hov" style="opacity:0;pointer-events:none">`
+           + `<line id="dp-hov-l" x1="0" y1="${padT}" x2="0" y2="${padT+ph}" stroke="${INK}" stroke-width="1" opacity="0.35"/>`
+           + `<circle id="dp-hov-c" r="4.5" fill="${INK}" stroke="${SRF}" stroke-width="2"/></g>`
+           + `<rect id="dp-hit" x="${padL}" y="${padT}" width="${pw}" height="${ph}" fill="transparent" style="cursor:crosshair"/>`
+           + `</svg>`;
+        host.innerHTML = s;
+
+        // Crosshair + Tooltip
+        const svg = host.querySelector('svg'), hit = host.querySelector('#dp-hit');
+        const g = host.querySelector('#dp-hov'), hl = host.querySelector('#dp-hov-l'), hc = host.querySelector('#dp-hov-c');
+        const show = ev => {
+            const r = svg.getBoundingClientRect();
+            const sx = r.width / W;                       // viewBox skaliert gleichmäßig
+            const fx = (ev.clientX - r.left) / sx;
+            let i = Math.round((fx - padL) / pw * (hist.length - 1));
+            i = Math.max(0, Math.min(hist.length - 1, i));
+            const p = hist[i], px = X(i), py = Y(p.equity);
+            g.style.opacity = '1';
+            hl.setAttribute('x1', px); hl.setAttribute('x2', px);
+            hc.setAttribute('cx', px); hc.setAttribute('cy', py);
+            tip.innerHTML = `<div class="d">${deDate(p.d)}${p.d.slice(0,4)}</div>`
+                + `<div class="e num">${fmtUsd(p.equity)}</div>`
+                + `<div class="num ${p.equity >= base ? 'pos' : 'neg'}">${plSign(p.pl_pct||0)}${fmt(p.pl_pct)}% seit Start</div>`
+                + `<div class="num muted">${fmt(p.dd_pct)}% unter Hoch</div>`;
+            tip.style.opacity = '1';
+            const wrap = tip.parentElement.getBoundingClientRect();
+            const tw = tip.offsetWidth, th = tip.offsetHeight;
+            tip.style.left = `${Math.max(2, Math.min(wrap.width - tw - 2, (px * sx) - tw / 2))}px`;
+            tip.style.top = `${Math.max(2, (py * sx) - th - 12)}px`;
+        };
+        hit.addEventListener('mousemove', show);
+        hit.addEventListener('mouseleave', () => { g.style.opacity = '0'; tip.style.opacity = '0'; });
+    }
+
+    // Zeichnet je nach Umschalter-Stand Gesamt- oder Tagesverlauf in denselben Rahmen.
+    function renderDayPiCurve() {
+        const host = document.getElementById('daypi-equity-curve');
+        const tip = document.getElementById('daypi-curve-tip');
+        const meta = document.getElementById('daypi-curve-meta');
+        if (!host || !tip || !dpSnap) return;
+        const d = dpSnap;
+        if (dpView === 'total') {
+            const hist = d.equity_history || [];
+            renderDayPiTotal(host, tip, hist, d.start_equity_usd);
+            meta.textContent = hist.length >= 2
+                ? `${d.history_days || hist.length} Handelstage · Hoch ${fmtUsd(d.peak_equity_usd)} · max. Rückgang ${fmt(d.max_drawdown_pct)}%`
+                : '';
+        } else {
+            dpTotalSig = null;                    // beim Zurückschalten neu zeichnen
+            tip.style.opacity = '0';
+            const curve = d.equity_curve || [];
+            const dayStart = (d.equity_usd != null && d.day_pl_usd != null) ? d.equity_usd - d.day_pl_usd : null;
+            host.innerHTML = equitySvg(curve, dayStart);
+            meta.textContent = curve.length >= 2
+                ? `${curve.length} Punkte · ${curve[0].ts.slice(11,16)}–${curve[curve.length-1].ts.slice(11,16)}`
+                : '';
+        }
+    }
+
     async function loadDayPi() {
         try {
             const r = await fetch(`${BASE}/daypi`);
@@ -1598,12 +1770,19 @@
             document.getElementById('daypi-leverage').textContent = `${fmt(d.leverage_x || 0, 2)}×`;
             document.getElementById('nav-daypi-trades').textContent = d.open_positions || 0;
 
-            // Equity-Verlauf heute (Tagesstart = aktuelle Equity − Tages-P/L)
-            const curve = d.equity_curve || [];
-            const dayStart = (d.equity_usd != null && d.day_pl_usd != null) ? d.equity_usd - d.day_pl_usd : null;
-            document.getElementById('daypi-equity-curve').innerHTML = equitySvg(curve, dayStart);
-            const cmEl = document.getElementById('daypi-curve-meta');
-            cmEl.textContent = curve.length >= 2 ? `${curve.length} Punkte · ${curve[0].ts.slice(11,16)}–${curve[curve.length-1].ts.slice(11,16)}` : '';
+            // Equity-Verlauf: Gesamt (equity_history) oder heute (equity_curve)
+            dpSnap = d;
+            const seg = document.getElementById('daypi-curve-seg');
+            if (seg && !seg.dataset.wired) {
+                seg.dataset.wired = '1';
+                seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+                    dpView = b.dataset.view;
+                    seg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+                    dpTotalSig = null;
+                    renderDayPiCurve();
+                }));
+            }
+            renderDayPiCurve();
 
             // Aktive Trades — Live-Kerzencharts je offener Position
             const ac = document.getElementById('daypi-active-charts'), am = document.getElementById('daypi-active-meta');
