@@ -7,6 +7,19 @@ api_keys:
   newsapi: ''
   telegram_bot_token: ''
   telegram_chat_id: ''
+portfolio_hinweis:
+  gepflegt_von: DepotPi
+  stillgelegt_seit: '2026-08-10'
+  text: >-
+    ACHTUNG: Der portfolio-Block darunter wird von invest-pi NICHT MEHR GEPFLEGT.
+    Merts echtes Revolut-Depot fuehrt seit dem 10.08.2026 DepotPi. Die Zahlen hier
+    sind eingefroren und teilweise falsch — VWCE.DE steht mit 0,608939 Stueck /
+    100 EUR, tatsaechlich sind es 0,302188 Stueck / 50 EUR (der DCA-Kauf vom
+    01.08.2026 wurde gebucht, aber nie ausgefuehrt), und UNH fehlt ganz
+    (0,1361423 Stueck, Einstand 49,18 EUR — Kauf fand statt, Buchung ging beim
+    Git-Reset verloren, s. buy.persist_config_change). Nicht korrigieren, nicht
+    weiterschreiben — als Referenz stehenlassen. /api/dca liest den Block noch,
+    kennzeichnet ihn in der Oberflaeche aber als veraltet.
 portfolio:
   ASML:
     avg_buy_price: 1146.83

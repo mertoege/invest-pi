@@ -61,6 +61,36 @@ if [ "${1:-}" = "--enable" ]; then
     esac
 fi
 
+# ────────────────────────────────────────────────────────────
+# Modus 4: einen Timer stilllegen (2026-08-10)
+#
+# Hintergrund: Der Depot-/Sparplan-Teil ist an DepotPi uebergeben (siehe
+# src/common/depot_stillgelegt.py). Abschalten heisst `systemctl disable --now`
+# und braucht root — dieses Repo laeuft als `investpi` und darf per sudo nur
+# dieses Wrapper-Skript aufrufen. Ohne diesen Modus haette Mert die Befehle von
+# Hand tippen muessen, und ein vergessener Timer feuert still weiter.
+#
+# Sicherheit: gleiche Regel wie oben — nur die fest verdrahtete Liste. Bewusst
+# eng gehalten: es duerfen NUR die beiden uebergebenen Depot-Timer abgeschaltet
+# werden, kein freier Unit-Name (das Argument kommt aus einem Repo, das
+# automatisch von GitHub zieht).
+# ────────────────────────────────────────────────────────────
+DISABLEABLE="invest-pi-monthly-dca.timer invest-pi-dca-watchdog.timer"
+
+if [ "${1:-}" = "--disable" ]; then
+    unit="${2:-}"
+    case " $DISABLEABLE " in
+        *" $unit "*)
+            systemctl disable --now "$unit"
+            exit $?
+            ;;
+        *)
+            echo "systemd_sync: '$unit' steht nicht auf der Stilllege-Liste" >&2
+            exit 1
+            ;;
+    esac
+fi
+
 if [ "${1:-}" = "--restart" ]; then
     unit="${2:-}"
     case " $RESTARTABLE " in

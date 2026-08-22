@@ -270,23 +270,14 @@ def _send_html_with_markup(text: str, reply_markup: dict) -> bool:
 
 
 def _persist_config_change(label: str) -> None:
-    """Committet+pusht die config.yaml-Aenderung, damit sie nicht vom auto-pull/
-    status-push (git reset --hard origin/main) verworfen wird. Best-effort mit
-    rebase, falls remote zwischenzeitlich vorrueckte."""
-    import subprocess
-    repo = str(Path(__file__).resolve().parents[1])
-    def _git(*args):
-        return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, timeout=30)
-    try:
-        _git("add", "config.yaml")
-        if _git("commit", "-m", f"portfolio: {label}").returncode != 0:
-            return  # nichts zu committen
-        if _git("pull", "--rebase", "--no-edit").returncode != 0:
-            _git("rebase", "--abort")
-        if _git("push").returncode != 0:
-            _git("push", "--force-with-lease")
-    except Exception as e:
-        log.error(f"config.yaml commit/push fehlgeschlagen: {e}")
+    """Delegiert an die eine gepflegte Fassung in buy.py.
+
+    Hier stand bis 2026-08-10 eine wortgleiche Kopie — und damit auch der
+    Datenverlust-Fehler, der am 01.08. den UNH-Kauf verschluckt hat (Details im
+    Docstring von buy.persist_config_change). Eine Kopie zu fixen und die andere
+    zu vergessen ist genau die Falle, die wir hier zumachen."""
+    from scripts.buy import persist_config_change
+    persist_config_change(label)
 
 
 def _auto_record_dca(verdict: str, data: dict, budget_eur: float, pred_id) -> str:

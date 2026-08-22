@@ -296,9 +296,28 @@ def dca_holdings():
         aber die Amsterdamer in EUR (~1585 EUR) -> ~5% falscher Wert
     Das Empfehlungs-Protokoll liefert jetzt nur noch die Begruendung zur
     Position, nicht mehr die Position selbst.
+
+    STAND 2026-08-10 — DIESE ANSICHT IST NICHT MEHR AKTUELL:
+    Der Depot-Teil ist an DepotPi uebergeben, der portfolio-Block in der
+    config.yaml wird hier nicht mehr gepflegt und ist nachweislich falsch
+    (VWCE mit 0,608939 Stueck / 100 EUR statt echter 0,302188 / 50 EUR, und UNH
+    mit 0,1361423 Stueck fehlt ganz — Ursache war der Datenverlust vom 01.08.,
+    s. buy.persist_config_change). Die Zahlen bleiben trotzdem stehen statt zu
+    verschwinden: eine leere Seite sagt Mert nicht, WARUM sie leer ist. Der
+    Endpunkt haengt deshalb ein `stale`-Flag an, das die Oberflaeche als Banner
+    zeigt. Wer echte Depotdaten will, fragt DepotPi.
     """
     import yaml
     try:
+        stale = {
+            "stale": True,
+            "stale_note": (
+                "Nicht mehr gepflegt. Das echte Depot führt seit 10.08.2026 DepotPi — "
+                "die Zahlen hier sind eingefroren und nachweislich falsch (VWCE zu hoch, "
+                "UNH fehlt ganz)."
+            ),
+            "stale_since": "2026-08-10",
+        }
         empty_summary = {"total_invested_eur": 0, "total_current_eur": 0, "total_pl_eur": 0,
                          "total_pl_pct": 0, "count": 0}
         try:
@@ -309,7 +328,7 @@ def dca_holdings():
 
         holdings = cfg.get("portfolio") or {}
         if not holdings:
-            return {"dca": [], "closed": [], "summary": empty_summary}
+            return {"dca": [], "closed": [], "summary": empty_summary, **stale}
 
         default_budget = float((cfg.get("settings") or {}).get("monatliches_budget_eur", 50.0))
 
@@ -426,7 +445,7 @@ def dca_holdings():
         # verkauft = nicht mehr im Depot, bleibt aber in der Bilanz sichtbar
         closed = [s for s in sold if str(s.get("ticker") or "").upper() not in
                   {k.upper() for k in holdings} ]
-        return {"dca": result, "closed": closed, "summary": summary}
+        return {"dca": result, "closed": closed, "summary": summary, **stale}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 

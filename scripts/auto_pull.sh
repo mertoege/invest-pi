@@ -20,6 +20,10 @@ LOG="$LOG_DIR/auto_pull.log"
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 log() { echo "[$(ts)] $*" | tee -a "$LOG" >&2; }
 
+# Schutz fuer fremde, ungepushte Commits beim Hard-Reset (siehe git_rescue.sh)
+# shellcheck source=/dev/null
+. "$(dirname "$0")/git_rescue.sh"
+
 
 # ────────────────────────────────────────────────────────────
 # systemd-Sync-Function (idempotent; vergleicht cmp, kopiert bei Diff)
@@ -65,11 +69,13 @@ git stash push --include-untracked -m "auto_pull-pre-pull-$(ts)" >/dev/null 2>&1
 if ! git pull --rebase --no-edit --quiet 2>>"$LOG"; then
     log "pull failed, recovering via hard reset to origin/main"
     git rebase --abort 2>/dev/null || true
+    rescue_foreign_commits
     git reset --hard origin/main --quiet 2>>"$LOG" || {
         log "hard reset failed too — manual intervention needed"
         git stash pop 2>/dev/null || true
         exit 1
     }
+    restore_foreign_commits
     git stash pop 2>/dev/null || true
     log "recovered: HEAD now $(git rev-parse --short HEAD)"
 fi

@@ -9,6 +9,9 @@ summary: >-
   geringerem Drawdown. Das alte 20-Kennzahlen-Score-/Self-Learning-System wurde abgeloest (schlug den
   Markt nachweislich NICHT — Risiko-Vorhersage schlechter als ein Dummy). Lernen jetzt auf Strategie-
   Ebene (Varianten per Backtest validiert), nicht mehr Trade-fuer-Trade.
+  SEIT 2026-08-10 KEIN DEPOT-TEIL MEHR: Merts echtes Revolut-Depot und der Monats-Sparplan liegen
+  bei DepotPi. invest-pi ist wieder reine Strategie-Forschung auf Spielgeld; die Depot-Ansicht im
+  Dashboard ist eingefroren und als veraltet gekennzeichnet.
 flow:
 - - Quellen
   - yfinance (Kurse/Volumen) · FRED (Makro) — breites Large-Cap-Universum
@@ -74,7 +77,7 @@ jobs:
   - ok
   - aktiv
 - - Monats-Sparplan (DCA)
-  - invest-pi-monthly-dca · Timer disabled (Depot bei DepotPi seit 10.08.)
+  - invest-pi-monthly-dca · stillgelegt 10.08.2026, Timer disabled (DepotPi uebernimmt)
   - paused
   - gestoppt
 - - Monats-Digest / Momentum-Check
@@ -90,7 +93,7 @@ jobs:
   - ok
   - aktiv
 - - DCA-Watchdog
-  - invest-pi-dca-watchdog · Timer disabled (Depot bei DepotPi seit 10.08.)
+  - invest-pi-dca-watchdog · stillgelegt 10.08.2026, Timer disabled (DepotPi uebernimmt)
   - paused
   - gestoppt
 - - System-Operator (Health + Auto-Fix)
@@ -439,11 +442,11 @@ views:
         d: Sell-only Pass (Stop/TP) zum Close.
         badge: Mo–Fr 21:30
       - t: monthly-dca
-        d: Monatlicher Sparplan-Pick.
-        badge: 1. d. Monats 14:00
+        d: Monatlicher Sparplan-Pick. Stillgelegt — Depot liegt bei DepotPi.
+        badge: aus seit 10.08.2026
       - t: dca-watchdog
-        d: Überwacht DCA-Positionen auf Probleme.
-        badge: täglich 18:00
+        d: Überwachte DCA-Positionen. Stillgelegt — Depot liegt bei DepotPi.
+        badge: aus seit 10.08.2026
     - label: Lernen (DEAKTIVIERT — Score-System)
       color: '#c98fd0'
       cards:
@@ -580,8 +583,56 @@ views:
         den Sync zu kippen. Die Luecke wurde rueckwirkend aus market.db gefuellt (2956 Zeilen), sodass beide
         Strategien eine lueckenlose Messreihe ab ihrem Start haben. LEHRE: Eine Kennzahl, die niemand aktiv
         prueft, kann monatelang tot sein. Die Abschaltregel haengt an genau dieser Zahl.'
-    - t: Aus dem Sparplan wird ein KI-Portfolio-Manager — eine Entscheidung pro Monat
-      d: 'ENTSCHEIDUNG 2026-08-01 (Mert). Auf den Befund, dass der Sparplan faktisch nie eine
+    - t: Depot-Teil stillgelegt und an DepotPi übergeben — invest-pi ist wieder reine Strategie
+      d: 'ENTSCHEIDUNG 2026-08-10 (Übergabe von DepotPi angefordert, hier umgesetzt). Der gesamte
+        Depot-/Sparplan-Teil von invest-pi ist ABGESCHALTET: invest-pi-monthly-dca (Portfolio-Manager,
+        haette am 01.09. gefeuert) und invest-pi-dca-watchdog (taeglich 18:00, sparte nebenbei
+        LLM-Kosten). WARUM JETZT - Mert bespart seit dem 10.08.2026 zwei provisionsfreie
+        Revolut-ETF-Sparplaene (80 EUR VWCE + 20 EUR AHYD). Damit faellt das einzige Gegenargument
+        weg, das den Job bisher am Leben hielt ("nicht abschalten, sonst faellt ein Monat aus") -
+        der Monatsbeitrag laeuft ohnehin. Der Portfolio-Manager haette am 01.09. eine EINZELAKTIE
+        empfohlen und damit gegen die neue Anlagepolitik gearbeitet. DAMIT UEBERHOLT - die
+        Entscheidung vom 2026-08-01 ("Aus dem Sparplan wird ein KI-Portfolio-Manager", direkt
+        darunter): die Idee war richtig, sie laeuft nur nicht mehr hier, sondern bei DepotPi.
+        Ebenso ueberholt - die 1-Gratis-Handel-Randbedingung und die Frage nach der Revolut-Gebuehr;
+        beides ist jetzt DepotPis Problem. WIE ABGESCHALTET (zwei Ebenen, mit Absicht) - (1) neues
+        Modul src/common/depot_stillgelegt.py, das portfolio_manager.py und dca_watchdog.py sofort
+        aussteigen laesst; wirkt auch dann, wenn ein Timer noch scharf ist oder versehentlich wieder
+        scharf gemacht wird. (2) systemctl disable der beiden Timer ueber den neuen --disable-Modus
+        von systemd_sync.sh (fest verdrahtete Zwei-Unit-Liste, weil das Argument aus einem
+        auto-gepullten Repo kommt). Der CODE BLEIBT LIEGEN, als Referenz fuer DepotPi. WAS BLEIBT -
+        die Momentum-Engine (Spielgeld), der KI-Swing-Trader und die Abschaltregel zum 2026-10-31.
+        Der portfolio-Block in der config.yaml wird NICHT MEHR GEPFLEGT und ist nachweislich falsch
+        (VWCE 0,608939 Stueck / 100 EUR statt echter 0,302188 / 50 EUR; UNH 0,1361423 Stueck fehlt
+        ganz). Er bleibt eingefroren stehen und /api/dca kennzeichnet ihn in der Oberflaeche als
+        veraltet - eine leere Seite haette Mert nicht gesagt, WARUM sie leer ist.'
+    - t: Datenverlust-Bug behoben — zwei Timer im selben Repo frassen fremde Commits
+      d: 'BEFUND 2026-08-10 (von DepotPi gemeldet, hier nachgewiesen und behoben). Am 01.08.2026 um
+        16:38:45 (14:38 UTC) committete der Portfolio-Manager Merts UNH-Kauf in die config.yaml.
+        58 Sekunden spaeter war der Commit spurlos weg - kein Fehler, keine Logzeile. BELEG aus dem
+        Reflog - 16:39:42 startete auto_pull.sh einen Rebase im selben Arbeitsverzeichnis, 16:39:47
+        lief das parallel laufende status_push.sh dadurch in einen Rebase-Konflikt und ging in
+        seinen Notausgang "git reset --hard origin/main". Der rettet nur den eigenen
+        Status-Snapshot; jeder andere noch nicht gepushte Commit faellt weg. Um 16:40:30 wurde der
+        Kauf erneut committet und um 16:41:51 auf demselben Weg ein zweites Mal geloescht.
+        URSACHE, zwei Haelften - (1) buy.persist_config_change war "best effort" und hat jeden
+        git-Rueckgabewert verschluckt; ob der Push wirklich ankam, hat nie jemand geprueft.
+        (2) Beide 2-Minuten-Timer schreiben im selben Repo und haben denselben Hard-Reset als
+        Notausgang. FOLGE fuer Mert - seine Depot-Anzeige zeigte zwei Wochen lang einen
+        VWCE-Kauf, den es nie gab, und den echten UNH-Kauf gar nicht. BEHOBEN - (1)
+        persist_config_change prueft jetzt per merge-base NACH dem Push nach, ob der Commit
+        wirklich auf origin/main liegt, versucht es dreimal und schlaegt sonst per Telegram Alarm,
+        nachdem es den Commit als Rettungs-Tag gesichert hat. (2) neues scripts/git_rescue.sh, von
+        auto_pull.sh und status_push.sh gesourct - es legt vor jedem Hard-Reset alle fremden
+        (= nicht "status:") lokalen Commits als Tag beiseite und spielt sie danach per cherry-pick
+        zurueck. (3) die wortgleiche Kopie in monthly_dca.py delegiert jetzt an buy.py, statt den
+        Fehler ein zweites Mal zu enthalten. WICHTIG - der Bug ist NICHT depot-spezifisch. Er trifft
+        alles, was zur Laufzeit eine getrackte Datei schreibt; die Stilllegung des Depot-Teils haette
+        ihn nur unsichtbar gemacht, nicht geheilt.'
+    - t: ÜBERHOLT (10.08.2026) — Aus dem Sparplan wird ein KI-Portfolio-Manager
+      d: 'ÜBERHOLT AM 2026-08-10: der Portfolio-Manager laeuft nicht mehr hier, sondern bei DepotPi
+        (s. Eintrag "Depot-Teil stillgelegt" oben). Die Begruendung unten bleibt als Historie stehen.
+        ENTSCHEIDUNG 2026-08-01 (Mert). Auf den Befund, dass der Sparplan faktisch nie eine
         Auswahl traf, war die erste Antwort ein besserer Sparplan. Mert hat widersprochen und den
         eigentlichen Projektzweck klargestellt - eine KI soll auswaehlen und verwalten, nicht
         stumpf eine jahrzehntealte Regel auf einen Standard-ETF anwenden. Es soll ein
@@ -935,12 +986,11 @@ tasks:
   was: 'Am 31.10. entscheiden: liegt eine Strategie mehr als 5 Punkte hinter dem Index, wird sie abgeschaltet.
     Der Pi meldet sich per Telegram. Zwischenstand 22.08.2026: Momentum liegt 13,1 Punkte hinter dem Markt
     (waere raus), KI-Swing 5,0 Punkte (bliebe knapp drin).'
-- title: 'Zwei haengende Pull Requests mergen (#24 und #14)'
+- title: 'Haengenden Pull Request #14 mergen (SPY-Vergleichswert)'
   art: einmalig
   prioritaet: hoch
-  was: 'Auf GitHub PR #24 (Depot-Stilllegung + Datenverlust-Fix, offen seit 10.08.) und PR #14
-    (SPY-Vergleichswert, offen seit 14.07.) mergen. Ohne #24 fehlt die Bremse, die einen versehentlich
-    wieder scharfen Sparplan-Timer stoppt; ohne #14 fehlt der Marktvergleich, an dem die Abschaltregel haengt.'
+  was: 'Auf GitHub PR #14 mergen (offen seit 14.07.). Ohne ihn fehlt der Marktvergleich, an dem die
+    Abschaltregel zum 31.10. gemessen wird. PR #24 ist mit diesem Merge erledigt.'
 - title: Monats-Check lesen
   art: routine
   turnus: monatlich

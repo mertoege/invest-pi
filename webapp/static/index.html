@@ -660,8 +660,15 @@
                 <div class="page-h">
                     <div>
                         <h2>Sparplan</h2>
-                        <div class="sub">50 €/Monat · Sparplan aktiv</div>
+                        <div class="sub" id="dca-subtitle">50 €/Monat · Sparplan aktiv</div>
                     </div>
+                </div>
+
+                <!-- Banner erscheint nur, wenn /api/dca stale:true meldet (seit 10.08.2026 immer) -->
+                <div id="dca-stale" style="display:none;margin-bottom:16px;padding:12px 14px;border-radius:8px;
+                     border:1px solid #b8860b;background:rgba(184,134,11,.12);font-size:13px;line-height:1.5">
+                    <b>⚠️ Diese Ansicht wird nicht mehr gepflegt.</b>
+                    <span id="dca-stale-note"></span>
                 </div>
 
                 <div class="dca-hero" id="dca-hero">
@@ -1415,6 +1422,15 @@
             const d = await r.json();
             const dca = d.dca || [];
             const summary = d.summary || {};
+
+            // Eingefrorene Ansicht sichtbar kennzeichnen statt still falsche Zahlen zeigen
+            if (d.stale) {
+                document.getElementById('dca-stale').style.display = 'block';
+                document.getElementById('dca-stale-note').textContent = ' ' + (d.stale_note || '');
+                document.getElementById('dca-subtitle').textContent =
+                    'Stillgelegt seit ' + (d.stale_since || '10.08.2026') + ' · DepotPi führt das echte Depot';
+                document.getElementById('dca-hero').style.opacity = '.55';
+            }
 
             document.getElementById('dca-count').textContent = summary.count || dca.length;
             document.getElementById('dca-total-value').textContent = fmtEur(summary.total_current_eur);

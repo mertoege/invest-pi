@@ -84,25 +84,76 @@ def remove_position(ticker: str) -> str:
     return f"{key}: aus Portfolio entfernt ({invested:.0f} EUR gebucht)"
 
 
-def persist_config_change(label: str) -> None:
+def persist_config_change(label: str) -> bool:
     """Committet+pusht die config.yaml-Aenderung, damit sie nicht vom auto-pull/
-    status-push (git reset --hard origin/main) verworfen wird. Best-effort mit
-    rebase, falls remote zwischenzeitlich vorrueckte. Wiederverwendbar."""
+    status-push (git reset --hard origin/main) verworfen wird. Wiederverwendbar.
+    Returns True, wenn die Aenderung nachweislich auf origin/main liegt.
+
+    WARUM SO UMSTAENDLICH (Datenverlust am 01.08.2026, teuer gelernt):
+    Die alte Fassung war "best effort" und hat jeden Rueckgabewert verschluckt —
+    schlug der Push fehl, blieb der Commit rein lokal und war stumm verloren.
+    Genau das passierte: 16:38:45 committete der Portfolio-Manager den UNH-Kauf,
+    58 Sekunden spaeter lief status_push.sh in einen Rebase-Konflikt (auto_pull
+    arbeitete zeitgleich im selben Repo) und machte `git reset --hard origin/main`.
+    Der Reset rettet nur den eigenen Snapshot, alles andere Unpushte faellt weg —
+    der Commit war weg, ohne eine einzige Fehlerzeile. Merts Depot zeigte danach
+    einen VWCE-Kauf, den es nie gab, und den echten UNH-Kauf gar nicht.
+    Konsequenz: Wir pruefen jetzt NACH dem Push, ob der Commit wirklich auf
+    origin/main liegt, versuchen es mehrfach, und schlagen sonst laut Alarm.
+    Die zweite Haelfte der Absicherung sitzt in status_push.sh/auto_pull.sh:
+    deren Hard-Reset legt fremde Commits vorher beiseite und spielt sie zurueck.
+    """
+    import logging
     import subprocess
+    import time
+    log = logging.getLogger("invest_pi.buy")
     repo = str(Path(__file__).resolve().parents[1])
+
     def _git(*args):
-        return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, timeout=30)
+        return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, timeout=60)
+
     try:
         _git("add", "config.yaml")
         if _git("commit", "-m", f"portfolio: {label}").returncode != 0:
-            return  # nichts zu committen
-        if _git("pull", "--rebase", "--no-edit").returncode != 0:
-            _git("rebase", "--abort")
-        if _git("push").returncode != 0:
-            _git("push", "--force-with-lease")
+            return True  # nichts zu committen — Stand ist bereits sauber
+        sha = _git("rev-parse", "HEAD").stdout.strip()
+
+        # Mehrere Anlaeufe: die 2-Min-Timer (auto_pull, status_push) schreiben im
+        # selben Repo, ein einzelner Versuch trifft die Luecke oft nicht.
+        for versuch in range(1, 4):
+            if _git("pull", "--rebase", "--no-edit").returncode != 0:
+                _git("rebase", "--abort")
+            sha = _git("rev-parse", "HEAD").stdout.strip()
+            _git("push")
+            # Beweis statt Rueckgabewert: liegt der Commit auf origin/main?
+            _git("fetch", "origin", "main")
+            if sha and _git("merge-base", "--is-ancestor", sha, "origin/main").returncode == 0:
+                return True
+            log.warning(f"config.yaml-Push noch nicht auf origin/main (Versuch {versuch}/3)")
+            time.sleep(5)
+
+        # Nicht durchgekommen. Der Commit steht lokal und ist damit in Gefahr,
+        # vom naechsten Hard-Reset gefressen zu werden -> sichtbar wegsichern.
+        _git("tag", "-f", f"rettung/config-{sha[:8]}", sha)
+        log.error(
+            f"config.yaml-Aenderung '{label}' ({sha[:8]}) NICHT auf origin/main gelandet. "
+            f"Lokal gesichert als Tag rettung/config-{sha[:8]} — sonst waere sie beim "
+            "naechsten reset --hard verloren."
+        )
+        try:
+            from src.alerts import notifier
+            notifier.send_action_required(
+                f"⚠️ Depot-Buchung nicht gesichert\n\n{label}\n\n"
+                "Die Änderung an der config.yaml konnte nicht ins Git gepusht werden und "
+                "wäre beim nächsten Auto-Sync verloren. Sie liegt lokal als Rettungs-Tag "
+                f"rettung/config-{sha[:8]}. Bitte nachsehen."
+            )
+        except Exception:
+            pass  # Alarm ist Beiwerk; der Tag ist die eigentliche Rettung
+        return False
     except Exception as e:
-        import logging
-        logging.getLogger("invest_pi.buy").error(f"config.yaml commit/push fehlgeschlagen: {e}")
+        log.error(f"config.yaml commit/push fehlgeschlagen: {e}")
+        return False
 
 
 def main() -> None:
