@@ -548,6 +548,14 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Branchen-Obergrenze fuer Momentum getestet und VERWORFEN
+      d: 'ENTSCHEIDUNG 2026-09-25. Anlass - Live haelt Momentum nur Tech-Hardware (AMD, MU, INTC, CSCO, HPQ), Juli -15%.
+        Backtest 2018-09/2026 (Methodik wie champion_duell_fair, 90er-Universum, 0,1% Kosten, kein Look-ahead):
+        Basis +32,1% CAGR / Sharpe 1,13 / 7 von 9 Jahren vor SPY; max 2 je Sektor +25,2% / 1,02 / 6 von 9; max 3 je Sektor
+        +30,0% / 1,11; max 2 je Industriegruppe +26,8% / 1,04. Max-Drawdown bei ALLEN -23% (Monatsbasis) - die Grenze
+        schuetzt nicht. Robust ueber Lookbacks 3/9/12 Mon und Subperioden; im Crash 2022 war max-2 sogar schlechter
+        (-10% statt +7%). Das Tech-Klumpenrisiko ist genau die Quelle der Rendite. Kein Live-Einbau. Offene Alternative
+        (ungetestet) - mehr Positionen oder gestaffeltes Umschichten.'
     - t: KI-Swing lag zu 39% in Cash — Ausfuehrung auf Boersenzeit verlegt
       d: 'BEFUND + FIX 2026-09-25. Das KI-Swing-Konto hielt seit dem Start im Schnitt 38,6% Cash (Momentum 3,5%).
         Ursache: ai_swing_execute lief sonntags 16:30 bei geschlossener Boerse. Verkaeufe wurden nur eingereiht,
