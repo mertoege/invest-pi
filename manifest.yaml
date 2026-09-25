@@ -20,7 +20,7 @@ flow:
   - 6-Monats-Momentum je Aktie · Daten-Sanity + Mindestabdeckung + Cross-Check
   - engine
 - - Top-5-Auswahl
-  - 1×/Monat die 5 staerksten Titel, gleichgewichtet → Monatsziel
+  - 1×/Monat die 5 staerksten Titel; gestaffelt ueber die Listen der letzten 3 Monate (seit 10/2026)
   - decision
 - - Risk-Limits
   - AKTIV unter Momentum nur Kill-Switch + Circuit-Breaker (-30% v. 90-Tage-Hoch). Cash-Floor/Sektor-Cap/
@@ -42,7 +42,7 @@ loop:
   - - Ranken
     - alle handelbaren Titel nach 6-Monats-Momentum sortieren (reine Mathematik)
   - - Auswaehlen
-    - die Top 5 gleichgewichtet als Monatsziel fixieren
+    - die Top 5 als Monatsliste fixieren; Depot = je 1/3 aus den Listen der letzten 3 Monate
   - - Angleichen
     - Depot per Orders an das Ziel konvergieren (schwach raus, stark rein)
   - - Halten
@@ -548,6 +548,24 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Momentum gestaffelt (3 Monats-Tranchen) - ab Oktober 2026 live
+      d: 'ENTSCHEIDUNG 2026-09-25. Statt alles an einem Stichtag umzuschichten, besteht das Depot aus drei Teilen,
+        je einer pro Monatsliste der letzten 3 Monate. Backtest 2018-09/2026 (Methodik champion_duell_fair):
+        CAGR +34,0% statt +32,1%, Max-Drawdown -18% statt -23%, Sharpe 1,22 statt 1,13, Umschlag halbiert
+        (532% statt 996%/Jahr - wichtig fuer Kosten und spaeter Steuern), 2022 +10% statt +7%. Robust - bei
+        3M-Lookback ebenfalls klar besser, bei 9/12M neutral, nirgends schlechter; rollierend 12M in 61% der
+        Fenster vorn. Mitgetestet und VERWORFEN - mehr Positionen (top7/top10 kosten 7-11 Punkte CAGR),
+        vol-adjustiertes Momentum (+22,7%), 12-1-Momentum (hoehere Rendite, aber nur 5/9 Jahre vor SPY, instabil).
+        Umsetzung in scripts/momentum_rebalance.py (TRANCHES=3); greift beim Monatswechsel 01.10., fehlende
+        Vormonatslisten werden aus Kursen vor dem jeweiligen Monatsersten nachgebildet. Skripte -
+        reviews/backtests nicht im Repo, Ergebnis hier festgehalten.'
+    - t: 'KI-Swing: die KI waehlt schlechter als ihre eigene Kandidatenliste'
+      d: 'BEFUND 2026-09-25. Verglichen mit den 18 Kandidaten, die der KI jede Woche vorgelegt werden: Die
+        NICHT gewaehlten Titel schlugen die gewaehlten in 10 von 12 Wochen (10 Tage) bzw. 9 von 10 (20 Tage);
+        nach 20 Tagen KI-Picks -1,8 Punkte vs SPY, verschmaehte +3,3. Muster - die KI bevorzugt ruhige,
+        defensive Werte (KO, GILD, CL) und meidet starke, schwankende (MU "Vorsicht") - also genau gegen den
+        Momentum-Effekt. Kleine Stichprobe, aber sehr einseitig. KEINE Optimierung - die Abschaltregel sagt
+        "abschalten statt optimieren"; der Befund stuetzt das Abschalten am 31.10.'
     - t: Branchen-Obergrenze fuer Momentum getestet und VERWORFEN
       d: 'ENTSCHEIDUNG 2026-09-25. Anlass - Live haelt Momentum nur Tech-Hardware (AMD, MU, INTC, CSCO, HPQ), Juli -15%.
         Backtest 2018-09/2026 (Methodik wie champion_duell_fair, 90er-Universum, 0,1% Kosten, kein Look-ahead):

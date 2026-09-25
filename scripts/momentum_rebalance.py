@@ -6,6 +6,13 @@ Regel: Halte gleichgewichtet die TOP_N Aktien mit dem staerksten 6-Monats-Moment
 aus einem breiten Large-Cap-Universum. Monatsziel 1x/Monat fixieren, dann ueber
 mehrere stuendliche Laeufe an das Ziel angleichen (Kaeufe nur aus verfuegbarem Cash).
 
+GESTAFFELT (seit 2026-10): Das Depot besteht aus TRANCHES Teil-Depots, eins je
+Monatsliste der letzten TRANCHES Monate (je 1/TRANCHES des Geldes). Ein Titel, der in
+allen drei Listen steht, bekommt also das volle 1/TOP_N-Gewicht, ein Neuling erst ein
+Drittel davon. Backtest 2018-09/2026: CAGR +34,0% statt +32,1%, Max-Drawdown -18%
+statt -23%, Sharpe 1,22 statt 1,13, halber Umschlag (weniger Kosten/Steuern). Der
+Effekt: das Ergebnis haengt nicht mehr am Zufall EINES Stichtags.
+
 Produktions-Haertung (Audit 2026-06-24):
 - DATEN-SANITY: absurde yfinance-Kurse (Split-Glitches, >200% 6M-Momentum) werden
   verworfen; Top-Kandidaten zusaetzlich gegen die Alpaca-Quote gegengeprueft
@@ -40,6 +47,7 @@ from src.common.universe import UNIVERSE
 
 MOM_LOOKBACK = 126
 TOP_N = 5
+TRANCHES = 3                # Monatslisten, ueber die gestaffelt gemittelt wird (1 = alt)
 INVEST_PCT = 0.95
 MIN_TRADE_EUR = 50
 REBAL_BAND = 0.05            # Audit: war 0.25 -> liess bis 24% Cash brachliegen
@@ -58,12 +66,15 @@ KILL_FILE = _ROOT / "data" / ".KILL"
 STATE_FILE = _ROOT / "data" / ".momentum_state.json"
 
 
-def momentum_ranking() -> list:
-    """6M-Momentum je Ticker, mit Daten-Sanity. Return [(ticker, momentum, yf_close)]."""
+def momentum_ranking(asof: dt.date | None = None) -> list:
+    """6M-Momentum je Ticker, mit Daten-Sanity. Return [(ticker, momentum, yf_close)].
+    asof: nur Kurse VOR diesem Tag verwenden (fuer das Nachbilden frueherer Monatslisten)."""
     out = []
     for tk in UNIVERSE:
         try:
-            px = get_prices(tk, period="1y")
+            px = get_prices(tk, period="2y" if asof else "1y")
+            if px is not None and asof is not None:
+                px = px[px.index < str(asof)]
             if px is None or len(px) < MOM_LOOKBACK + 1:
                 continue
             s = px["close"]
@@ -95,6 +106,40 @@ def _pick_top(broker, ranking: list) -> list:
             continue
         picked.append(tk)
     return picked
+
+
+def _prev_month(month: str) -> str:
+    y, m = int(month[:4]), int(month[5:7])
+    return f"{y - (m == 1)}-{12 if m == 1 else m - 1:02d}"
+
+
+def _tranche_lists(month: str, top: list, history: dict) -> dict:
+    """Monatslisten der letzten TRANCHES Monate (inkl. aktuellem). Fehlt eine fruehere
+    (z.B. beim ersten Lauf), wird sie aus den Kursen VOR dem 1. jenes Monats nachgebildet -
+    genau so, wie sie am Monatsanfang live gewaehlt worden waere (ohne Alpaca-Quote-Check,
+    den gibt es rueckwirkend nicht)."""
+    lists, m = {month: top}, month
+    for _ in range(TRANCHES - 1):
+        m = _prev_month(m)
+        if history.get(m):
+            lists[m] = history[m]
+            continue
+        rk = momentum_ranking(asof=dt.date.fromisoformat(m + "-01"))
+        if len(rk) >= COVERAGE_MIN * len(UNIVERSE):
+            lists[m] = [tk for tk, _, _ in rk[:TOP_N]]
+            print(f"  Tranche {m} nachgebildet: {lists[m]}")
+        else:
+            print(f"  Tranche {m}: zu wenig Daten - entfaellt (Gewicht verteilt sich auf den Rest)")
+    return lists
+
+
+def _weights(lists: dict) -> dict:
+    """Je Monatsliste 1/len(lists) des Geldes, darin gleichgewichtet."""
+    w = {}
+    for tks in lists.values():
+        for tk in tks:
+            w[tk] = w.get(tk, 0.0) + 1.0 / (len(lists) * len(tks))
+    return dict(sorted(w.items(), key=lambda x: -x[1]))
 
 
 def _load_state() -> dict:
@@ -226,11 +271,12 @@ def _log_trade(ticker, side, qty, eur_value, price, status, order_id, source):
         print(f"    WARN: trade-log {ticker} fehlgeschlagen: {e}")
 
 
-def rebalance_to(broker, target: list, live: bool) -> dict:
-    """Gleicht Depot an die Ziel-Liste an. MARKET-Orders, Kaeufe nur aus Cash."""
+def rebalance_to(broker, weights: dict, live: bool) -> dict:
+    """Gleicht Depot an die Ziel-Gewichte {ticker: anteil} an. MARKET-Orders, Kaeufe nur aus Cash."""
     acct = broker.get_account()
     positions = {p.ticker: p for p in broker.get_positions()}
-    target_eur = acct.equity_eur * INVEST_PCT / len(target)
+    goal = {tk: acct.equity_eur * INVEST_PCT * w for tk, w in weights.items()}
+    target = list(weights)
     target_set = set(target)
 
     sells = [(tk, p) for tk, p in positions.items() if tk not in target_set and p.qty > 0]
@@ -240,8 +286,9 @@ def rebalance_to(broker, target: list, live: bool) -> dict:
     # Untergewichte gekauft, uebergewichtete Gewinner NIE getrimmt -> Depot driftete von der
     # bewiesenen Equal-Weight-Strategie weg und konvergierte nie (Untergewichte mangels Cash
     # unfuellbar). Trim-Erloese finanzieren die Kaeufe (ueber die stuendlichen Konvergenz-Laeufe).
-    trim_thresh = max(MIN_TRADE_EUR, REBAL_BAND * target_eur)   # kleine Drift ignorieren (kein Churn)
     for tk in target:
+        target_eur = goal[tk]
+        trim_thresh = max(MIN_TRADE_EUR, REBAL_BAND * target_eur)   # kleine Drift ignorieren (kein Churn)
         cur = positions[tk].market_value_eur if tk in positions else 0.0
         diff = target_eur - cur
         if diff > MIN_TRADE_EUR:
@@ -251,7 +298,8 @@ def rebalance_to(broker, target: list, live: bool) -> dict:
 
     converged = not sells and not buys and not trims
     print(f"\n=== Momentum-Rebalance -> Ziel {target} [{'LIVE' if live else 'PLAN'}] ===")
-    print(f"Equity {acct.equity_eur:.0f} EUR | Cash {acct.cash_eur:.0f} EUR | je Position {target_eur:.0f} EUR")
+    print(f"Equity {acct.equity_eur:.0f} EUR | Cash {acct.cash_eur:.0f} EUR | Ziel: "
+          + ", ".join(f"{tk} {w*100:.0f}%" for tk, w in weights.items()))
     print("Status: " + ("Depot = Ziel (converged)" if converged
                         else f"{len(sells)} Verkaeufe, {len(trims)} Trims, {len(buys)} Kaeufe offen"))
 
@@ -305,8 +353,8 @@ def rebalance_to(broker, target: list, live: bool) -> dict:
     try:
         from src.alerts import notifier
         if notifier.is_configured():
-            notifier.send_info("Momentum-Rebalance (Spielgeld)\nZiel-Top-5: "
-                               + ", ".join(target) + f"\n{len(sells)} raus, {n} Orders",
+            notifier.send_info("Momentum-Rebalance (Spielgeld)\nZiel: "
+                               + ", ".join(f"{tk} {w*100:.0f}%" for tk, w in weights.items()) + f"\n{len(sells)} raus, {n} Orders",
                                label="momentum_rebalance")
     except Exception:
         pass
@@ -333,12 +381,20 @@ def run_due(broker, dry_run: bool = False, force: bool = False) -> int:
         if len(top) < TOP_N:
             print(f"FEHLER: nur {len(top)} saubere Kandidaten nach Sanity-Check - Abbruch.")
             return 1
-        st = {"month": month, "target": top, "converged": False,
+        history = dict(st.get("history") or {})
+        if st.get("month") and st.get("target") and st["month"] != month:
+            history.setdefault(st["month"], st["target"])      # Live-Liste des Vormonats sichern
+        lists = _tranche_lists(month, top, history)
+        history = {m: lists.get(m, history.get(m)) for m in sorted(set(history) | set(lists))[-TRANCHES:]}
+        st = {"month": month, "target": top, "weights": _weights(lists), "history": history,
+              "converged": False,
               "last_rebalance": st.get("last_rebalance"), "last_order_ts": st.get("last_order_ts")}
         print(f"Neues Monatsziel ({month}): {top}")
     if st.get("converged") and not force:
         print(f"momentum: Monatsziel {month} bereits erreicht - nichts zu tun."); return 0
-    res = rebalance_to(broker, st["target"], live=not dry_run)
+    # Alt-State ohne Gewichte (vor der Staffelung): bis zum Monatswechsel wie bisher gleichgewichtet.
+    weights = st.get("weights") or {tk: 1.0 / len(st["target"]) for tk in st["target"]}
+    res = rebalance_to(broker, weights, live=not dry_run)
     if not dry_run:
         st["converged"] = res["converged"]
         st["last_rebalance"] = today.isoformat()
