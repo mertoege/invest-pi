@@ -548,6 +548,10 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Momentum investiert 98% statt 95%
+      d: 'ENTSCHEIDUNG 2026-09-25. Live lagen dauerhaft ~4% Cash brach (INVEST_PCT 0,95). Backtest mit Tranchen -
+        95% investiert +32,3% CAGR, 98% +33,3%, 100% +34,0%; Drawdown und Sharpe unveraendert. 2% Puffer bleiben fuer
+        Kursbewegungen zwischen Verkauf und Kauf.'
     - t: Momentum gestaffelt (3 Monats-Tranchen) - ab Oktober 2026 live
       d: 'ENTSCHEIDUNG 2026-09-25. Statt alles an einem Stichtag umzuschichten, besteht das Depot aus drei Teilen,
         je einer pro Monatsliste der letzten 3 Monate. Backtest 2018-09/2026 (Methodik champion_duell_fair):

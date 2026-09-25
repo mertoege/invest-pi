@@ -48,7 +48,7 @@ from src.common.universe import UNIVERSE
 MOM_LOOKBACK = 126
 TOP_N = 5
 TRANCHES = 3                # Monatslisten, ueber die gestaffelt gemittelt wird (1 = alt)
-INVEST_PCT = 0.95
+INVEST_PCT = 0.98          # 2026-09-25: war 0.95 - 5% Dauer-Cash kostete ~1 Punkt CAGR (Backtest 32,3 -> 33,3%, Risiko gleich)
 MIN_TRADE_EUR = 50
 REBAL_BAND = 0.05            # Audit: war 0.25 -> liess bis 24% Cash brachliegen
 MAX_DAY_JUMP = 0.45         # Sanity: groesserer Tagessprung = Split/Daten-Glitch
