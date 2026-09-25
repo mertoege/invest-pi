@@ -57,7 +57,7 @@ jobs:
   - ok
   - läuft
 - - KI-Swing — Wochenkorb (2. Paper-Konto)
-  - invest-pi-ai-swing-execute · So 16:30 (KI-Picks → Orders, Sicherheits-Käfig)
+  - invest-pi-ai-swing-execute · Mo+Di 16:00 bei offener Börse (KI-Picks → Orders, Sicherheits-Käfig)
   - ok
   - live-paper
 - - KI-Swing — Konto-Sync (2. Konto)
@@ -548,6 +548,25 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Branchen-Obergrenze fuer Momentum getestet und VERWORFEN
+      d: 'ENTSCHEIDUNG 2026-09-25. Anlass - Live haelt Momentum nur Tech-Hardware (AMD, MU, INTC, CSCO, HPQ), Juli -15%.
+        Backtest 2018-09/2026 (Methodik wie champion_duell_fair, 90er-Universum, 0,1% Kosten, kein Look-ahead):
+        Basis +32,1% CAGR / Sharpe 1,13 / 7 von 9 Jahren vor SPY; max 2 je Sektor +25,2% / 1,02 / 6 von 9; max 3 je Sektor
+        +30,0% / 1,11; max 2 je Industriegruppe +26,8% / 1,04. Max-Drawdown bei ALLEN -23% (Monatsbasis) - die Grenze
+        schuetzt nicht. Robust ueber Lookbacks 3/9/12 Mon und Subperioden; im Crash 2022 war max-2 sogar schlechter
+        (-10% statt +7%). Das Tech-Klumpenrisiko ist genau die Quelle der Rendite. Kein Live-Einbau. Offene Alternative
+        (ungetestet) - mehr Positionen oder gestaffeltes Umschichten.'
+    - t: KI-Swing lag zu 39% in Cash — Ausfuehrung auf Boersenzeit verlegt
+      d: 'BEFUND + FIX 2026-09-25. Das KI-Swing-Konto hielt seit dem Start im Schnitt 38,6% Cash (Momentum 3,5%).
+        Ursache: ai_swing_execute lief sonntags 16:30 bei geschlossener Boerse. Verkaeufe wurden nur eingereiht,
+        ihr Erloes fehlte beim Kaufen, die letzten 2-3 Korb-Namen wurden jede Woche auf "naechster Lauf" verschoben
+        (z.B. 20.09.: CL + AMZN nie gekauft, BMY nur zu einem Viertel). Das verfaelschte den Vergleich fuer die
+        Abschaltregel. FIX: Timer jetzt Mo 16:00 (nach US-Open) + Di 16:00 als idempotenter Nachzuegler; das Skript
+        wartet bis 90 s auf die Verkaufs-Fills, bevor es kauft. EHRLICHER NACHSATZ: Auch die Auswahl selbst ist
+        bisher schwach — die KI-Picks liegen im Schnitt ~1 Punkt hinter dem SPY (5/10/20 Tage), nur ~42% schlagen
+        ihn. Der Fix macht den Vergleich fair, rettet die Strategie aber vermutlich nicht. Die Abschaltregel bleibt
+        unveraendert. Gleichzeitig festgestellt: Momentum liegt am 25.09. mit +11,7% vs SPY +8,1% vorne (+3,6 Punkte);
+        die Aufgabe nannte noch den veralteten Stand "13,1 dahinter".'
     - t: Keine KI-Firma — stattdessen ehrlich messen und abspecken (mit Abschaltregel)
       d: 'ENTSCHEIDUNG 2026-08-09. Mert hatte vorgeschlagen, das Projekt von einem KI-System wie eine Firma
         managen zu lassen (CEO, CTO, Abteilungen, 24/7-Ueberwachung) und die Entscheidung dann an Claude delegiert.
@@ -984,7 +1003,8 @@ tasks:
   prioritaet: hoch
   faellig: '2026-10-31'
   was: 'Am 31.10. entscheiden: Strategien mehr als 5 Punkte hinter dem Index werden abgeschaltet.
-    Stand jetzt: Momentum 13,1 dahinter (raus), KI-Swing 5,0 (knapp drin). Der Pi meldet sich per Telegram.'
+    Stand 25.09.: Momentum 3,6 Punkte VOR dem Markt (bleibt), KI-Swing 7,7 dahinter (raus) — Letzteres
+    teils durch einen Ausfuehrungsfehler (39% Cash brach), am 25.09. behoben. Der Pi meldet sich per Telegram.'
 - title: Monats-Check lesen
   art: routine
   turnus: monatlich
