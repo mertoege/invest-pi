@@ -29,7 +29,7 @@ Vorlage/Stil abgeschaut von scripts/momentum_rebalance.py - NICHT geforkt (eigen
 eigenes Konto, eigene Ledger-Quelle).
 """
 from __future__ import annotations
-import argparse, datetime as dt, json, os, sys
+import argparse, datetime as dt, json, os, sys, time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -53,6 +53,7 @@ INVEST_PCT     = 0.95     # hoechstens 95% des Equity einsetzen; >=5% Cash-Puffe
 MAX_POSITIONS  = 12       # Korb-Groesse deckeln
 MAX_POS_PCT    = 0.15     # harte Kappe: kein Name >15% des Equity
 NO_TRADE_BAND  = 0.20     # Drift <20% -> nicht anfassen (Churn vermeiden)
+SELL_FILL_WAIT = 90       # Sek. auf Verkaufs-Fills warten, bevor gekauft wird
 KILL_FILE      = _ROOT / ".KILL_ai"
 AI_SWING_DB    = _ROOT / "data" / "ai_swing.db"
 SOURCE         = "ai_swing"
@@ -232,17 +233,38 @@ def print_plan(basket, plan, live):
 # ─────────────────────────────────────────────────────────────
 # ORDERS AUSFUEHREN
 # ─────────────────────────────────────────────────────────────
+def _wait_for_fills(broker, order_ids, timeout=SELL_FILL_WAIT) -> None:
+    """Wartet bis alle Verkaufs-Orders final sind (oder Timeout). Bei geschlossener
+    Boerse laeuft das in den Timeout - dann kauft der Lauf mit dem Cash, der da ist,
+    und der Nachzuegler-Lauf holt den Rest."""
+    pending = set(order_ids)
+    deadline = time.monotonic() + timeout
+    while pending and time.monotonic() < deadline:
+        for oid in list(pending):
+            try:
+                if broker.get_order(oid).status in ("filled", "cancelled", "rejected", "expired"):
+                    pending.discard(oid)
+            except Exception:
+                pass
+        if pending:
+            time.sleep(3)
+    if pending:
+        print(f"    {len(pending)} Verkauf(e) nach {timeout}s noch offen - Kaeufe nur aus vorhandenem Cash.")
+
+
 def execute_plan(broker, plan) -> dict:
     """Sendet Sells -> Trims -> Buys. Jede Order in try/except, weiterlaufen, am Ende
     Fehler zusammenfassen. Kaeufe nur aus laufend nachgezogenem Cash."""
     n_ok, n_fail = 0, 0
     fails = []
+    sell_ids = []
 
     # SELLS (voll)
     for tk, qty, eur in plan["sells"]:
         try:
             r = broker.place_order(ticker=tk, side="sell", qty=qty, order_type="market")
             print(f"    SELL {tk}: {qty} -> {r.status}")
+            sell_ids.append(r.order_id)
             _log_trade(tk, "sell", qty, eur, None, r.status, r.order_id)
             n_ok += 1
         except Exception as e:
@@ -253,10 +275,17 @@ def execute_plan(broker, plan) -> dict:
         try:
             r = broker.place_order(ticker=tk, side="sell", qty=qty, order_type="market")
             print(f"    TRIM {tk}: -{qty} ({eur:.0f} EUR) -> {r.status}")
+            sell_ids.append(r.order_id)
             _log_trade(tk, "sell", qty, eur, None, r.status, r.order_id)
             n_ok += 1
         except Exception as e:
             print(f"    TRIM {tk} FEHLER: {e}"); fails.append(f"trim {tk}: {e}"); n_fail += 1
+
+    # Erst den Verkaufserloes abwarten, dann kaufen. Ohne das fehlt der Erloes beim
+    # Kaufen und die letzten Korb-Namen fallen bis zum naechsten Lauf aus (bis
+    # 2026-09-25 lagen so im Schnitt 39% des Kontos brach).
+    if sell_ids:
+        _wait_for_fills(broker, sell_ids)
 
     # BUYS (nur aus Cash; Cash nach jedem Kauf frisch ziehen)
     fx = eur_per_usd()

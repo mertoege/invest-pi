@@ -1,8 +1,15 @@
 [Unit]
-Description=Invest-Pi · KI-Swing-Trader Execute — sonntags 16:30 (30 Min nach der Schatten-Entscheidung um 16:00)
+Description=Invest-Pi · KI-Swing-Trader Execute — Mo 16:00 (nach US-Boersenoeffnung) + Di 16:00 Nachzuegler-Lauf
+
+# Bis 2026-09-25 lief das sonntags 16:30 bei geschlossener Boerse. Folge: Verkaeufe
+# wurden nur eingereiht, ihr Erloes war beim Kaufen noch nicht da, die letzten 2-3
+# Kaeufe jedes Korbs fielen bis zur naechsten Woche aus — im Schnitt lagen 39% des
+# Kontos brach. Jetzt: Montag bei offener Boerse (Verkaeufe fuellen sofort, das
+# Skript wartet darauf), Dienstag als idempotenter Nachzuegler (z.B. Feiertag).
 
 [Timer]
-OnCalendar=Sun *-*-* 16:30:00
+OnCalendar=Mon *-*-* 16:00:00
+OnCalendar=Tue *-*-* 16:00:00
 Persistent=true
 
 [Install]
