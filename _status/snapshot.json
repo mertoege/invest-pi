@@ -13,14 +13,14 @@
   },
   "git": {
     "branch": "main",
-    "commit": "faf2afad",
-    "dirty": false
+    "commit": "c6ff1544",
+    "dirty": true
   },
   "hardware": {
-    "cpu_temp_c": 60.6,
+    "cpu_temp_c": 62.25,
     "disk_pct": 29,
-    "load_1min": 0.23,
-    "mem_pct": 47
+    "load_1min": 0.01,
+    "mem_pct": 48
   },
   "last_runs": {
     "run_strategy": "Mon 2026-09-28 14:00:10 CEST",
@@ -42,5 +42,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-09-28T12:45:49"
+  "timestamp_utc": "2026-09-28T12:50:08"
 }
