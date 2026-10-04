@@ -38,7 +38,8 @@ GRENZE_PUNKTE = 5.0          # mehr Rueckstand als das -> abschalten
 ERINNERUNG_TAGE = 7          # danach woechentlich erneut, bis quittiert
 
 STRATEGIEN = [
-    ("paper",    "Momentum",  "2026-04-29"),
+    ("paper",    "Momentum",  "2026-06-24"),   # erster voller Tag unter Momentum (scharf seit 23.06.);
+                                               # vorher lief das Score-System auf demselben Konto
     ("ai_swing", "KI-Swing",  "2026-07-02"),
 ]
 

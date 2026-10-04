@@ -110,17 +110,19 @@ def build_momentum_report() -> str:
     from src.common.storage import TRADING_DB
     parts = ["\U0001F4C8 <b>Monats-Check — Momentum-Strategie (Spielgeld)</b>", ""]
     with connect(TRADING_DB) as c:
-        now = c.execute("SELECT total_eur, spy_close FROM equity_snapshots "
-                        "WHERE source='paper' AND spy_close IS NOT NULL "
+        # USD gegen USD: das Depot in EUR gegen SPY in USD zu messen liess den Wechselkurs
+        # in den Vorsprung einfliessen (Okt. 2026: ~4 Punkte zu hoch).
+        now = c.execute("SELECT total_eur, total_usd, spy_close FROM equity_snapshots "
+                        "WHERE source='paper' AND spy_close IS NOT NULL AND total_usd IS NOT NULL "
                         "ORDER BY timestamp DESC LIMIT 1").fetchone()
-        past = c.execute("SELECT total_eur, spy_close FROM equity_snapshots "
-                         "WHERE source='paper' AND spy_close IS NOT NULL "
+        past = c.execute("SELECT total_eur, total_usd, spy_close FROM equity_snapshots "
+                         "WHERE source='paper' AND spy_close IS NOT NULL AND total_usd IS NOT NULL "
                          "AND timestamp <= datetime('now','-28 day') "
                          "ORDER BY timestamp DESC LIMIT 1").fetchone()
     if now:
         parts.append(f"\U0001F4B0 Depot: {now['total_eur']:.0f} EUR")
-    if now and past and past["total_eur"] and past["spy_close"]:
-        depot = now["total_eur"] / past["total_eur"] - 1
+    if now and past and past["total_usd"] and past["spy_close"]:
+        depot = now["total_usd"] / past["total_usd"] - 1
         markt = now["spy_close"] / past["spy_close"] - 1
         alpha = (depot - markt) * 100
         verdict = ("schlaegt den Markt \u2705" if alpha > 0.5
