@@ -1085,6 +1085,13 @@ tasks:
   was: 'Am 31.10. entscheiden: Strategien mehr als 5 Punkte hinter dem Index werden abgeschaltet.
     Stand 25.09.: Momentum 3,6 Punkte VOR dem Markt (bleibt), KI-Swing 7,7 dahinter (raus) — Letzteres
     teils durch einen Ausfuehrungsfehler (39% Cash brach), am 25.09. behoben. Der Pi meldet sich per Telegram.'
+- title: Kursdaten für fairen Echtgeld-Test kaufen (~300 EUR)
+  art: einmalig
+  prioritaet: mittel
+  faellig: '2026-12-01'
+  telegram_erinnerung: true
+  was: 'Vor dem Echtgeld-Start: Kursdaten inkl. pleitegegangener Firmen (z.B. Norgate, erst Gratis-Test prüfen)
+    kaufen, damit Claude prüft, ob der Vorsprung echt ist. Claude Bescheid geben.'
 - title: Echtgeld-Umstieg entscheiden
   art: einmalig
   prioritaet: hoch

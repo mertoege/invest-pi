@@ -126,7 +126,42 @@ def melde(ziel: dt.date, *, test: bool = False) -> bool:
     return send_action_required(kopf + body + fuss, label="abschaltregel")
 
 
+ERINNERT = ROOT / "data" / "erinnerungen_gesendet.txt"
+
+
+def erinnerungen(heute: dt.date | None = None) -> int:
+    """Allgemeine Telegram-Erinnerungen (2026-10-04): jede Aufgabe in manifest.yaml mit
+    `telegram_erinnerung: true` und erreichtem `faellig` wird EINMAL per Telegram gemeldet.
+    Haengt am taeglichen Timer dieses Waechters, damit kein neuer Timer noetig ist."""
+    heute = heute or dt.date.today()
+    try:
+        import yaml
+        tasks = yaml.safe_load((ROOT / "manifest.yaml").read_text()).get("tasks") or []
+    except Exception as exc:  # noqa: BLE001
+        print(f"  WARN: Erinnerungen nicht lesbar ({exc})")
+        return 0
+    schon = set(ERINNERT.read_text().splitlines()) if ERINNERT.exists() else set()
+    n = 0
+    for t in tasks:
+        titel, f = str(t.get("title", "")), t.get("faellig")
+        if not t.get("telegram_erinnerung") or not f or titel in schon:
+            continue
+        if dt.date.fromisoformat(str(f)) > heute:
+            continue
+        if send_action_required(f"⏰ <b>Erinnerung: {titel}</b>\n\n{t.get('was', '')}", label="erinnerung"):
+            ERINNERT.parent.mkdir(parents=True, exist_ok=True)
+            with ERINNERT.open("a") as fh:
+                fh.write(titel + "\n")
+            n += 1
+            print(f"  Erinnerung gesendet: {titel}")
+    return n
+
+
 def main() -> None:
+    try:
+        erinnerungen()
+    except Exception as exc:  # noqa: BLE001 — darf den Abschalt-Waechter nie kippen
+        print(f"  WARN: Erinnerungen fehlgeschlagen ({exc})")
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--erledigt", action="store_true", help="Entscheidung quittieren, Meldungen einstellen")
     ap.add_argument("--testlauf", action="store_true", help="sofort melden (ignoriert Stichtag + Merker)")
