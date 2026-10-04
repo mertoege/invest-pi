@@ -57,6 +57,8 @@ QUOTE_DEV_MAX = 0.15        # Sanity: yf-Close vs Alpaca-Quote max 15% Abweichun
 COVERAGE_MIN = 0.70         # min. Anteil des Universums mit Daten
 STALE_HOURS = 4             # offene Orders aelter -> abraeumen
 CIRCUIT_DD = -0.30          # Drawdown vom 90d-Hoch -> Notbremse
+TREND_SMA = 200            # Crash-Bremse: SPY-Schluss unter seinem 200-Tage-Schnitt am Monatsanfang ...
+TREND_EXPO = 0.5           # ... -> nur halb investieren (Rest Cash). Siehe _market_exposure().
 IMPLAUSIBLE_DD = -0.60      # Sanity: schlimmer als das = Daten-Glitch, KEIN echter Crash
                             # (Broker liefert kurz "equity = nur Cash", weil Positionen nicht
                             #  geladen sind -> scheinbar -98%). Fehlalarm 2026-07-07 fror die
@@ -140,6 +142,29 @@ def _weights(lists: dict) -> dict:
         for tk in tks:
             w[tk] = w.get(tk, 0.0) + 1.0 / (len(lists) * len(tks))
     return dict(sorted(w.items(), key=lambda x: -x[1]))
+
+
+def _market_exposure(prev: float | None = None) -> float:
+    """CRASH-BREMSE (2026-10-04): Liegt der Gesamtmarkt (SPY) unter seinem 200-Tage-Schnitt,
+    wird fuer den Monat nur TREND_EXPO investiert, sonst voll. Nur 1x/Monat geprueft (kein
+    Hin-und-Her). Backtest 2007-2026 (Finanzkrise erstmals drin, Top-5, 3 Tranchen, 0,15% Kosten):
+    Max-Drawdown -60% -> -38%, CAGR 25,5% -> 23,5%, Sharpe 0,91 -> 0,92; 2015-26 CAGR 32,8% -> 26,1%.
+    Halbieren statt ganz raus: der frueher verworfene 200T-Schalter (ganz in Cash) whipsawte.
+    Fehlen die SPY-Daten, gilt der Vormonatswert (sonst voll) - kein Ausfall wegen der Bremse."""
+    try:
+        s = get_prices("SPY", period="2y")["close"].dropna()
+        s = s[s.index < str(dt.date.today())]          # nur abgeschlossene Handelstage
+        if len(s) < TREND_SMA:
+            raise ValueError(f"nur {len(s)} SPY-Tage")
+        last, sma = float(s.iloc[-1]), float(s.iloc[-TREND_SMA:].mean())
+        expo = TREND_EXPO if last < sma else 1.0
+        print(f"  Crash-Bremse: SPY {last:.2f} vs 200T-Schnitt {sma:.2f} -> "
+              + ("UNTER Trend, halb investiert" if expo < 1 else "ueber Trend, voll investiert"))
+        return expo
+    except Exception as e:
+        expo = prev if prev is not None else 1.0
+        print(f"  WARN: Crash-Bremse ohne SPY-Daten ({e}) -> bleibe bei {expo:.0%}")
+        return expo
 
 
 def _load_state() -> dict:
@@ -386,7 +411,9 @@ def run_due(broker, dry_run: bool = False, force: bool = False) -> int:
             history.setdefault(st["month"], st["target"])      # Live-Liste des Vormonats sichern
         lists = _tranche_lists(month, top, history)
         history = {m: lists.get(m, history.get(m)) for m in sorted(set(history) | set(lists))[-TRANCHES:]}
-        st = {"month": month, "target": top, "weights": _weights(lists), "history": history,
+        expo = _market_exposure(st.get("exposure"))
+        st = {"month": month, "target": top, "exposure": expo,
+              "weights": {tk: w * expo for tk, w in _weights(lists).items()}, "history": history,
               "converged": False,
               "last_rebalance": st.get("last_rebalance"), "last_order_ts": st.get("last_order_ts")}
         print(f"Neues Monatsziel ({month}): {top}")

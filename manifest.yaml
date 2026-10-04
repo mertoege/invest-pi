@@ -23,7 +23,8 @@ flow:
   - 1×/Monat die 5 staerksten Titel; gestaffelt ueber die Listen der letzten 3 Monate (seit 10/2026)
   - decision
 - - Risk-Limits
-  - AKTIV unter Momentum nur Kill-Switch + Circuit-Breaker (-30% v. 90-Tage-Hoch). Cash-Floor/Sektor-Cap/
+  - AKTIV unter Momentum Crash-Bremse (SPY unter 200-Tage-Schnitt am Monatsanfang -> halb investiert, seit 10/2026),
+    Kill-Switch + Circuit-Breaker (-30% v. 90-Tage-Hoch). Cash-Floor/Sektor-Cap/
     Korrelation/Daily-Loss/Stop-Loss liegen im uebersprungenen Alt-Pfad — vor Echtgeld zu klaeren (s. tasks)
   - guard
 - - Alpaca (Paper)
@@ -533,12 +534,10 @@ views:
         meta-review, rotation = 13 Dateien); rotation-Timer abgeschaltet; Status-Monitoring von Score-Geistern
         befreit. Nichts Totes laeuft mehr - 15 aktive Timer, alle lebend. Score-Code bleibt als Referenz.
       badge: erledigt
-    - t: Momentum-Crash-Schutz (offen)
-      d: 200d-MA-Regime-Schalter GETESTET und VERWORFEN (whipsaw). Restrisiko 'echter Momentum-Crash'
-        (2009-Typ) bleibt ungetestet, da 2018-26 keinen enthielt — billige Absicherung dafuer noch nicht gefunden
-        (auch Low-Vol-Beimischung geprueft - diversifiziert echt (Korr 0,26), aber teuer an Rendite und im echten
-        Crash-Fall mangels Daten ungetestet). Mitigation bis dahin — Paper bleiben, Live-Beweis ueber echten Zyklus abwarten.
-      badge: ungeloest
+    - t: Momentum-Crash-Schutz (gelöst 10/2026)
+      d: Crash-Bremse eingebaut - unter dem 200-Tage-Schnitt des Marktes nur halb investiert. Erstmals
+        gegen 2008 getestet (s. Entscheidungs-Log 2026-10-04).
+      badge: erledigt
     - t: Kosten-/Steuer-Realismus
       d: DE-Steuer + Spreads/Slippage im Backtest haerter ansetzen, bevor die Echtgeld-Frage ernst wird.
       badge: geplant
@@ -548,6 +547,21 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Crash-Bremse für Momentum - halb investiert, wenn der Markt unter seinem 200-Tage-Schnitt liegt
+      d: 'ENTSCHEIDUNG 2026-10-04 (Mert: "lieber Crash-Bremse, solange die Rendite nicht um die Hälfte fällt").
+        BEFUND - Erstmals bis 2007 zurückgerechnet (gleiches Universum, Top-5, 3 Tranchen, Ausführung am Folgetag,
+        0,15 % Kosten, Tagesbasis statt Monatsbasis). Ohne Bremse wäre das Depot in der Finanzkrise um 60 % gefallen
+        (SPY -55 %), weit über Merts Grenze von ~35 %. Die bisherigen Drawdown-Zahlen (-18 bis -23 %) waren auf
+        Monatsbasis und ohne 2008 gemessen - auf Tagesbasis lag schon 2020 der Einbruch bei -30 %. REGEL - am
+        Monatsanfang SPY-Schluss gegen seinen 200-Tage-Schnitt; darunter nur 50 % investiert, Rest Cash. Kein
+        Handeln unter dem Monat. BACKTEST 2007-2026 - CAGR 25,5 -> 23,5 %, Max-Drawdown -60 -> -38 %, Sharpe 0,91 ->
+        0,92, 16 statt 14 von 20 Jahren vor SPY; 2015-2026 (Boom) 32,8 -> 26,1 %. Robust - jede getestete Variante
+        (SPY 6/9/12-Monats-Trend, 200-Tage-Schnitt) senkt den Drawdown auf -37 bis -42 %. Ganz in Cash statt halb
+        senkt ihn weiter, kostet aber mehr Rendite und whipsawt (deshalb früher verworfen). VERWORFEN in derselben
+        Runde - Volatilitäts-Steuerung, Low-Vol-Auswahl, Top-7, 50 % Index-Kern, 52-Wochen-Hoch, risikobereinigtes
+        Momentum. EHRLICHER NACHSATZ - ohne NVDA und AMD fällt die Rückrechnung 2015-26 von 33 % auf 22 %/Jahr;
+        der Vorsprung hängt stark an zwei Chip-Werten. Stand 04.10. liegt SPY über dem Schnitt, die Bremse greift
+        also aktuell nicht. Umsetzung - scripts/momentum_rebalance.py::_market_exposure.'
     - t: Momentum investiert 98% statt 95%
       d: 'ENTSCHEIDUNG 2026-09-25. Live lagen dauerhaft ~4% Cash brach (INVEST_PCT 0,95). Backtest mit Tranchen -
         95% investiert +32,3% CAGR, 98% +33,3%, 100% +34,0%; Drawdown und Sharpe unveraendert. 2% Puffer bleiben fuer
