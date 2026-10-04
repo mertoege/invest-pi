@@ -547,6 +547,17 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Betriebs-Bugs aus dem Gesamt-Audit behoben
+      d: 'BEFUND + FIX 2026-10-04. (1) Der Order-Abgleich lief nur im stillgelegten Alt-Pfad - alle 48 Momentum-Orders
+        seit August standen dauerhaft auf "wartend", Reports zeigten 0 Trades. Läuft jetzt vor jedem Momentum-Lauf.
+        (2) Monats-Check verglich das Depot in EUR mit dem SPY in USD - der Wechselkurs blähte den Vorsprung um ~4
+        Punkte auf; jetzt USD gegen USD. (3) Die Abschaltregel maß Momentum ab 29.04., obwohl bis 23.06. das
+        Score-System lief; Start jetzt 24.06. (erster voller Momentum-Tag, die strengere Lesart). (4) Momentum
+        schickte Orders vor US-Eröffnung, die um 15 Uhr storniert und neu gesendet wurden; jetzt nur bei offener
+        Börse. (5) Der SPY-Vergleichswert blieb ab ~9:35 ET auf dem Eröffnungskurs stehen; heutiger Kurs wird jetzt
+        frisch geholt. (6) Backup ohne ai_swing.db und ohne Fehler-Exit; beides behoben. Die Aufgabe "Monats-Check
+        lesen" ist gestrichen - der Bericht ist nach Merts Regel (Telegram nur bei Handlungsbedarf) ohnehin stumm.
+        OFFEN - Backup liegt nur auf derselben SD-Karte (kein externes Ziel eingerichtet).'
     - t: Crash-Bremse für Momentum - halb investiert, wenn der Markt unter seinem 200-Tage-Schnitt liegt
       d: 'ENTSCHEIDUNG 2026-10-04 (Mert: "lieber Crash-Bremse, solange die Rendite nicht um die Hälfte fällt").
         BEFUND - Erstmals bis 2007 zurückgerechnet (gleiches Universum, Top-5, 3 Tranchen, Ausführung am Folgetag,
@@ -1041,12 +1052,6 @@ tasks:
   was: 'Am 31.10. entscheiden: Strategien mehr als 5 Punkte hinter dem Index werden abgeschaltet.
     Stand 25.09.: Momentum 3,6 Punkte VOR dem Markt (bleibt), KI-Swing 7,7 dahinter (raus) — Letzteres
     teils durch einen Ausfuehrungsfehler (39% Cash brach), am 25.09. behoben. Der Pi meldet sich per Telegram.'
-- title: Monats-Check lesen
-  art: routine
-  turnus: monatlich
-  prioritaet: niedrig
-  was: 'Den automatischen Momentum-Monatsbericht (Telegram, 3. d. Monats) kurz anschauen — laeuft die
-    Strategie gegen den Markt wie erwartet?'
 - title: Echtgeld-Umstieg entscheiden
   art: einmalig
   prioritaet: hoch

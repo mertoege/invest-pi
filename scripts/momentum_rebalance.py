@@ -387,9 +387,22 @@ def rebalance_to(broker, weights: dict, live: bool) -> dict:
     return {"converged": False, "orders": n}
 
 
+def _market_closed(broker) -> bool:
+    """Fix 2026-10-04: Laeufe vor US-Eroeffnung (10-15 Uhr MEZ) stellten Orders in die
+    Warteschlange, die um 15 Uhr als 'stale' storniert und komplett neu gesendet wurden
+    (Doppel-Orders, falls ein Storno scheitert). Jetzt wird nur bei offener Boerse gehandelt.
+    Fail-open: ist die Uhr nicht abrufbar (Mock, API-Blip), laeuft es wie bisher."""
+    try:
+        return not broker._ensure_client().get_clock().is_open
+    except Exception:
+        return False
+
+
 def run_due(broker, dry_run: bool = False, force: bool = False) -> int:
     if KILL_FILE.exists():
         print("KILL-SWITCH aktiv - kein Rebalance."); return 0
+    if not dry_run and _market_closed(broker):
+        print("momentum: US-Boerse geschlossen - warte auf Eroeffnung."); return 0
     if not dry_run and _circuit_breaker(broker):
         return 0
     if not dry_run and _open_orders_block(broker):

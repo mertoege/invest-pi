@@ -40,6 +40,16 @@ def current_spy_close() -> Optional[float]:
         df = get_prices("SPY", period="1mo")
         if df is None or df.empty:
             return None
+        # Fix 2026-10-04: Der Cache gilt ab dem ersten Abruf des Tages als frisch -> spy_close
+        # blieb ab ~9:35 ET bis zum naechsten Handelstag auf dem Eroeffnungskurs stehen.
+        # Ist der letzte Bar von heute (also evtl. unvollstaendig), frisch nachladen.
+        import datetime as _dt
+        from zoneinfo import ZoneInfo
+        if df.index[-1].date() >= _dt.datetime.now(ZoneInfo("America/New_York")).date():
+            try:
+                df = get_prices("SPY", period="1mo", force_refresh=True)
+            except Exception:
+                pass
         return float(df["close"].iloc[-1])
     except Exception as exc:  # noqa: BLE001 — Benchmark darf den Sync nie kippen
         print(f"  WARN: SPY-Benchmark nicht abrufbar ({exc}) — Snapshot ohne Vergleichswert.")

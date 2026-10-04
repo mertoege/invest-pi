@@ -31,7 +31,8 @@ log "starting backup → $TODAY_DIR"
 
 # Pro DB: sqlite3 .backup → gzip
 TOTAL_BYTES=0
-for db in market.db patterns.db alerts.db learning.db trading.db; do
+FAILED=0
+for db in market.db patterns.db alerts.db learning.db trading.db ai_swing.db; do
     src="$DATA_DIR/$db"
     [ -f "$src" ] || { log "  skip $db (not exists)"; continue; }
 
@@ -43,6 +44,7 @@ for db in market.db patterns.db alerts.db learning.db trading.db; do
         log "  ✔ $db → $(du -h "$dst.gz" | cut -f1)"
     else
         log "  ✘ $db backup failed"
+        FAILED=1
     fi
 done
 
@@ -67,3 +69,4 @@ fi
 find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -mtime +"$RETENTION_DAYS" -exec rm -rf {} + 2>>"$LOG" || true
 
 log "backup done"
+[ "$FAILED" -eq 0 ] || exit 1

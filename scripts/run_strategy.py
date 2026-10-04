@@ -1332,6 +1332,15 @@ def _run_strategy_locked(args):
     if getattr(t_cfg, "strategy_engine", "legacy") == "momentum":
         from scripts.momentum_rebalance import run_due
         print("strategy_engine=momentum -> Momentum-Rebalance")
+        # Fix 2026-10-04: der Order-Abgleich lief nur im Alt-Pfad weiter unten -> seit August
+        # standen alle Momentum-Trades fuer immer auf pending_new (Reports zeigten 0 Trades).
+        try:
+            from scripts.sync_orders import sync_order_statuses
+            r = sync_order_statuses()
+            if r.get("synced") or r.get("errors"):
+                print(f"  Order-Sync: {r['synced']} aktualisiert, {r['still_pending']} offen, {r['errors']} Fehler")
+        except Exception as e:
+            print(f"  WARN: Order-Sync fehlgeschlagen: {e}")
         return run_due(broker, dry_run=getattr(args, "dry_run", False))
 
     # Regime-Check + Transition
