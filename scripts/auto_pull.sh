@@ -40,6 +40,12 @@ sync_systemd_files() {
 
 cd "$REPO_DIR" || { log "REPO_DIR $REPO_DIR not found"; exit 1; }
 
+# Gemeinsame Sperre mit status_push.sh (Fix 2026-10-04): beide Timer feuern alle 2 Min im
+# selben Repo. Ohne Sperre schrieb der eine FETCH_HEAD, waehrend der andere rebaste ->
+# 882x "Cannot rebase onto multiple branches" + Hard-Reset als Notausgang.
+exec 9>"$REPO_DIR/.git/invest-pi-git.lock"
+flock -w 100 9 || { log "git-lock belegt - Runde ausgelassen"; exit 0; }
+
 # Ignoriere CRLF-Phantom-Modifications
 git config core.autocrlf false
 
@@ -61,22 +67,29 @@ log "new commits detected: $LOCAL → $REMOTE"
 PRE_COMMIT="$LOCAL"
 
 # Stash any local non-commited changes (z.B. _status/snapshot.json wenn von uns selbst geschrieben)
-git stash push --include-untracked -m "auto_pull-pre-pull-$(ts)" >/dev/null 2>&1 || true
+# Fix 2026-10-04: der Stash wurde auf dem Erfolgsweg nie zurueckgespielt (663 Leichen; dort
+# verschwanden u.a. generierte reviews/*.md und .claude/settings.local.json). Jetzt: nur poppen,
+# wenn wirklich etwas gestasht wurde - und auch auf dem Erfolgsweg.
+STASHED=0
+if [ -n "$(git status --porcelain)" ]; then
+    git stash push --include-untracked -m "auto_pull-pre-pull-$(ts)" >/dev/null 2>&1 && STASHED=1
+fi
+unstash() { [ "$STASHED" = 1 ] && { git stash pop >/dev/null 2>&1 || log "WARN: stash pop scheiterte - Aenderungen liegen in git stash list"; }; STASHED=0; }
 
 # Pull mit rebase. Bei Conflict: hard-reset auf origin/main.
 # Begruendung: lokale "ahead"-Commits sind nur status_push-Snapshots, die werden
 # beim naechsten Tick eh neu geschrieben. Lieber clean sync als broken state.
-if ! git pull --rebase --no-edit --quiet 2>>"$LOG"; then
+if ! git rebase --quiet origin/main 2>>"$LOG"; then   # bereits gefetcht; kein pull (FETCH_HEAD-Race)
     log "pull failed, recovering via hard reset to origin/main"
     git rebase --abort 2>/dev/null || true
     rescue_foreign_commits
     git reset --hard origin/main --quiet 2>>"$LOG" || {
         log "hard reset failed too — manual intervention needed"
-        git stash pop 2>/dev/null || true
+        unstash
         exit 1
     }
     restore_foreign_commits
-    git stash pop 2>/dev/null || true
+    unstash
     log "recovered: HEAD now $(git rev-parse --short HEAD)"
 fi
 
@@ -87,11 +100,12 @@ if PYTHONDONTWRITEBYTECODE=1 INVEST_PI_DATA_DIR=/tmp/invest-pi-pull-test python3
 else
     log "smoke test FAILED — ROLLBACK to $PRE_COMMIT"
     git reset --hard "$PRE_COMMIT" --quiet 2>>"$LOG"
-    git stash pop 2>/dev/null || true
+    unstash
     # Telegram-Notification kommt in Phase 3
     exit 2
 fi
 
+unstash
 sync_systemd_files
 
 # Type=oneshot Services laufen eh erst beim naechsten Timer-Trigger,

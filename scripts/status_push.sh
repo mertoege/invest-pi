@@ -159,7 +159,12 @@ fi
 
 mv "$REPO_DIR/_status/snapshot.json.tmp" "$REPO_DIR/_status/snapshot.json"
 
-# Commit + push (mit pull --rebase als Schutz gegen Race mit Claude-Pushes)
+# Commit + push (mit Rebase als Schutz gegen Race mit Claude-Pushes)
+# Gemeinsame Sperre mit auto_pull.sh (Fix 2026-10-04): beide Timer feuern alle 2 Min im
+# selben Repo. Ohne Sperre schrieb der eine FETCH_HEAD, waehrend der andere rebaste ->
+# 882x "Cannot rebase onto multiple branches" + Hard-Reset als Notausgang.
+exec 9>"$REPO_DIR/.git/invest-pi-git.lock"
+flock -w 100 9 || { log "git-lock belegt - Runde ausgelassen"; exit 0; }
 git config core.autocrlf false
 git config user.email "investpi-bot@$(hostname).local"
 git config user.name  "Invest-Pi-Bot"
@@ -171,7 +176,7 @@ if ! git diff --cached --quiet; then
 
     # Race-Schutz vor Push: erst rebase auf remote
     # Bei Konflikten (z.B. nach force-push von aussen): reset auf origin
-    if ! git pull --rebase --no-edit --quiet 2>>"$LOG"; then
+    if ! { git fetch --quiet origin main 2>>"$LOG" && git rebase --quiet origin/main 2>>"$LOG"; }; then
         log "pull --rebase conflict, resetting to origin/main + re-applying snapshot"
         git rebase --abort 2>/dev/null || true
         # Snapshot sichern, auf origin zuruecksetzen, Snapshot neu committen

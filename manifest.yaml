@@ -541,12 +541,36 @@ views:
     - t: Kosten-/Steuer-Realismus
       d: DE-Steuer + Spreads/Slippage im Backtest haerter ansetzen, bevor die Echtgeld-Frage ernst wird.
       badge: geplant
-    - t: Echtgeld-Entscheid
-      d: Erst nach ueberzeugendem Live-Lauf ueber Zyklen inkl. >=1 Crash — Wertentscheidung von Mert.
+    - t: Echtgeld-Entscheid - Empfehlung frühestens Januar 2027, klein starten
+      d: 'EMPFEHLUNG 2026-10-04 (Claude, Entscheidung bleibt bei Mert). Nicht auf den statistischen Beweis warten -
+        bei ~18 % Abweichung zum Markt pro Jahr bräuchte es rund 20 Jahre Live-Daten; die Crash-Bremse ersetzt den
+        abgewarteten Crash. STATTDESSEN vier Bedingungen - (1) Abschaltregel am 31.10. bestanden; (2) Okt-Dez ohne
+        stillen Ausfall, Live-Depot weicht pro Monat höchstens ~2 Punkte von der Rückrechnung ab (Stand 10/2026 erfüllt,
+        Abweichung <1 Punkt); (3) Broker mit Schnittstelle und Bruchstücken geklärt (Alpaca-Live für DE unsicher,
+        realistisch Interactive Brokers); (4) Betrag so, dass -40 % nicht weh tun und Gebühren unter ~1 %/Jahr bleiben -
+        bei ~10-15 Orders/Monat ab etwa 10.000 EUR; darunter frisst die Gebühr den Vorsprung. Als Beimischung neben dem
+        ETF-Sparplan (DepotPi), nicht statt. Erwartung ehrlich - Rückrechnung zeigt ~+10 Punkte/Jahr über SPY, real
+        eher deutlich weniger (Auswahl des Universums im Nachhinein, Abhängigkeit von NVDA/AMD); auch 0 ist möglich.'
       badge: offen · Mert
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Signal-Varianten 2008-2026 geprüft - keine Änderung, Live trifft den Backtest
+      d: 'BEFUND 2026-10-04 (mit Crash-Bremse als Basis, 3 Perioden 2008-14 / 2015-26 / gesamt). Residual-Momentum
+        (Blitz/Huij/Martens), Frog-in-the-pan, kombinierte Lookbacks als Rangmittel, 6-1 mit Skip-Monat, 3/9/12 Monate,
+        4 Tranchen, 2 %-Puffer an der Bremse und Parken des gebremsten Anteils in BIL oder IEF getestet. Residual und
+        FIP halbieren fast die Schwankung, kosten aber 6-10 Punkte Rendite/Jahr. Rendite-Mittel aus 3/6/12 Monaten war
+        2008-14 klar besser, 2015-26 gleich bei tieferem Drawdown - als Rangmittel aber deutlich schlechter, also kein
+        robuster Effekt, sondern Zufall der Gewichtung. Parken in IEF/BIL bringt +0,3 bis +0,7 Punkte - für Echtgeld
+        merken (T-Bill-ETF statt Bargeld), im Paper irrelevant. Ergebnis - 6 Monate, Top-5, 3 Tranchen, Bremse bleibt.
+        UMSETZUNGS-CHECK - Live-Depot seit 24.06. gegen dieselbe Regel nachgerechnet - Abweichung je Monat unter 1 Punkt
+        (gesamt live +6,7 %, Rückrechnung +4,7 %, SPY +5,2 %).'
+    - t: Git-Wettrennen zwischen auto_pull und status_push beendet
+      d: 'FIX 2026-10-04. Beide 2-Minuten-Timer arbeiteten ohne Sperre im selben Repo - 882 abgebrochene Rebases mit
+        Hard-Reset als Notausgang. Zudem legte auto_pull lokale Änderungen per Stash weg und holte sie auf dem
+        Erfolgsweg nie zurück (663 Stashes, darin u.a. verschwundene reviews/*.md) - das war die Ursache der
+        "auto_pull revert trap". Jetzt - gemeinsame flock-Sperre, Rebase auf den bereits geholten Stand statt pull,
+        Stash wird auch auf dem Erfolgsweg zurückgespielt. Alte Stashes bleiben unangetastet liegen.'
     - t: Betriebs-Bugs aus dem Gesamt-Audit behoben
       d: 'BEFUND + FIX 2026-10-04. (1) Der Order-Abgleich lief nur im stillgelegten Alt-Pfad - alle 48 Momentum-Orders
         seit August standen dauerhaft auf "wartend", Reports zeigten 0 Trades. Läuft jetzt vor jedem Momentum-Lauf.
