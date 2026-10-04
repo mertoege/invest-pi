@@ -555,6 +555,15 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: Keine Beimischung (ruhiges Momentum / ETF-Trendfolge) - nur Tausch, keine Verbesserung
+      d: 'ENTSCHEIDUNG 2026-10-04 (Mert: "du entscheidest"). Geprüft 2008-2026 jeweils als 80/20- und 70/30-Mischung mit
+        der Live-Strategie - Residual-Momentum, ETF-Trendfolge (Faber GTAA, 5 bzw. 8 ETFs über 200-Tage-Schnitt) und
+        ETF-Rotation (Top-3 aus 8, mit und ohne Aktien-ETFs; Korrelation zur Live-Strategie 0,35-0,58). Ergebnis
+        durchweg - weniger Schwankung und Drawdown (-35 auf -27 bis -31 %), aber Rendite 1,5-5 Punkte/Jahr tiefer
+        und Sharpe gleich (0,86-0,93 vs 0,90). Das ist ein Tausch Rendite gegen Ruhe, keine Verbesserung, und kostet
+        doppelt so viele Orders (später Gebühren). Nicht eingebaut. Nicht geprüft, weil kostenpflichtig - breiteres
+        Universum (S&P 500) mit Daten inkl. delisteter Firmen (~300 EUR/Jahr, Kostenentscheidung Mert). Wird wieder
+        relevant, falls Mert bei Echtgeld weniger Schwankung will - dann 70/30 mit ETF-Rotation ohne Aktien-ETFs.'
     - t: Signal-Varianten 2008-2026 geprüft - keine Änderung, Live trifft den Backtest
       d: 'BEFUND 2026-10-04 (mit Crash-Bremse als Basis, 3 Perioden 2008-14 / 2015-26 / gesamt). Residual-Momentum
         (Blitz/Huij/Martens), Frog-in-the-pan, kombinierte Lookbacks als Rangmittel, 6-1 mit Skip-Monat, 3/9/12 Monate,
@@ -1076,6 +1085,13 @@ tasks:
   was: 'Am 31.10. entscheiden: Strategien mehr als 5 Punkte hinter dem Index werden abgeschaltet.
     Stand 25.09.: Momentum 3,6 Punkte VOR dem Markt (bleibt), KI-Swing 7,7 dahinter (raus) — Letzteres
     teils durch einen Ausfuehrungsfehler (39% Cash brach), am 25.09. behoben. Der Pi meldet sich per Telegram.'
+- title: Kursdaten für fairen Echtgeld-Test kaufen (~300 EUR)
+  art: einmalig
+  prioritaet: mittel
+  faellig: '2026-12-01'
+  telegram_erinnerung: true
+  was: 'Vor dem Echtgeld-Start: Kursdaten inkl. pleitegegangener Firmen (z.B. Norgate, erst Gratis-Test prüfen)
+    kaufen, damit Claude prüft, ob der Vorsprung echt ist. Claude Bescheid geben.'
 - title: Echtgeld-Umstieg entscheiden
   art: einmalig
   prioritaet: hoch
