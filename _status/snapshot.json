@@ -1,30 +1,30 @@
 {
   "equity": {
-    "as_of": "2026-10-13 08:40:08",
-    "cash_eur": 8521.82,
-    "cash_usd": 9525.84,
+    "as_of": "2026-10-13 09:35:09",
+    "cash_eur": 1575.38,
+    "cash_usd": 1760.99,
     "fx_rate": 0.8946,
     "open_positions": 7,
-    "positions_value_eur": 76324.99,
-    "positions_value_usd": 85317.45,
-    "source": "ai_swing",
-    "total_eur": 84846.81,
-    "total_usd": 94843.29
+    "positions_value_eur": 90105.35,
+    "positions_value_usd": 100721.38,
+    "source": "paper",
+    "total_eur": 91680.73,
+    "total_usd": 102482.37
   },
   "git": {
     "branch": "main",
-    "commit": "2203be99",
+    "commit": "9a272303",
     "dirty": false
   },
   "hardware": {
-    "cpu_temp_c": 57.3,
+    "cpu_temp_c": 55.65,
     "disk_pct": 30,
-    "load_1min": 0.15,
-    "mem_pct": 49
+    "load_1min": 0.2,
+    "mem_pct": 48
   },
   "last_runs": {
     "run_strategy": "Tue 2026-10-13 11:00:10 CEST",
-    "sync_positions": "Tue 2026-10-13 10:35:12 CEST",
+    "sync_positions": "Tue 2026-10-13 11:35:10 CEST",
     "track_outcomes": "Tue 2026-10-13 02:30:08 CEST"
   },
   "predictions": {
@@ -42,5 +42,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-10-13T09:34:05"
+  "timestamp_utc": "2026-10-13T09:36:05"
 }
