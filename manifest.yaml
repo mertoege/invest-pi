@@ -555,6 +555,17 @@ views:
   decisions:
     title: Entscheidungen (Log)
     cards:
+    - t: 'KI-Swing: Opus 5.5 wählt nicht besser als Sonnet - Abschaltregel bleibt'
+      d: 'TEST 2026-10-23 (auf Merts Wunsch). Die 18 Wochenentscheidungen seit 26.06. mit identischem,
+        zeitpunktgenauem Input nachgespielt (gleiche 18 Kandidaten, Kurse bis zum Vortag, Finnhub-News des
+        damaligen 14-Tage-Fensters) - Sonnet 5 und Opus 5.5 (Wissensstand Juni 2026, kennt den Verlauf also nicht).
+        ERGEBNIS - beide verlieren gegen SPY und gegen den Schnitt ihrer eigenen Kandidatenliste. 20 Tage - Opus 5.5
+        -1,4 Punkte vs SPY (schlägt ihn in 13 % der Wochen), Sonnet 5 -1,5, Original -1,6. Wöchentlich verkettet
+        (5 Tage) - Opus 5.5 -6,7 %, Sonnet 5 -3,2 %, Original -5,5 %, SPY +6,3 %. Information Coefficient bei allen
+        negativ (-0,03 bis -0,14). Opus 5.5 wählt zu 82 % dieselben Namen. FOLGERUNG - das Problem ist die Aufgabe
+        (LLM wählt aus News und Kennzahlen Aktien), nicht das Modell. Kein Modellwechsel, die Abschaltregel zum
+        31.10. gilt unverändert. Kosten des Tests 4,22 USD. NEBENBEFUND - die DB speichert model=claude-sonnet-4-6,
+        tatsächlich lief über MODEL_MAP Sonnet 5. Skripte im Scratchpad, nicht im Repo.'
     - t: Keine Beimischung (ruhiges Momentum / ETF-Trendfolge) - nur Tausch, keine Verbesserung
       d: 'ENTSCHEIDUNG 2026-10-04 (Mert: "du entscheidest"). Geprüft 2008-2026 jeweils als 80/20- und 70/30-Mischung mit
         der Live-Strategie - Residual-Momentum, ETF-Trendfolge (Faber GTAA, 5 bzw. 8 ETFs über 200-Tage-Schnitt) und
