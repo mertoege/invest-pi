@@ -13,18 +13,18 @@
   },
   "git": {
     "branch": "main",
-    "commit": "db276cba",
+    "commit": "11b8703f",
     "dirty": false
   },
   "hardware": {
-    "cpu_temp_c": 57.85,
+    "cpu_temp_c": 60.05,
     "disk_pct": 32,
-    "load_1min": 0.03,
-    "mem_pct": 55
+    "load_1min": 0.16,
+    "mem_pct": 56
   },
   "last_runs": {
     "run_strategy": "Mon 2026-11-02 21:00:11 CET",
-    "sync_positions": "Tue 2026-11-03 07:35:12 CET",
+    "sync_positions": null,
     "track_outcomes": "Tue 2026-11-03 02:30:11 CET"
   },
   "predictions": {
@@ -42,5 +42,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-11-03T07:33:05"
+  "timestamp_utc": "2026-11-03T07:35:05"
 }
