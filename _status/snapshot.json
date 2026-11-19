@@ -13,19 +13,19 @@
   },
   "git": {
     "branch": "main",
-    "commit": "04a8160d",
+    "commit": "eaec7720",
     "dirty": false
   },
   "hardware": {
-    "cpu_temp_c": 58.4,
+    "cpu_temp_c": 62.8,
     "disk_pct": 32,
-    "load_1min": 0.01,
-    "mem_pct": 33
+    "load_1min": 0.28,
+    "mem_pct": 34
   },
   "last_runs": {
     "run_strategy": "Wed 2026-11-18 21:00:09 CET",
     "sync_positions": "Thu 2026-11-19 01:35:06 CET",
-    "track_outcomes": "Wed 2026-11-18 02:30:16 CET"
+    "track_outcomes": null
   },
   "predictions": {
     "correct": 15405,
@@ -42,5 +42,5 @@
     "strategy": "active",
     "sync": "active"
   },
-  "timestamp_utc": "2026-11-19T01:28:05"
+  "timestamp_utc": "2026-11-19T01:30:22"
 }
